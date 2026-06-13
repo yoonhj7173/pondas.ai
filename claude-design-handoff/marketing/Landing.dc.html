@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&amp;family=Nunito:wght@400;600;700;800&amp;family=Bricolage+Grotesque:wght@600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; background: #FBFAF6; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div style="width: 100%; font-family: 'Nunito', sans-serif; color: #3A3631; background: #FBFAF6;">
+
+  <!-- nav -->
+  <div style="position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 18px 56px; background: rgba(251,250,246,0.92); backdrop-filter: blur(10px); border-bottom: 1px solid #ECE7DC;">
+    <div style="display: flex; align-items: center; gap: 11px;"><div style="width: 36px; height: 36px; border-radius: 11px; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2.5px solid #FFFFFF; box-shadow: 0 2px 6px rgba(40,80,100,0.3); display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 19px; font-weight: 800; color: #FFFFFF; text-shadow: 0 1px 2px rgba(20,80,110,0.4);">C</div><span style="font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800; color: #2E3A52;">Craft</span></div>
+    <div style="display: flex; align-items: center; gap: 30px;"><span style="font-size: 14px; font-weight: 700; color: #5C574F; cursor: pointer;">How it works</span><a href="Blog.dc.html" style="font-size: 14px; font-weight: 700; color: #5C574F; text-decoration: none;">Blog</a><a href="Onboarding.dc.html" style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2.5px solid #FFFFFF; border-radius: 999px; padding: 9px 22px; cursor: pointer; box-shadow: 0 3px 8px rgba(40,80,100,0.3); text-shadow: 0 1px 2px rgba(20,80,110,0.4); text-decoration: none;">Get started</a></div>
+  </div>
+
+  <!-- hero -->
+  <div style="position: relative; padding: 84px 56px 72px; background: linear-gradient(170deg, #DDE4D6 0%, #CFD6C6 100%); overflow: hidden;">
+    <div style="position: absolute; inset: 0; background-image: linear-gradient(rgba(90,95,80,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(90,95,80,0.05) 1px, transparent 1px); background-size: 48px 48px;"></div>
+    <div style="position: relative; max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: 1fr 560px; gap: 56px; align-items: center;">
+      <div style="display: flex; flex-direction: column; gap: 22px;">
+        <span style="align-self: flex-start; font-size: 12.5px; font-weight: 800; color: #2C6FA0; background: rgba(255,255,255,0.8); border: 2px solid #FFFFFF; border-radius: 999px; padding: 6px 14px;">A whole team. None of the hiring.</span>
+        <h1 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 56px; font-weight: 800; line-height: 1.06; color: #2C2925; letter-spacing: -0.01em;">Run your AI company<br>like a tiny office sim.</h1>
+        <p style="margin: 0; font-size: 18px; font-weight: 600; line-height: 1.6; color: #5C574F; max-width: 500px;">Spin up teams of AI agents, watch them work at their desks, and just tell them what you want. The dev team doesn&rsquo;t hand you drafts &mdash; it writes, runs, and tests real code in a sandbox. You stay the boss; they do the busywork.</p>
+        <div style="display: flex; align-items: center; gap: 14px;"><a href="Onboarding.dc.html" style="font-family: 'Baloo 2', sans-serif; font-size: 17px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #74D982 0%, #4DBB5C 100%); border: 2.5px solid #FFFFFF; border-radius: 999px; padding: 14px 34px; cursor: pointer; box-shadow: 0 5px 12px rgba(40,100,50,0.32); text-shadow: 0 1px 2px rgba(20,90,40,0.4); text-decoration: none;">Start building &rarr;</a><span style="font-size: 13.5px; font-weight: 700; color: #6A6258;">Free to try &middot; sign in with Google</span></div>
+      </div>
+      <div style="position: relative; height: 340px; border-radius: 18px; background: #C6C9BC; overflow: hidden; box-shadow: 0 16px 40px rgba(50,55,40,0.25); border: 3px solid #FFFFFF;">
+        <div style="position: absolute; inset: 0; background-image: linear-gradient(rgba(90,95,80,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(90,95,80,0.06) 1px, transparent 1px); background-size: 30px 30px;"></div>
+        <div style="position: absolute; left: 44px; top: 56px; width: 210px; height: 138px; filter: drop-shadow(0 8px 10px rgba(60,65,50,0.28));"><div style="position: absolute; left: 0; top: 0; width: 210px; height: 30px; border-radius: 6px 6px 0 0; background: linear-gradient(180deg,#8A7A5E 0,#8A7A5E 7px,#CEC09C 7px,#CEC09C 30px);"></div><div style="position: absolute; left: 0; top: 30px; width: 210px; height: 108px; background: #EFE9D8;"></div><div style="position: absolute; left: 12px; top: 38px; right: 12px; bottom: 10px; border-radius: 7px; background: #C8D6E4;"></div><div style="position: absolute; left: 50%; top: 1px; transform: translateX(-50%); background: #2E3A52; color: #FFF; font-family: 'Baloo 2', sans-serif; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 5px; border: 1.5px solid #FFF;">Development</div><div style="position: absolute; left: 32px; top: 56px; width: 38px; height: 26px; background: #FFFDF6; border-radius: 4px; box-shadow: 0 2px 0 #C9BC9A;"></div><div style="position: absolute; right: 32px; top: 56px; width: 38px; height: 26px; background: #FFFDF6; border-radius: 4px; box-shadow: 0 2px 0 #C9BC9A;"></div></div>
+        <div style="position: absolute; right: 44px; top: 162px; width: 190px; height: 126px; filter: drop-shadow(0 8px 10px rgba(60,65,50,0.28));"><div style="position: absolute; left: 0; top: 0; width: 190px; height: 28px; border-radius: 6px 6px 0 0; background: linear-gradient(180deg,#8A7A5E 0,#8A7A5E 7px,#CEC09C 7px,#CEC09C 28px);"></div><div style="position: absolute; left: 0; top: 28px; width: 190px; height: 98px; background: #EFE9D8;"></div><div style="position: absolute; left: 12px; top: 36px; right: 12px; bottom: 10px; border-radius: 7px; background: #C2DAC6;"></div><div style="position: absolute; left: 50%; top: 1px; transform: translateX(-50%); background: #2E3A52; color: #FFF; font-family: 'Baloo 2', sans-serif; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 5px; border: 1.5px solid #FFF;">Research</div><div style="position: absolute; left: 32px; top: 50px; width: 36px; height: 24px; background: #FFFDF6; border-radius: 4px; box-shadow: 0 2px 0 #C9BC9A;"></div><div style="position: absolute; left: 28px; top: 30px; width: 16px; height: 16px; border-radius: 50%; background: #F7B731; border: 2px solid #FFF; color: #4A3406; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center;">!</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- what / who / why -->
+  <div style="max-width: 1240px; margin: 0 auto; padding: 64px 56px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;">
+    <div style="display: flex; flex-direction: column; gap: 10px;"><div style="width: 44px; height: 44px; border-radius: 12px; background: #DCEEF8; display: flex; align-items: center; justify-content: center; font-size: 20px;">&#128064;</div><h3 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800; color: #2C2925;">What is Craft?</h3><p style="margin: 0; font-size: 15px; font-weight: 600; line-height: 1.6; color: #5C574F;">Craft is a web app where a solo founder runs a virtual company of AI agents. Each project is an office map; teams are rooms; agents animate as they work.</p></div>
+    <div style="display: flex; flex-direction: column; gap: 10px;"><div style="width: 44px; height: 44px; border-radius: 12px; background: #E4F6E7; display: flex; align-items: center; justify-content: center; font-size: 20px;">&#129489;</div><h3 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800; color: #2C2925;">Who is it for?</h3><p style="margin: 0; font-size: 15px; font-weight: 600; line-height: 1.6; color: #5C574F;">For solo founders who need planning, research, design, dev, and data done &mdash; but it&rsquo;s just you. No game skills, no config files. If you can use Notion, you&rsquo;re good.</p></div>
+    <div style="display: flex; flex-direction: column; gap: 10px;"><div style="width: 44px; height: 44px; border-radius: 12px; background: #FBEFCB; display: flex; align-items: center; justify-content: center; font-size: 20px;">&#9889;</div><h3 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800; color: #2C2925;">Why is it different?</h3><p style="margin: 0; font-size: 15px; font-weight: 600; line-height: 1.6; color: #5C574F;">You wire agents together by dragging, not by writing YAML. And when the dev team says &ldquo;done,&rdquo; it means the app actually runs &mdash; tested for real, not just &ldquo;build passed.&rdquo;</p></div>
+  </div>
+
+  <!-- how it works -->
+  <div style="padding: 56px; background: #F3F1EA;">
+    <div style="max-width: 1240px; margin: 0 auto;">
+      <h2 style="margin: 0 0 32px; font-family: 'Baloo 2', sans-serif; font-size: 32px; font-weight: 800; color: #2C2925; text-align: center;">How it works</h2>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px;">
+        <div style="background: #FFFFFF; border-radius: 16px; padding: 24px; box-shadow: 0 2px 6px rgba(60,50,30,0.06); display: flex; flex-direction: column; gap: 8px;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; color: #FFFFFF; background: #3FB4DC; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">1</div><div style="font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 800; color: #2C2925;">Pick your teams</div><div style="font-size: 13.5px; font-weight: 600; line-height: 1.5; color: #6A6258;">Choose from five templates. They appear as rooms with agents already at their desks.</div></div>
+        <div style="background: #FFFFFF; border-radius: 16px; padding: 24px; box-shadow: 0 2px 6px rgba(60,50,30,0.06); display: flex; flex-direction: column; gap: 8px;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; color: #FFFFFF; background: #3FB4DC; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">2</div><div style="font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 800; color: #2C2925;">Wire the graph</div><div style="font-size: 13.5px; font-weight: 600; line-height: 1.5; color: #6A6258;">Connect agents with handoffs and review loops. The graph you draw is the graph that runs.</div></div>
+        <div style="background: #FFFFFF; border-radius: 16px; padding: 24px; box-shadow: 0 2px 6px rgba(60,50,30,0.06); display: flex; flex-direction: column; gap: 8px;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; color: #FFFFFF; background: #3FB4DC; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">3</div><div style="font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 800; color: #2C2925;">Talk to dispatch</div><div style="font-size: 13.5px; font-weight: 600; line-height: 1.5; color: #6A6258;">Tell the orchestrator what you want in plain language. It routes work to the right teams.</div></div>
+        <div style="background: #FFFFFF; border-radius: 16px; padding: 24px; box-shadow: 0 2px 6px rgba(60,50,30,0.06); display: flex; flex-direction: column; gap: 8px;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; color: #FFFFFF; background: #3FB4DC; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">4</div><div style="font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 800; color: #2C2925;">Watch &amp; steer</div><div style="font-size: 13.5px; font-weight: 600; line-height: 1.5; color: #6A6258;">See status at a glance. Get notified when an agent finishes, blocks, or needs you.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- final CTA -->
+  <div style="padding: 72px 56px; background: linear-gradient(170deg, #2E3A52 0%, #243049 100%); text-align: center;">
+    <h2 style="margin: 0 0 12px; font-family: 'Baloo 2', sans-serif; font-size: 36px; font-weight: 800; color: #FFFFFF;">Got a to-do list? Hand it to the office.</h2>
+    <p style="margin: 0 0 26px; font-size: 16px; font-weight: 600; color: #B9C6D6;">One office, five teams, and as many agents as you can keep an eye on.</p>
+    <a href="Onboarding.dc.html" style="font-family: 'Baloo 2', sans-serif; font-size: 18px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #74D982 0%, #4DBB5C 100%); border: 2.5px solid #FFFFFF; border-radius: 999px; padding: 15px 42px; cursor: pointer; box-shadow: 0 6px 16px rgba(40,100,50,0.4); text-shadow: 0 1px 2px rgba(20,90,40,0.4); text-decoration: none;">Start building &rarr;</a>
+  </div>
+
+  <!-- footer -->
+  <div style="padding: 32px 56px; background: #FAF8F2; border-top: 1px solid #ECE7DC; display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 10px;"><div style="width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2px solid #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #FFFFFF;">C</div><span style="font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #2E3A52;">Craft</span></div>
+    <div style="display: flex; gap: 24px;"><a href="Blog.dc.html" style="font-size: 13px; font-weight: 700; color: #8A857C; text-decoration: none;">Blog</a><span style="font-size: 13px; font-weight: 700; color: #8A857C; cursor: pointer;">Privacy</span><span style="font-size: 13px; font-weight: 700; color: #8A857C; cursor: pointer;">Terms</span><span style="font-size: 13px; font-weight: 700; color: #8A857C;">&copy; 2026 Craft</span></div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

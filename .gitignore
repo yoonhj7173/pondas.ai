@@ -1,0 +1,29 @@
+# OS
+.DS_Store
+
+# Secrets — never commit
+**/.env
+**/.env.local
+!**/.env.example
+
+# Python
+**/.venv/
+**/__pycache__/
+*.pyc
+**/.pytest_cache/
+**/.mypy_cache/
+
+# Node / Next.js (frontend, when added)
+**/node_modules/
+**/.next/
+**/out/
+**/dist/
+*.tsbuildinfo
+
+# Logs / runtime
+logs/*.log
+runs/
+
+# Editor
+.idea/
+.vscode/

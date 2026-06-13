@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&amp;family=Nunito:wght@400;600;700;800&amp;family=Bricolage+Grotesque:wght@600;700&amp;family=Mulish:wght@400;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; background: #E9E7E2; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div style="min-height: 100vh; background: #E9E7E2; padding: 48px 32px 80px; font-family: 'Mulish', sans-serif; color: #3A3631; overflow-x: auto;">
+  <div style="max-width: 1240px; min-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px;">
+
+    <header data-screen-label="Intro" style="display: flex; flex-direction: column; gap: 10px; padding: 8px 4px;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.12em; color: #8A857C;">CRAFT &middot; DESIGN SYSTEM v1 &middot; 2026-06-12 확정</div>
+      <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 32px; font-weight: 700; color: #2C2925;">Craft Design System</h1>
+      <p style="margin: 0; max-width: 880px; font-size: 14px; line-height: 1.7; color: #5C574F;">아래 에이전트들은 전부 <strong>Workstation.dc.html 실물을 임베드</strong>한 것 — 이 문서와 프로토타입은 같은 컴포넌트를 씁니다. 컴포넌트를 고치면 양쪽이 함께 바뀝니다.</p>
+    </header>
+
+    <!-- ============ 1. AGENT / WORKSTATION ============ -->
+    <section data-screen-label="01 Workstation" style="background: #FFFFFF; border-radius: 20px; padding: 30px 34px; box-shadow: 0 1px 3px rgba(60,50,30,0.06); display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; align-items: baseline; gap: 12px;"><h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 21px; font-weight: 700; color: #2C2925;">01 &middot; Agent Workstation</h2><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #B0A89A;">Workstation.dc.html &middot; 106&times;82px &middot; facing left/right</span></div>
+      <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px;">
+        <div style="display: flex; flex-direction: column; gap: 9px;">
+          <div style="position: relative; height: 120px; border-radius: 12px; background: #F2EFE3; background-image: linear-gradient(45deg, #E8E2D0 25%, transparent 25%, transparent 75%, #E8E2D0 75%), linear-gradient(45deg, #E8E2D0 25%, transparent 25%, transparent 75%, #E8E2D0 75%); background-position: 0 0, 14px 14px; background-size: 28px 28px;"><div style="position: absolute; left: 50%; top: 24px; transform: translateX(-50%); width: 106px; height: 82px;"><dc-import name="Workstation" facing="right" body="#5FA89B" head="#EFC9A2" arm="#4E8B80" glow="rgba(0,0,0,0)" hint-size="100%,100%"></dc-import></div></div>
+          <div style="text-align: center;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; color: #2C2925;">idle</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #A8A294;">glow none &middot; badge none</div></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 9px;">
+          <div style="position: relative; height: 120px; border-radius: 12px; background: #F2EFE3; background-image: linear-gradient(45deg, #E8E2D0 25%, transparent 25%, transparent 75%, #E8E2D0 75%), linear-gradient(45deg, #E8E2D0 25%, transparent 25%, transparent 75%, #E8E2D0 75%); background-position: 0 0, 14px 14px; background-size: 28px 28px;"><div style="position: absolute; left: 50%; top: 24px; transform: translateX(-50%); width: 106px; height: 82px;"><dc-import name="Workstation" facing="right" body="#C9A24B" head="#EFC9A2" arm="#AB8736" glow="rgba(247,183,49,0.3)" hint-size="100%,100%"></dc-import></div></div>
+          <div style="text-align: center;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; color: #2C2925;">queued</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #A8A294;">glow amber 30%</div></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 9px;">
+          <div style="position: relative; height: 120px; border-radius: 12px; background: #F2EFE3; background-image: linear-gradient(45deg, #E8E2D0 25%, transparent 25%, transparent 75%, #E8E2D0 75%), linear-gradient(45deg, #E8E2D0 25%, transparent 25%, transparent 75%, #E8E2D0 75%); background-position: 0 0, 14px 14px; background-size: 28px 28px;"><div style="position: absolute; left: 50%; top: 24px; transform: translateX(-50%); width: 106px; height: 82px;"><dc-import name="Workstation" facing="right" body="#D98A70" head="#E5B98F" arm="#C2755C" glow="rgba(79,195,232,0.55)" hint-size="100%,100%"></dc-import></div></div>
+          <div style="text-align: center;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; color: #2C2925;">working</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #A8A294;">glow cyan 4FC3E8</div></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 9px;">
+          <div style="position: relative; height: 120px; border-radius: 12px; background: #F2EFE3; background-image: linear-gradient(45deg, #E8E2D0 25%, transparent 25%, transparent 75%, #E8E2D0 75%), linear-gradient(45deg, #E8E2D0 25%, transparent 25%, transparent 75%, #E8E2D0 75%); background-position: 0 0, 14px 14px; background-size: 28px 28px;"><div style="position: absolute; left: 50%; top: 24px; transform: translateX(-50%); width: 106px; height: 82px;"><dc-import name="Workstation" facing="right" body="#5FA89B" head="#EFC9A2" arm="#4E8B80" glow="rgba(247,183,49,0.6)" badge-show="{{ true }}" badge="!" badge-bg="#F7B731" badge-fg="#4A3406" hint-size="100%,100%"></dc-import></div></div>
+          <div style="text-align: center;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; color: #2C2925;">needs-input</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #A8A294;">&ldquo;!&rdquo; F7B731 &middot; 영구</div></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 9px;">
+          <div style="position: relative; height: 120px; border-radius: 12px; background: #F2EFE3; background-image: linear-gradient(45deg, #E8E2D0 25%, transparent 25%, transparent 75%, #E8E2D0 75%), linear-gradient(45deg, #E8E2D0 25%, transparent 25%, transparent 75%, #E8E2D0 75%); background-position: 0 0, 14px 14px; background-size: 28px 28px;"><div style="position: absolute; left: 50%; top: 24px; transform: translateX(-50%); width: 106px; height: 82px;"><dc-import name="Workstation" facing="right" body="#93A86E" head="#E5B98F" arm="#78905A" glow="rgba(95,201,110,0.6)" badge-show="{{ true }}" badge="&#10003;" badge-bg="#5FC96E" badge-fg="#FFFFFF" hint-size="100%,100%"></dc-import></div></div>
+          <div style="text-align: center;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; color: #2C2925;">done</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #A8A294;">&ldquo;&#10003;&rdquo; 5FC96E &middot; 잠깐 후 idle</div></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 9px;">
+          <div style="position: relative; height: 120px; border-radius: 12px; background: #F2EFE3; background-image: linear-gradient(45deg, #E8E2D0 25%, transparent 25%, transparent 75%, #E8E2D0 75%), linear-gradient(45deg, #E8E2D0 25%, transparent 25%, transparent 75%, #E8E2D0 75%); background-position: 0 0, 14px 14px; background-size: 28px 28px;"><div style="position: absolute; left: 50%; top: 24px; transform: translateX(-50%); width: 106px; height: 82px;"><dc-import name="Workstation" facing="left" body="#B58FBF" head="#EFC9A2" arm="#9A75A3" glow="rgba(232,80,58,0.55)" badge-show="{{ true }}" badge="&times;" badge-bg="#E8503A" badge-fg="#FFFFFF" hint-size="100%,100%"></dc-import></div></div>
+          <div style="text-align: center;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; color: #2C2925;">failed</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #A8A294;">&ldquo;&times;&rdquo; E8503A &middot; facing left 예시</div></div>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 12.5px; line-height: 1.7; color: #4A453D; background: #FAF8F2; border-radius: 12px; padding: 16px 18px;">
+        <div><strong>Props</strong> &mdash; facing(right/left&middot;flip만, 자산 1방향) &middot; body/arm(5종 페어) &middot; head(2종) &middot; glow(상태색) &middot; badge/badgeBg/badgeFg/badgeShow. 베이스 150&times;116 @ scale 0.7, <strong>top-left 앵커</strong>(bottom 앵커 금지 &mdash; 마운트 높이 0 시 위로 튐).</div>
+        <div><strong>아웃핏 페어(body/arm)</strong> &mdash; teal 5FA89B/4E8B80 &middot; coral D98A70/C2755C &middot; purple B58FBF/9A75A3 &middot; sage 93A86E/78905A &middot; mustard C9A24B/AB8736 &middot; head EFC9A2/E5B98F. 배지는 머리 바로 위, 줌 무관 시인성 유지.</div>
+      </div>
+    </section>
+
+    <!-- ============ 2. SLOT SYSTEM ============ -->
+    <section data-screen-label="02 Slots" style="background: #FFFFFF; border-radius: 20px; padding: 30px 34px; box-shadow: 0 1px 3px rgba(60,50,30,0.06); display: grid; grid-template-columns: 470px 1fr; gap: 30px;">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 21px; font-weight: 700; color: #2C2925;">02 &middot; 5-슬롯 시스템 <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 400; color: #B0A89A;">room 430&times;370</span></h2>
+        <div style="position: relative; width: 430px; height: 370px; border-radius: 10px; overflow: hidden;">
+          <div style="position: absolute; left: 0; top: 0; width: 430px; height: 42px; border-radius: 8px 8px 0 0; background: linear-gradient(180deg, #8A7A5E 0px, #8A7A5E 10px, #D9CCAB 10px, #CEC09C 42px);"></div>
+          <div style="position: absolute; left: 0; top: 42px; width: 430px; height: 328px; background: #F2EFE3;"></div>
+          <div style="position: absolute; left: 16px; top: 54px; right: 16px; bottom: 14px; border-radius: 10px; background: #C8D6E4;"></div>
+          <div style="position: absolute; left: 50%; top: 8px; transform: translateX(-50%); background: #2E3A52; color: #FFF; font-family: 'Baloo 2', sans-serif; font-size: 12px; font-weight: 700; padding: 4px 14px; border-radius: 6px; border: 2px solid #FFF; white-space: nowrap;">Team room</div>
+          <div style="position: absolute; left: 64px; top: 76px; width: 106px; height: 82px; border: 2.5px dashed #4A6890; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800; color: #4A6890;">1</div>
+          <div style="position: absolute; left: 260px; top: 76px; width: 106px; height: 82px; border: 2.5px dashed #4A6890; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800; color: #4A6890;">2</div>
+          <div style="position: absolute; left: 64px; top: 168px; width: 106px; height: 82px; border: 2.5px dashed #4A6890; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800; color: #4A6890;">3</div>
+          <div style="position: absolute; left: 260px; top: 168px; width: 106px; height: 82px; border: 2.5px dashed #4A6890; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800; color: #4A6890;">4</div>
+          <div style="position: absolute; left: 162px; top: 252px; width: 106px; height: 82px; border: 2.5px dashed #4A6890; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800; color: #4A6890;">5</div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px; line-height: 1.75; color: #4A453D; padding-top: 44px;">
+        <div><strong>고정 5슬롯, 순서대로 채움</strong> &mdash; Add agent 시 1&rarr;2&rarr;3&rarr;4&rarr;5. 슬롯 1&middot;3 facing left(모니터 바깥), 2&middot;4 facing right, 5 솔로 중앙 facing right.</div>
+        <div><strong>중앙 정렬 규칙</strong> &mdash; 점유 슬롯들의 그룹 바운딩 박스는 카펫과 상하&middot;좌우 정중앙. 430&times;370 룸 기준: 좌우 마진 48px, 상하 22px, 행 간격 10px.</div>
+        <div><strong>금지</strong> &mdash; 슬롯끼리 겹침 &times; &middot; 상단 벽/행잉 사인 침범 &times; (1행 top &ge; 카펫 top + 22) &middot; 카펫 밖 배치 &times;.</div>
+        <div><strong>2인 룸 좌표</strong> &mdash; Research 410&times;280: (56,119)(248,119) &middot; Planning 340&times;220: (40,88)(194,88). 항상 같은 규칙으로 산출.</div>
+      </div>
+    </section>
+
+    <!-- ============ 3. ROOM + PALETTE ============ -->
+    <section data-screen-label="03 Room and palette" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+      <div style="background: #FFFFFF; border-radius: 20px; padding: 26px 30px; box-shadow: 0 1px 3px rgba(60,50,30,0.06); display: flex; flex-direction: column; gap: 14px;">
+        <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 19px; font-weight: 700; color: #2C2925;">03 &middot; 룸 해부도</h2>
+        <div style="font-size: 12.5px; line-height: 1.8; color: #4A453D;">
+          <strong>벽</strong> 상단 42px &mdash; 몰딩 8A7A5E(10px) + 면 D9CCAB&rarr;CEC09C<br>
+          <strong>바닥</strong> 체커 F2EFE3 / E2E4D0 (32px 타일)<br>
+          <strong>카펫</strong> inset 16/54/16/14 &mdash; 팀 식별색: Research C2DAC6 &middot; Dev C8D6E4 &middot; Planning DDD3E4 &middot; Design EEE7D6 &middot; Data E2EAD8<br>
+          <strong>행잉 사인(S5)</strong> 네이비 2E3A52 플레이트 + 흰 보더 2px + Baloo 13px, 케이블 2.5px(플레이트 inset 16px 지점), 마운트 9&times;6 &mdash; 몰딩에 부착, 줄바꿈 금지(nowrap)<br>
+          <strong>크기</strong> 5인 430&times;370 &middot; 3인 410&times;280 &middot; 2인 340&times;220 (2-2 점진 확장)
+        </div>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 20px; padding: 26px 30px; box-shadow: 0 1px 3px rgba(60,50,30,0.06); display: flex; flex-direction: column; gap: 14px;">
+        <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 19px; font-weight: 700; color: #2C2925;">04 &middot; 팔레트 &mdash; 투 레이어 규칙</h2>
+        <div style="display: flex; gap: 8px; align-items: center;"><span style="width: 64px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8A857C;">WORLD</span><div style="width: 38px; height: 38px; border-radius: 10px; background: #C6C9BC;"></div><div style="width: 38px; height: 38px; border-radius: 10px; background: #F2EFE3;"></div><div style="width: 38px; height: 38px; border-radius: 10px; background: #D9CCAB;"></div><div style="width: 38px; height: 38px; border-radius: 10px; background: #C2DAC6;"></div><div style="width: 38px; height: 38px; border-radius: 10px; background: #C8D6E4;"></div><div style="width: 38px; height: 38px; border-radius: 10px; background: #DDD3E4;"></div></div>
+        <div style="display: flex; gap: 8px; align-items: center;"><span style="width: 64px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8A857C;">UI</span><div style="width: 38px; height: 38px; border-radius: 10px; background: #4FC3E8;"></div><div style="width: 38px; height: 38px; border-radius: 10px; background: #F7B731;"></div><div style="width: 38px; height: 38px; border-radius: 10px; background: #5FC96E;"></div><div style="width: 38px; height: 38px; border-radius: 10px; background: #E8503A;"></div><div style="width: 38px; height: 38px; border-radius: 10px; background: #2E3A52;"></div></div>
+        <div style="font-size: 12.5px; line-height: 1.7; color: #4A453D;"><strong>규칙: 채도 높은 색 = 클릭/상태/알림에만.</strong> 월드 오브젝트는 UI색 금지. 타이포: <span style="font-family: 'Baloo 2', sans-serif; font-weight: 700;">Baloo 2</span>(헤딩&middot;UI 라벨) &middot; <span style="font-family: 'Nunito', sans-serif; font-weight: 700;">Nunito</span>(본문&middot;칩) &middot; JetBrains Mono(메타). 패널 글래스: rgba(253,253,251,0.26) + blur 10px.</div>
+      </div>
+    </section>
+
+    <!-- ============ 5. CORE UI ============ -->
+    <section data-screen-label="05 Core UI" style="background: #FFFFFF; border-radius: 20px; padding: 30px 34px; box-shadow: 0 1px 3px rgba(60,50,30,0.06); display: flex; flex-direction: column; gap: 18px;">
+      <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 21px; font-weight: 700; color: #2C2925;">05 &middot; 코어 UI 컴포넌트</h2>
+      <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap; background: #C6C9BC; border-radius: 14px; padding: 20px;">
+        <button style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2.5px solid #FFFFFF; border-radius: 999px; padding: 10px 22px; cursor: pointer; box-shadow: 0 3px 8px rgba(40,80,100,0.35); text-shadow: 0 1px 2px rgba(20,80,110,0.4);">Primary</button>
+        <button style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #74D982 0%, #4DBB5C 100%); border: 2.5px solid #FFFFFF; border-radius: 999px; padding: 10px 22px; cursor: pointer; box-shadow: 0 3px 8px rgba(40,100,50,0.35); text-shadow: 0 1px 2px rgba(20,90,40,0.4);">Confirm</button>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 800; color: #2C6FA0; background: #DCEEF8; border: 2px solid #FFFFFF; border-radius: 999px; padding: 5px 12px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #4FC3E8;"></span>working</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 800; color: #8A6200; background: #FBEFCB; border: 2px solid #FFFFFF; border-radius: 999px; padding: 5px 12px;"><span style="width: 14px; height: 14px; border-radius: 50%; background: #F7B731; color: #4A3406; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;">!</span>needs input</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 800; color: #B23A26; background: #F8DAD3; border: 2px solid #FFFFFF; border-radius: 999px; padding: 5px 12px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #E8503A;"></span>failed</span>
+        <div style="display: inline-flex; align-items: center; gap: 9px; background: rgba(36,46,66,0.92); border-radius: 12px; padding: 8px 14px;"><span style="width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #FFD96B 0%, #F2A91E 75%); border: 2px solid #FFF3CF; color: #7A5200; font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;">t</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 800; color: #FFFFFF; text-shadow: 0 2px 0 rgba(0,0,0,0.3);">128,487</span></div>
+        <div style="flex-basis: 100%; display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.97); border: 2.5px solid #FFFFFF; border-radius: 999px; padding: 7px 8px 7px 20px; box-shadow: 0 8px 24px rgba(50,55,45,0.3); max-width: 520px;"><span style="flex: 1; font-family: 'Nunito', sans-serif; font-size: 13.5px; font-weight: 600; color: #A8A294;">Tell your company what to do&hellip;</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2px solid #FFFFFF; border-radius: 999px; padding: 6px 18px; text-shadow: 0 1px 2px rgba(20,80,110,0.4);">Send</span></div>
+      </div>
+      <div style="font-size: 12.5px; line-height: 1.7; color: #4A453D;">버튼: 캔디 그라디언트 + 흰 보더 2.5px + 라운드 999 + 텍스트섀도. 칩: 파스텔 bg + 진한 fg + 상태 도트. 다크 패널(피드&middot;토큰&middot;줌): rgba(36,46,66,0.92) r14&ndash;16. 모달: 흰 카드 r22 + 보더 3px + 딤 rgba(40,46,40,0.42).</div>
+    </section>
+
+    <footer style="padding: 4px; font-size: 13px; line-height: 1.7; color: #5C574F;">확정 스택: 디렉션 E(투 레이어) &middot; 존 1-3 플랫 직사각 + 공간감 키트 &middot; 수용 2-2 &middot; 캐릭터 3-2 옆모습(Workstation) &middot; 5-슬롯 고정 배치 &middot; 사이니지 S5 행잉 패널 &middot; 카메라 pan/zoom + 룸 드래그. 변경은 반드시 이 문서와 Workstation.dc.html을 통해서.</footer>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

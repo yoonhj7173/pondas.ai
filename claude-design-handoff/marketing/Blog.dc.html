@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&amp;family=Nunito:wght@400;600;700;800&amp;family=Bricolage+Grotesque:wght@600;700&amp;family=Mulish:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; background: #FBFAF6; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div style="width: 100%; min-height: 100vh; font-family: 'Mulish', sans-serif; color: #3A3631; background: #FBFAF6;">
+
+  <!-- nav -->
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 56px; border-bottom: 1px solid #ECE7DC;">
+    <a href="Landing.dc.html" style="display: flex; align-items: center; gap: 11px; text-decoration: none;"><div style="width: 36px; height: 36px; border-radius: 11px; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2.5px solid #FFFFFF; box-shadow: 0 2px 6px rgba(40,80,100,0.3); display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 19px; font-weight: 800; color: #FFFFFF; text-shadow: 0 1px 2px rgba(20,80,110,0.4);">C</div><span style="font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800; color: #2E3A52;">Craft</span><span style="font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 700; color: #8A857C; margin-left: 4px;">/ Blog</span></a>
+    <a href="Onboarding.dc.html" style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2.5px solid #FFFFFF; border-radius: 999px; padding: 9px 22px; box-shadow: 0 3px 8px rgba(40,80,100,0.3); text-shadow: 0 1px 2px rgba(20,80,110,0.4); text-decoration: none;">Get started</a>
+  </div>
+
+  <!-- ===== INDEX ===== -->
+  <sc-if value="{{ showIndex }}" hint-placeholder-val="{{ true }}">
+    <div style="max-width: 920px; margin: 0 auto; padding: 56px 32px 72px;">
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 36px;">
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 40px; font-weight: 700; color: #2C2925;">The Craft newsroom</h1>
+        <p style="margin: 0; font-family: 'Nunito', sans-serif; font-size: 16px; font-weight: 600; color: #6A6258;">Notes from building a virtual company &mdash; product, agents, and the office sim. No fluff.</p>
+      </div>
+
+      <!-- featured -->
+      <div onClick="{{ openPost.dev }}" style="display: flex; gap: 24px; padding: 0 0 32px; border-bottom: 1px solid #ECE7DC; margin-bottom: 28px; cursor: pointer;">
+        <div style="width: 340px; height: 200px; border-radius: 16px; flex-shrink: 0; background: linear-gradient(150deg, #C8D6E4 0%, #C2DAC6 100%); position: relative; overflow: hidden; border: 2px solid #FFFFFF;">
+          <div style="position: absolute; inset: 0; background-image: linear-gradient(rgba(90,95,80,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(90,95,80,0.07) 1px, transparent 1px); background-size: 28px 28px;"></div>
+          <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 130px; height: 80px; border-radius: 8px; background: #EFE9D8; box-shadow: 0 6px 14px rgba(60,65,50,0.25);"><div style="position: absolute; left: 50%; top: -2px; transform: translateX(-50%); background: #2E3A52; color: #FFF; font-family: 'Baloo 2', sans-serif; font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 4px; border: 1.5px solid #FFF;">Dev</div></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; justify-content: center;">
+          <span style="align-self: flex-start; font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #2C6FA0; background: #DCEEF8; border-radius: 999px; padding: 4px 11px;">Engineering</span>
+          <h2 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 26px; font-weight: 800; line-height: 1.18; color: #2C2925;">Why our dev team runs the code instead of writing about it</h2>
+          <p style="margin: 0; font-family: 'Nunito', sans-serif; font-size: 14.5px; font-weight: 600; line-height: 1.55; color: #5C574F;">&ldquo;Build passed&rdquo; isn&rsquo;t &ldquo;it works.&rdquo; Here&rsquo;s how a sandbox + a headless browser closes that gap &mdash; right inside the office.</p>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #A8A294;">Sam Rivera &middot; Jun 10, 2026 &middot; 6 min read</div>
+        </div>
+      </div>
+
+      <!-- list -->
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <sc-for list="{{ posts }}" as="p" hint-placeholder-count="3">
+          <div onClick="{{ p.onClick }}" style="display: flex; gap: 20px; align-items: center; padding: 18px 0; border-bottom: 1px solid #F0ECE2; cursor: pointer;">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;"><span style="align-self: flex-start; font-family: 'Nunito', sans-serif; font-size: 10.5px; font-weight: 800; color: {{ p.tagFg }}; background: {{ p.tagBg }}; border-radius: 999px; padding: 3px 10px;">{{ p.tag }}</span><h3 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 19px; font-weight: 800; color: #2C2925;">{{ p.title }}</h3><p style="margin: 0; font-family: 'Nunito', sans-serif; font-size: 13.5px; font-weight: 600; line-height: 1.5; color: #6A6258;">{{ p.summary }}</p></div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #A8A294; white-space: nowrap;">{{ p.date }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== POST ===== -->
+  <sc-if value="{{ showPost }}" hint-placeholder-val="{{ false }}">
+    <article style="max-width: 720px; margin: 0 auto; padding: 40px 32px 64px;">
+      <span onClick="{{ backToIndex }}" style="display: inline-block; margin-bottom: 28px; font-family: 'Nunito', sans-serif; font-size: 13.5px; font-weight: 800; color: #3FB4DC; cursor: pointer;">&larr; All posts</span>
+      <span style="display: inline-block; font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: {{ postTagFg }}; background: {{ postTagBg }}; border-radius: 999px; padding: 4px 12px; margin-bottom: 18px;">{{ postTag }}</span>
+      <h1 style="margin: 0 0 16px; font-family: 'Bricolage Grotesque', sans-serif; font-size: 38px; font-weight: 700; line-height: 1.15; color: #2C2925;">{{ postTitle }}</h1>
+      <div style="display: flex; align-items: center; gap: 12px; padding-bottom: 28px; margin-bottom: 32px; border-bottom: 1px solid #ECE7DC;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #C8D6E4; border: 2px solid #FFFFFF;"></div>
+        <div style="display: flex; flex-direction: column;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 800; color: #2C2925;">Sam Rivera</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #A8A294;">{{ postMeta }}</span></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        <p style="margin: 0; font-family: 'Mulish', sans-serif; font-size: 17px; font-weight: 500; line-height: 1.75; color: #3A3631;">{{ postLead }}</p>
+        <h2 style="margin: 12px 0 0; font-family: 'Baloo 2', sans-serif; font-size: 24px; font-weight: 800; color: #2C2925;">{{ postH2 }}</h2>
+        <p style="margin: 0; font-family: 'Mulish', sans-serif; font-size: 17px; font-weight: 500; line-height: 1.75; color: #3A3631;">{{ postBody1 }}</p>
+        <div style="background: #1F2430; border-radius: 12px; padding: 18px 20px; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; color: #D5E2EC; overflow: hidden;">
+          <div style="color: #6E7891;"># {{ postCodeLabel }}</div>
+          <div><span style="color: #C3E88D;">$</span> npm run build <span style="color: #5FC96E;">&#10003; passed</span></div>
+          <div><span style="color: #C3E88D;">$</span> playwright test <span style="color: #5FC96E;">&#10003; 12/12</span></div>
+          <div><span style="color: #C3E88D;">$</span> verify &quot;account created&quot; <span style="color: #5FC96E;">&#10003; ok</span></div>
+        </div>
+        <p style="margin: 0; font-family: 'Mulish', sans-serif; font-size: 17px; font-weight: 500; line-height: 1.75; color: #3A3631;">{{ postBody2 }}</p>
+        <blockquote style="margin: 8px 0; padding: 4px 0 4px 20px; border-left: 4px solid #3FB4DC; font-family: 'Bricolage Grotesque', sans-serif; font-size: 21px; font-weight: 600; line-height: 1.5; color: #2C2925;">{{ postQuote }}</blockquote>
+        <p style="margin: 0; font-family: 'Mulish', sans-serif; font-size: 17px; font-weight: 500; line-height: 1.75; color: #3A3631;">{{ postBody3 }}</p>
+      </div>
+    </article>
+  </sc-if>
+
+  <!-- footer -->
+  <div style="padding: 32px 56px; background: #FAF8F2; border-top: 1px solid #ECE7DC; display: flex; align-items: center; justify-content: space-between;">
+    <a href="Landing.dc.html" style="display: flex; align-items: center; gap: 10px; text-decoration: none;"><div style="width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2px solid #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #FFFFFF;">C</div><span style="font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #2E3A52;">Craft</span></a>
+    <span style="font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; color: #8A857C;">&copy; 2026 Craft</span>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { view: 'index', post: null };
+  POSTS = {
+    dev: { tag: 'Engineering', tagFg: '#2C6FA0', tagBg: '#DCEEF8', date: 'Jun 10, 2026', meta: 'Jun 10, 2026 \u00b7 6 min read',
+      title: 'Why our dev team runs the code instead of writing about it',
+      summary: '\u201cBuild passed\u201d isn\u2019t \u201cit works.\u201d How a sandbox + headless browser closes the gap.',
+      lead: 'Most agent tools stop at a plausible-looking draft. A model writes code, the text looks right, and you\u2019re left to find out whether it actually runs. We decided Craft\u2019s dev team would never hand you that uncertainty.',
+      h2: '\u201cBuild passed\u201d is not \u201cit works\u201d',
+      body1: 'A green build tells you the code compiled. It says nothing about whether the signup form actually creates an account. So the QA agent runs the real app in a sandbox and drives it with a headless browser \u2014 the bar is behavior, not compilation.',
+      codeLabel: 'QA verification record',
+      body2: 'When it fails, it doesn\u2019t quietly pass. It routes back to the engineer as a revision round \u2014 the same review loop you drew on the map \u2014 and you see it as a status change, a feed line, and a red badge over the agent\u2019s head.',
+      quote: 'The office isn\u2019t a metaphor for the work. It is the work, made legible.',
+      body3: 'The result: a dev team whose output is working software you can download as a zip, with the test record attached \u2014 not a pile of hopeful text.' },
+    graph: { tag: 'Product', tagFg: '#6B4FA0', tagBg: '#ECE4F6', date: 'Jun 4, 2026', meta: 'Jun 4, 2026 \u00b7 4 min read',
+      title: 'The agent graph is the product',
+      summary: 'Handoffs and review loops \u2014 two edges, drawn by hand \u2014 replace pages of config.',
+      lead: 'Wiring agents together usually means YAML, dashboards, and a lot of guessing. We bet the whole product on doing it by dragging instead.',
+      h2: 'Two edges, that\u2019s it',
+      body1: 'A handoff says \u201cwhen A finishes, B starts with A\u2019s output.\u201d A review loop says \u201cA and B go back and forth up to N times until it\u2019s approved.\u201d That\u2019s the entire vocabulary \u2014 and it covers almost everything a small team does.',
+      codeLabel: 'compiled crew',
+      body2: 'The graph you draw is the graph that runs. No hidden orchestration, no surprise routing. When you want a one-off detour, you just tell the orchestrator in chat \u2014 and it never quietly rewrites your edges.',
+      quote: 'If you can draw the org chart, you can run the company.',
+      body3: 'Constraints are a feature here: two edge types keep the graph legible, debuggable, and safe to auto-fire.' },
+    design: { tag: 'Design', tagFg: '#2C7A4A', tagBg: '#E0F2E5', date: 'May 28, 2026', meta: 'May 28, 2026 \u00b7 5 min read',
+      title: 'Designing an office that non-gamers can read',
+      summary: 'Calm world, candy UI: only the things you can click are allowed to be loud.',
+      lead: 'The office metaphor only works if it\u2019s instantly legible to someone who has never touched a sim game. So we split the screen into two visual languages.',
+      h2: 'Calm world, candy UI',
+      body1: 'The world \u2014 floors, walls, desks \u2014 stays low-saturation and quiet, so it\u2019s restful to watch for a long time. Anything you can click or that needs your attention \u2014 buttons, badges, signs \u2014 gets the loud candy colors.',
+      codeLabel: 'palette tokens',
+      body2: 'That single rule does a lot of work: a glance tells you what\u2019s interactive and what\u2019s just scenery. Status reads at any zoom because the badges keep their size in screen space, not world space.',
+      quote: 'Color is a promise: if it\u2019s bright, you can touch it.',
+      body3: 'It\u2019s the same reason the inspiration sims feel friendly rather than busy \u2014 restraint everywhere except where your eye needs to go.' },
+  };
+  renderVals() {
+    const S = this.state;
+    const order = ['graph', 'design'];
+    const posts = order.map(id => { const p = this.POSTS[id]; return { tag: p.tag, tagFg: p.tagFg, tagBg: p.tagBg, title: p.title, summary: p.summary, date: p.date, onClick: () => this.setState({ view: 'post', post: id }) }; });
+    const openPost = {}; Object.keys(this.POSTS).forEach(id => openPost[id] = () => this.setState({ view: 'post', post: id }));
+    const cur = S.post ? this.POSTS[S.post] : this.POSTS.dev;
+    return {
+      showIndex: S.view === 'index', showPost: S.view === 'post',
+      posts, openPost,
+      backToIndex: () => this.setState({ view: 'index', post: null }),
+      postTag: cur.tag, postTagFg: cur.tagFg, postTagBg: cur.tagBg, postTitle: cur.title, postMeta: cur.meta,
+      postLead: cur.lead, postH2: cur.h2, postBody1: cur.body1, postCodeLabel: cur.codeLabel, postBody2: cur.body2, postQuote: cur.quote, postBody3: cur.body3,
+    };
+  }
+}
+</script>
+</body>
+</html>

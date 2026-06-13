@@ -1,0 +1,33 @@
+# 로컬 개발용 인프라 — Postgres + Redis.
+# 실제 동작 검증(working as expected)을 위해 SWE가 이 두 서비스에 붙어 테스트한다.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cursorpm-postgres
+    environment:
+      POSTGRES_USER: cursorpm
+      POSTGRES_PASSWORD: cursorpm
+      POSTGRES_DB: cursorpm
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cursorpm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: cursorpm-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

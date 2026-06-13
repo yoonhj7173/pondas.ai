@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&amp;family=Nunito:wght@400;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; background: #CFD6C6; }
+    * { box-sizing: border-box; }
+    input { font-family: inherit; outline: none; }
+    input::placeholder { color: #A8A294; }
+  </style>
+</helmet>
+
+<div style="width: 100%; height: 100vh; min-height: 700px; position: relative; overflow: hidden; font-family: 'Nunito', sans-serif; color: #3A3631; background: linear-gradient(165deg, #DDE4D6 0%, #CFD6C6 55%, #C6C9BC 100%);">
+  <div style="position: absolute; inset: 0; background-image: linear-gradient(rgba(90,95,80,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(90,95,80,0.05) 1px, transparent 1px); background-size: 48px 48px;"></div>
+  <div style="position: absolute; left: -60px; top: 120px; width: 360px; height: 360px; border-radius: 50%; background: radial-gradient(circle at 40% 40%, rgba(103,210,242,0.18), transparent 70%);"></div>
+  <div style="position: absolute; right: -80px; bottom: 60px; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, rgba(247,183,49,0.14), transparent 70%);"></div>
+
+  <div style="position: absolute; left: 40px; top: 32px; display: flex; align-items: center; gap: 12px;">
+    <div style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2.5px solid #FFFFFF; box-shadow: 0 3px 8px rgba(40,80,100,0.3); display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 22px; font-weight: 800; color: #FFFFFF; text-shadow: 0 1px 2px rgba(20,80,110,0.4);">C</div>
+    <span style="font-family: 'Baloo 2', sans-serif; font-size: 22px; font-weight: 800; color: #2E3A52;">Craft</span>
+  </div>
+
+  <!-- DONE splash -->
+  <sc-if value="{{ done }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;">
+      <div style="width: 84px; height: 84px; border-radius: 50%; background: linear-gradient(180deg, #74D982 0%, #4DBB5C 100%); border: 4px solid #FFFFFF; box-shadow: 0 10px 30px rgba(40,100,50,0.35); display: flex; align-items: center; justify-content: center; font-size: 42px; color: #FFFFFF;">&#10003;</div>
+      <div style="font-family: 'Baloo 2', sans-serif; font-size: 30px; font-weight: 800; color: #2C2925;">Your office is ready</div>
+      <p style="margin: 0; font-size: 15px; font-weight: 600; color: #5C574F; text-align: center; max-width: 420px;">{{ doneLine }}</p>
+      <button onClick="{{ restart }}" style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 800; color: #2E3A52; background: #FFFFFF; border: 2.5px solid #FFFFFF; border-radius: 999px; padding: 10px 24px; cursor: pointer; box-shadow: 0 4px 10px rgba(50,55,45,0.2);">&#8635; Replay wizard</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ active }}" hint-placeholder-val="{{ true }}">
+  <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 680px; max-width: 92vw; background: rgba(255,255,255,0.97); border-radius: 24px; border: 3px solid #FFFFFF; box-shadow: 0 24px 60px rgba(50,55,45,0.28); padding: 34px 40px 36px; display: flex; flex-direction: column; gap: 24px;">
+    <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+      <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; background: {{ s.bg }}; color: {{ s.fg }}; box-shadow: {{ s.shadow }};">{{ s.mark }}</div>
+          <span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: {{ s.labelColor }}; white-space: nowrap;">{{ s.label }}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{ stepSignin }}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 18px; align-items: center; padding: 14px 0 6px;">
+        <h2 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 26px; font-weight: 800; color: #2C2925; text-align: center;">Welcome to Craft</h2>
+        <p style="margin: 0; font-size: 14px; font-weight: 600; color: #7A746A; text-align: center; max-width: 420px;">Run a virtual company of AI agents you can watch and steer. Sign in to build your first office.</p>
+        <button onClick="{{ next }}" style="display: flex; align-items: center; gap: 12px; background: #FFFFFF; border: 2.5px solid #E6E1D4; border-radius: 14px; padding: 13px 26px; cursor: pointer; box-shadow: 0 3px 8px rgba(60,50,30,0.1);"><span style="width: 22px; height: 22px; border-radius: 50%; background: conic-gradient(#EA4335 0 25%, #FBBC05 0 50%, #34A853 0 75%, #4285F4 0);"></span><span style="font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 700; color: #3A3631;">Continue with Google</span></button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ stepName }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 16px;"><h2 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 24px; font-weight: 800; color: #2C2925;">What should we call you?</h2><div style="display: flex; flex-direction: column; gap: 7px;"><span style="font-size: 11px; font-weight: 800; color: #9C958A; letter-spacing: 0.04em;">DISPLAY NAME</span><input value="{{ displayName }}" onChange="{{ onName }}" style="background: #F7F5EF; border: 2.5px solid #3FB4DC; border-radius: 12px; padding: 12px 15px; font-size: 15px; font-weight: 700; color: #2C2925; box-shadow: 0 0 0 3px rgba(63,180,220,0.12);" /></div></div>
+    </sc-if>
+    <sc-if value="{{ stepProject }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 16px;"><h2 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 24px; font-weight: 800; color: #2C2925;">Name your first project</h2><p style="margin: 0; font-size: 13.5px; font-weight: 600; color: #7A746A;">A project is one office map &mdash; its own teams, agents and budget.</p><div style="display: flex; flex-direction: column; gap: 7px;"><span style="font-size: 11px; font-weight: 800; color: #9C958A; letter-spacing: 0.04em;">PROJECT NAME</span><input value="{{ projectName }}" onChange="{{ onProject }}" style="background: #F7F5EF; border: 2.5px solid #3FB4DC; border-radius: 12px; padding: 12px 15px; font-size: 15px; font-weight: 700; color: #2C2925; box-shadow: 0 0 0 3px rgba(63,180,220,0.12);" /></div></div>
+    </sc-if>
+    <sc-if value="{{ stepTeams }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 16px;"><div style="display: flex; flex-direction: column; gap: 4px;"><h2 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 24px; font-weight: 800; color: #2C2925;">Which teams do you need?</h2><p style="margin: 0; font-size: 13px; font-weight: 600; color: #7A746A;">Pick at least one. Each becomes a room with its agents. Change anytime.</p></div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <sc-for list="{{ teamChoices }}" as="t" hint-placeholder-count="5">
+            <div onClick="{{ t.onToggle }}" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 13px; cursor: pointer; background: {{ t.bg }}; border: 2.5px solid {{ t.border }};">
+              <div style="width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0; background: {{ t.swatch }}; display: flex; align-items: center; justify-content: center;"><div style="width: 16px; height: 20px; border-radius: 3px; background: #FFFDF6; border: 2px solid rgba(70,70,60,0.35);"></div></div>
+              <div style="flex: 1; min-width: 0;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 700; color: #2C2925;">{{ t.name }}</div><div style="font-size: 11px; font-weight: 600; color: #8A857C;">{{ t.roster }}</div></div>
+              <div style="width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; background: {{ t.checkBg }}; border: 2px solid {{ t.checkBorder }}; display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-size: 12px; font-weight: 800;">{{ t.check }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ stepContext }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 16px;"><div style="display: flex; flex-direction: column; gap: 4px;"><h2 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 24px; font-weight: 800; color: #2C2925;">Add context <span style="font-size: 14px; color: #B0A89A; font-weight: 700;">optional</span></h2><p style="margin: 0; font-size: 13px; font-weight: 600; color: #7A746A;">Drop files your agents should know about. You can also do this later in Settings.</p></div><div style="border: 2.5px dashed #D8D2C2; border-radius: 14px; padding: 30px; text-align: center; background: #FAF8F2;"><div style="font-size: 26px; margin-bottom: 6px;">&#128206;</div><div style="font-size: 13.5px; font-weight: 700; color: #A8A294;">Drop files here, or click to browse</div></div></div>
+    </sc-if>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 2px;">
+      <span onClick="{{ back }}" style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 700; color: {{ backColor }}; cursor: pointer;">&larr; Back</span>
+      <button onClick="{{ next }}" style="font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 800; color: #FFFFFF; background: {{ nextBg }}; border: 2.5px solid #FFFFFF; border-radius: 999px; padding: 11px 30px; cursor: pointer; box-shadow: 0 4px 10px rgba(40,90,70,0.32); text-shadow: 0 1px 2px rgba(20,80,60,0.4);">{{ nextLabel }}</button>
+    </div>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    step: 0, done: false,
+    displayName: 'Sam Rivera', projectName: 'Acme Studio',
+    teams: { research: true, planning: true, dev: true, design: false, data: false },
+  };
+  renderVals() {
+    const S = this.state;
+    const stepDefs = [{ label: 'Sign in' }, { label: 'Your name' }, { label: 'Project' }, { label: 'Teams' }, { label: 'Context' }];
+    const steps = stepDefs.map((d, i) => { const done = i < S.step, active = i === S.step; return {
+      label: d.label, mark: done ? '\u2713' : String(i + 1),
+      bg: done ? '#5FC96E' : active ? '#3FB4DC' : '#ECE8DD', fg: (done || active) ? '#FFFFFF' : '#B0A89A',
+      shadow: active ? '0 3px 8px rgba(40,80,100,0.35)' : 'none', labelColor: active ? '#2E3A52' : '#9C958A' }; });
+    const teamMeta = {
+      research: { name: 'Research', roster: 'Analyst, Researcher', swatch: '#C2DAC6', accent: '#3FB4DC' },
+      planning: { name: 'Product Planning', roster: 'PM, Spec writer', swatch: '#DDD3E4', accent: '#9B7FC0' },
+      dev: { name: 'Development', roster: 'Architect, SWE, QA, Reviewer, DevOps', swatch: '#C8D6E4', accent: '#5E7CC0' },
+      design: { name: 'Design', roster: 'UX, Visual', swatch: '#EEE7D6', accent: '#B0A082' },
+      data: { name: 'Data', roster: 'Analyst, Engineer', swatch: '#E2EAD8', accent: '#8FA06E' },
+    };
+    const teamChoices = Object.keys(teamMeta).map(id => { const on = S.teams[id], m = teamMeta[id]; return {
+      name: m.name, roster: m.roster, swatch: m.swatch, bg: on ? '#F0F7FA' : '#FFFFFF', border: on ? m.accent : '#E6E1D4',
+      checkBg: on ? m.accent : '#FFFFFF', checkBorder: on ? '#FFFFFF' : '#E0DBCE', check: on ? '\u2713' : '',
+      onToggle: () => this.setState({ teams: Object.assign({}, S.teams, { [id]: !on }) }) }; });
+    const lastStep = S.step >= 4;
+    const picked = Object.keys(S.teams).filter(k => S.teams[k]).map(k => teamMeta[k].name);
+    return {
+      active: !S.done, done: S.done,
+      doneLine: picked.join(', ') + ' \u2014 ' + picked.length + ' teams placed on the map for ' + S.projectName + '.',
+      steps,
+      stepSignin: S.step === 0, stepName: S.step === 1, stepProject: S.step === 2, stepTeams: S.step === 3, stepContext: S.step === 4,
+      displayName: S.displayName, projectName: S.projectName, teamChoices,
+      onName: e => this.setState({ displayName: e.target.value }),
+      onProject: e => this.setState({ projectName: e.target.value }),
+      next: () => { if (lastStep) this.setState({ done: true }); else this.setState({ step: S.step + 1 }); },
+      back: () => { if (S.step > 0) this.setState({ step: S.step - 1 }); },
+      backColor: S.step > 0 ? '#8A857C' : '#D8D2C2',
+      nextLabel: lastStep ? 'Enter the office \u2192' : 'Continue \u2192',
+      nextBg: lastStep ? 'linear-gradient(180deg, #74D982 0%, #4DBB5C 100%)' : 'linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%)',
+      restart: () => this.setState({ step: 0, done: false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

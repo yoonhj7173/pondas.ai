@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&amp;family=Nunito:wght@400;600;700;800&amp;family=Bricolage+Grotesque:wght@600;700&amp;family=Mulish:wght@400;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; padding: 0; background: #1d2230; }
+    * { box-sizing: border-box; }
+    input { font-family: inherit; outline: none; }
+    input::placeholder { color: #A8A294; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</helmet>
+
+<div style="width: 100%; height: 100vh; min-height: 720px; position: relative; overflow: hidden; font-family: 'Mulish', sans-serif; color: #3A3631; background: #C6C9BC;">
+
+  <!-- ============================= ONBOARDING ============================= -->
+  <sc-if value="{{ isOnboarding }}" hint-placeholder-val="{{ true }}">
+  <div style="position: absolute; inset: 0; background: linear-gradient(165deg, #DDE4D6 0%, #CFD6C6 55%, #C6C9BC 100%);">
+    <div style="position: absolute; inset: 0; background-image: linear-gradient(rgba(90,95,80,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(90,95,80,0.05) 1px, transparent 1px); background-size: 48px 48px;"></div>
+    <div style="position: absolute; left: 40px; top: 32px; display: flex; align-items: center; gap: 12px;">
+      <div style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2.5px solid #FFFFFF; box-shadow: 0 3px 8px rgba(40,80,100,0.3); display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 22px; font-weight: 800; color: #FFFFFF; text-shadow: 0 1px 2px rgba(20,80,110,0.4);">C</div>
+      <span style="font-family: 'Baloo 2', sans-serif; font-size: 22px; font-weight: 800; color: #2E3A52;">Craft</span>
+    </div>
+
+    <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 680px; max-width: 92vw; background: rgba(255,255,255,0.97); border-radius: 24px; border: 3px solid #FFFFFF; box-shadow: 0 24px 60px rgba(50,55,45,0.28); padding: 34px 40px 36px; display: flex; flex-direction: column; gap: 24px;">
+      <!-- stepper -->
+      <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; background: {{ s.bg }}; color: {{ s.fg }}; box-shadow: {{ s.shadow }};">{{ s.mark }}</div>
+            <span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: {{ s.labelColor }}; white-space: nowrap;">{{ s.label }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- STEP 0 sign in -->
+      <sc-if value="{{ stepSignin }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 18px; align-items: center; padding: 14px 0 6px;">
+          <h2 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 26px; font-weight: 800; color: #2C2925; text-align: center;">Welcome to Craft</h2>
+          <p style="margin: 0; font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 600; color: #7A746A; text-align: center; max-width: 420px; position: static">Run your agents like a game.</p>
+          <button onClick="{{ next }}" style="display: flex; align-items: center; gap: 12px; background: #FFFFFF; border: 2.5px solid #E6E1D4; border-radius: 14px; padding: 13px 26px; cursor: pointer; box-shadow: 0 3px 8px rgba(60,50,30,0.1);"><span style="width: 22px; height: 22px; border-radius: 50%; background: conic-gradient(#EA4335 0 25%, #FBBC05 0 50%, #34A853 0 75%, #4285F4 0);"></span><span style="font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 700; color: #3A3631;">Continue with Google</span></button>
+        </div>
+      </sc-if>
+
+      <!-- STEP 1 name -->
+      <sc-if value="{{ stepName }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <h2 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 24px; font-weight: 800; color: #2C2925;">What should we call you?</h2>
+          <div style="display: flex; flex-direction: column; gap: 7px;"><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #9C958A; letter-spacing: 0.04em;">DISPLAY NAME</span><input value="{{ displayName }}" onChange="{{ onName }}" style="background: #F7F5EF; border: 2.5px solid #3FB4DC; border-radius: 12px; padding: 12px 15px; font-size: 15px; font-weight: 700; color: #2C2925; box-shadow: 0 0 0 3px rgba(63,180,220,0.12);"></div>
+        </div>
+      </sc-if>
+
+      <!-- STEP 2 project -->
+      <sc-if value="{{ stepProject }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <h2 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 24px; font-weight: 800; color: #2C2925;">Name your first project</h2>
+          <p style="margin: 0; font-family: 'Nunito', sans-serif; font-size: 13.5px; font-weight: 600; color: #7A746A;">A project is one office map — its own teams, agents and budget.</p>
+          <div style="display: flex; flex-direction: column; gap: 7px;"><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #9C958A; letter-spacing: 0.04em;">PROJECT NAME</span><input value="{{ projectName }}" onChange="{{ onProject }}" style="background: #F7F5EF; border: 2.5px solid #3FB4DC; border-radius: 12px; padding: 12px 15px; font-size: 15px; font-weight: 700; color: #2C2925; box-shadow: 0 0 0 3px rgba(63,180,220,0.12);"></div>
+        </div>
+      </sc-if>
+
+      <!-- STEP 3 teams -->
+      <sc-if value="{{ stepTeams }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;"><h2 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 24px; font-weight: 800; color: #2C2925;">Which teams do you need?</h2><p style="margin: 0; font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 600; color: #7A746A;">Pick at least one. Each becomes a room with its agents. Change anytime.</p></div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <sc-for list="{{ teamChoices }}" as="t" hint-placeholder-count="5">
+              <div onClick="{{ t.onToggle }}" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 13px; cursor: pointer; background: {{ t.bg }}; border: 2.5px solid {{ t.border }};">
+                <div style="width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0; background: {{ t.swatch }}; display: flex; align-items: center; justify-content: center;"><div style="width: 16px; height: 20px; border-radius: 3px; background: #FFFDF6; border: 2px solid rgba(70,70,60,0.35);"></div></div>
+                <div style="flex: 1; min-width: 0;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 700; color: #2C2925;">{{ t.name }}</div><div style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 600; color: #8A857C;">{{ t.roster }}</div></div>
+                <div style="width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; background: {{ t.checkBg }}; border: 2px solid {{ t.checkBorder }}; display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-size: 12px; font-weight: 800;">{{ t.check }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- STEP 4 context -->
+      <sc-if value="{{ stepContext }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;"><h2 style="margin: 0; font-family: 'Baloo 2', sans-serif; font-size: 24px; font-weight: 800; color: #2C2925;">Add context <span style="font-size: 14px; color: #B0A89A; font-weight: 700;">optional</span></h2><p style="margin: 0; font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 600; color: #7A746A;">Drop files your agents should know about. You can also do this later in Settings.</p></div>
+          <div style="border: 2.5px dashed #D8D2C2; border-radius: 14px; padding: 30px; text-align: center; background: #FAF8F2;"><div style="font-size: 26px; margin-bottom: 6px;">📎</div><div style="font-family: 'Nunito', sans-serif; font-size: 13.5px; font-weight: 700; color: #A8A294;">Drop files here, or click to browse</div></div>
+        </div>
+      </sc-if>
+
+      <!-- nav -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 2px;">
+        <span onClick="{{ back }}" style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 700; color: {{ backColor }}; cursor: pointer;">← Back</span>
+        <button onClick="{{ next }}" style="font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 800; color: #FFFFFF; background: {{ nextBg }}; border: 2.5px solid #FFFFFF; border-radius: 999px; padding: 11px 30px; cursor: pointer; box-shadow: 0 4px 10px rgba(40,90,70,0.32); text-shadow: 0 1px 2px rgba(20,80,60,0.4);">{{ nextLabel }}</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============================= MAP APP ============================= -->
+  <sc-if value="{{ isMap }}" hint-placeholder-val="{{ false }}">
+  <div onMouseMove="{{ onPanMove }}" onMouseUp="{{ onPanEnd }}" onMouseLeave="{{ onPanEnd }}" onWheel="{{ onWheel }}" style="position: absolute; inset: 0;">
+    <!-- pan surface (drag empty space to pan) -->
+    <div onMouseDown="{{ onPanStart }}" style="position: absolute; inset: 0; background: #C6C9BC; cursor: grab;"></div>
+    <!-- world layer: pans & zooms; HUD stays fixed -->
+    <div style="position: absolute; inset: 0; transform: {{ worldTransform }}; transform-origin: 0px 0px; pointer-events: none;">
+      <div style="position: absolute; left: -2400px; top: -2400px; width: 6000px; height: 6000px; background-image: linear-gradient(rgba(90,95,80,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(90,95,80,0.06) 1px, transparent 1px); background-size: 42px 42px;"></div>
+
+    <!-- ROOMS -->
+    <sc-if value="{{ isAcme }}" hint-placeholder-val="{{ true }}">
+    <!-- Research -->
+    <div style="position: absolute; left: {{ posResearchX }}px; top: {{ posResearchY }}px; width: 410px; height: 280px; pointer-events: auto;">
+      <div onMouseDown="{{ roomStart.research }}" style="position: absolute; left: 0; top: 0; width: 410px; height: 42px; border-radius: 8px 8px 0 0; background: linear-gradient(180deg, #8A7A5E 0px, #8A7A5E 10px, #D9CCAB 10px, #CEC09C 42px); cursor: grab;"></div>
+      <div onClick="{{ openTeam.research }}" style="position: absolute; left: 0; top: 42px; width: 410px; height: 228px; background: #F2EFE3; background-image: linear-gradient(45deg, #E2E4D0 25%, transparent 25%, transparent 75%, #E2E4D0 75%), linear-gradient(45deg, #E2E4D0 25%, transparent 25%, transparent 75%, #E2E4D0 75%); background-position: 0 0, 16px 16px; background-size: 32px 32px; cursor: pointer;"></div>
+      <div style="position: absolute; left: 16px; top: 58px; right: 16px; bottom: 26px; border-radius: 10px; background: #C2DAC6; pointer-events: none;"></div>
+      <div style="position: absolute; left: 50%; top: 22px; transform: translateX(-50%); pointer-events: none;"><div style="position: relative; background: #2E3A52; color: #FFFFFF; font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 700; padding: 5px 16px; border-radius: 7px; border: 2px solid #FFFFFF; box-shadow: 0 5px 8px rgba(30,38,55,0.4);">Research<div style="position: absolute; left: 16px; bottom: 100%; width: 2.5px; height: 18px; background: #5A5448;"></div><div style="position: absolute; right: 16px; bottom: 100%; width: 2.5px; height: 18px; background: #5A5448;"></div><div style="position: absolute; left: 12px; bottom: calc(100% + 16px); width: 9px; height: 6px; border-radius: 2px 2px 3px 3px; background: #5A5448;"></div><div style="position: absolute; right: 12px; bottom: calc(100% + 16px); width: 9px; height: 6px; border-radius: 2px 2px 3px 3px; background: #5A5448;"></div></div></div>
+      <!-- analyst (needs-input) -->
+      <sc-if value="{{ vis.analyst }}" hint-placeholder-val="{{ true }}">
+      <div onClick="{{ openAgent.analyst }}" style="position: absolute; left: {{ rxA }}px; top: 119px; width: 106px; height: 82px; cursor: pointer;">
+        <dc-import name="Workstation" facing="left" body="#5FA89B" head="#EFC9A2" arm="#4E8B80" glow="{{ analystGlow }}" badge-show="{{ showAnalystBadge }}" badge="!" badge-bg="#F7B731" badge-fg="#4A3406" hint-size="100%,100%"></dc-import>
+      </div>
+      </sc-if>
+      <!-- researcher (working) -->
+      <sc-if value="{{ vis.researcher }}" hint-placeholder-val="{{ true }}">
+      <div onClick="{{ openAgent.researcher }}" style="position: absolute; left: {{ rxB }}px; top: 119px; width: 106px; height: 82px; cursor: pointer;">
+        <dc-import name="Workstation" facing="right" body="#D98A70" head="#E5B98F" arm="#C2755C" glow="rgba(79,195,232,0.55)" hint-size="100%,100%"></dc-import>
+      </div>
+      </sc-if>
+      <sc-if value="{{ hiredShow }}" hint-placeholder-val="{{ false }}"><div onClick="{{ openHired }}" style="position: absolute; left: 152px; top: 119px; width: 106px; height: 82px; cursor: pointer;"><dc-import name="Workstation" facing="right" body="#C9A24B" head="#EFC9A2" arm="#AB8736" glow="rgba(0,0,0,0)" hint-size="100%,100%"></dc-import></div></sc-if>
+      <sc-if value="{{ emptyResearch }}" hint-placeholder-val="{{ false }}"><div style="position: absolute; left: 50%; top: 56%; transform: translate(-50%, -50%); font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 800; color: #6E8578; background: rgba(255,255,255,0.65); border-radius: 999px; padding: 8px 18px; pointer-events: none;">No agents yet &mdash; hire your first</div></sc-if>
+    </div>
+
+    <!-- Development -->
+    <div style="position: absolute; left: {{ posDevX }}px; top: {{ posDevY }}px; width: 430px; height: 370px; pointer-events: auto;">
+      <div onMouseDown="{{ roomStart.dev }}" style="position: absolute; left: 0; top: 0; width: 430px; height: 42px; border-radius: 8px 8px 0 0; background: linear-gradient(180deg, #8A7A5E 0px, #8A7A5E 10px, #D9CCAB 10px, #CEC09C 42px); cursor: grab;"></div>
+      <div onClick="{{ openTeam.dev }}" style="position: absolute; left: 0; top: 42px; width: 430px; height: 318px; background: #F2EFE3; background-image: linear-gradient(45deg, #E2E4D0 25%, transparent 25%, transparent 75%, #E2E4D0 75%), linear-gradient(45deg, #E2E4D0 25%, transparent 25%, transparent 75%, #E2E4D0 75%); background-position: 0 0, 16px 16px; background-size: 32px 32px; cursor: pointer;"></div>
+      <div style="position: absolute; left: 16px; top: 58px; right: 16px; bottom: 26px; border-radius: 10px; background: #C8D6E4; pointer-events: none;"></div>
+      <div style="position: absolute; left: 50%; top: 22px; transform: translateX(-50%); pointer-events: none;"><div style="position: relative; background: #2E3A52; color: #FFFFFF; font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 700; padding: 5px 16px; border-radius: 7px; border: 2px solid #FFFFFF; box-shadow: 0 5px 8px rgba(30,38,55,0.4);">Development<div style="position: absolute; left: 16px; bottom: 100%; width: 2.5px; height: 18px; background: #5A5448;"></div><div style="position: absolute; right: 16px; bottom: 100%; width: 2.5px; height: 18px; background: #5A5448;"></div><div style="position: absolute; left: 12px; bottom: calc(100% + 16px); width: 9px; height: 6px; border-radius: 2px 2px 3px 3px; background: #5A5448;"></div><div style="position: absolute; right: 12px; bottom: calc(100% + 16px); width: 9px; height: 6px; border-radius: 2px 2px 3px 3px; background: #5A5448;"></div></div></div>
+      <sc-if value="{{ vis.architect }}" hint-placeholder-val="{{ true }}"><div onClick="{{ openAgent.architect }}" style="position: absolute; left: 64px; top: 76px; width: 106px; height: 82px; cursor: pointer;"><dc-import name="Workstation" facing="left" body="#5FA89B" head="#EFC9A2" arm="#4E8B80" glow="rgba(79,195,232,0.55)" hint-size="100%,100%"></dc-import></div></sc-if>
+      <sc-if value="{{ vis.swe }}" hint-placeholder-val="{{ true }}"><div onClick="{{ openAgent.swe }}" style="position: absolute; left: 260px; top: 76px; width: 106px; height: 82px; cursor: pointer;"><dc-import name="Workstation" facing="right" body="#D98A70" head="#E5B98F" arm="#C2755C" glow="rgba(79,195,232,0.55)" hint-size="100%,100%"></dc-import></div></sc-if>
+      <sc-if value="{{ vis.qa }}" hint-placeholder-val="{{ true }}"><div onClick="{{ openAgent.qa }}" style="position: absolute; left: 64px; top: 168px; width: 106px; height: 82px; cursor: pointer;"><dc-import name="Workstation" facing="left" body="#B58FBF" head="#EFC9A2" arm="#9A75A3" glow="rgba(232,80,58,0.55)" badge-show="{{ showQaBadge }}" badge="&times;" badge-bg="#E8503A" badge-fg="#FFFFFF" hint-size="100%,100%"></dc-import></div></sc-if>
+      <sc-if value="{{ vis.reviewer }}" hint-placeholder-val="{{ true }}"><div onClick="{{ openAgent.reviewer }}" style="position: absolute; left: 260px; top: 168px; width: 106px; height: 82px; cursor: pointer;"><dc-import name="Workstation" facing="right" body="#93A86E" head="#E5B98F" arm="#78905A" glow="rgba(0,0,0,0)" hint-size="100%,100%"></dc-import></div></sc-if>
+      <sc-if value="{{ vis.devops }}" hint-placeholder-val="{{ true }}"><div onClick="{{ openAgent.devops }}" style="position: absolute; left: 162px; top: 252px; width: 106px; height: 82px; cursor: pointer;"><dc-import name="Workstation" facing="right" body="#C9A24B" head="#EFC9A2" arm="#AB8736" glow="rgba(0,0,0,0)" hint-size="100%,100%"></dc-import></div></sc-if>
+      <sc-if value="{{ emptyDev }}" hint-placeholder-val="{{ false }}"><div style="position: absolute; left: 50%; top: 56%; transform: translate(-50%, -50%); font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 800; color: #5E7188; background: rgba(255,255,255,0.65); border-radius: 999px; padding: 8px 18px; pointer-events: none;">No agents yet &mdash; hire your first</div></sc-if>
+    </div>
+
+    <!-- Planning -->
+    <div style="position: absolute; left: {{ posPlanningX }}px; top: {{ posPlanningY }}px; width: 340px; height: 220px; pointer-events: auto;">
+      <div onMouseDown="{{ roomStart.planning }}" style="position: absolute; left: 0; top: 0; width: 340px; height: 40px; border-radius: 8px 8px 0 0; background: linear-gradient(180deg, #8A7A5E 0px, #8A7A5E 9px, #D9CCAB 9px, #CEC09C 40px); cursor: grab;"></div>
+      <div onClick="{{ openTeam.planning }}" style="position: absolute; left: 0; top: 40px; width: 340px; height: 172px; background: #F2EFE3; background-image: linear-gradient(45deg, #E2E4D0 25%, transparent 25%, transparent 75%, #E2E4D0 75%), linear-gradient(45deg, #E2E4D0 25%, transparent 25%, transparent 75%, #E2E4D0 75%); background-position: 0 0, 16px 16px; background-size: 32px 32px; cursor: pointer;"></div>
+      <div style="position: absolute; left: 14px; top: 54px; right: 14px; bottom: 22px; border-radius: 9px; background: #DDD3E4; pointer-events: none;"></div>
+      <div style="position: absolute; left: 50%; top: 22px; transform: translateX(-50%); pointer-events: none;"><div style="position: relative; background: #2E3A52; color: #FFFFFF; font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 700; padding: 5px 16px; border-radius: 7px; border: 2px solid #FFFFFF; box-shadow: 0 5px 8px rgba(30,38,55,0.4); white-space: nowrap;">Product Planning<div style="position: absolute; left: 16px; bottom: 100%; width: 2.5px; height: 18px; background: #5A5448;"></div><div style="position: absolute; right: 16px; bottom: 100%; width: 2.5px; height: 18px; background: #5A5448;"></div><div style="position: absolute; left: 12px; bottom: calc(100% + 16px); width: 9px; height: 6px; border-radius: 2px 2px 3px 3px; background: #5A5448;"></div><div style="position: absolute; right: 12px; bottom: calc(100% + 16px); width: 9px; height: 6px; border-radius: 2px 2px 3px 3px; background: #5A5448;"></div></div></div>
+      <sc-if value="{{ vis.pm }}" hint-placeholder-val="{{ true }}"><div onClick="{{ openAgent.pm }}" style="position: absolute; left: 40px; top: 88px; width: 106px; height: 82px; cursor: pointer;"><dc-import name="Workstation" facing="left" body="#D98A70" head="#EFC9A2" arm="#C2755C" glow="rgba(95,201,110,0.6)" badge-show="{{ true }}" badge="&#10003;" badge-bg="#5FC96E" badge-fg="#FFFFFF" hint-size="100%,100%"></dc-import></div></sc-if>
+      <sc-if value="{{ vis.spec }}" hint-placeholder-val="{{ true }}"><div onClick="{{ openAgent.spec }}" style="position: absolute; left: 194px; top: 88px; width: 106px; height: 82px; cursor: pointer;"><dc-import name="Workstation" facing="right" body="#5FA89B" head="#E5B98F" arm="#4E8B80" glow="rgba(0,0,0,0)" hint-size="100%,100%"></dc-import></div></sc-if>
+      <sc-if value="{{ emptyPlanning }}" hint-placeholder-val="{{ false }}"><div style="position: absolute; left: 50%; top: 58%; transform: translate(-50%, -50%); font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 800; color: #7A6E88; background: rgba(255,255,255,0.65); border-radius: 999px; padding: 8px 16px; pointer-events: none;">No agents yet</div></sc-if>
+    </div>
+    </sc-if>
+
+    <!-- NEW ROOM (added via Add Team) -->
+    <sc-if value="{{ newRoomShow }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; left: 1280px; top: 100px; width: 340px; height: 220px; pointer-events: auto;">
+      <div onClick="{{ openTeamNew }}" style="position: absolute; left: 0; top: 0; width: 340px; height: 40px; border-radius: 8px 8px 0 0; background: linear-gradient(180deg, #8A7A5E 0px, #8A7A5E 9px, #D9CCAB 9px, #CEC09C 40px); cursor: pointer;"></div>
+      <div onClick="{{ openTeamNew }}" style="position: absolute; left: 0; top: 40px; width: 340px; height: 172px; background: #F2EFE3; background-image: linear-gradient(45deg, #E2E4D0 25%, transparent 25%, transparent 75%, #E2E4D0 75%), linear-gradient(45deg, #E2E4D0 25%, transparent 25%, transparent 75%, #E2E4D0 75%); background-position: 0 0, 16px 16px; background-size: 32px 32px; cursor: pointer;"></div>
+      <div style="position: absolute; left: 14px; top: 54px; right: 14px; bottom: 22px; border-radius: 9px; background: {{ newRoomCarpet }}; pointer-events: none;"></div>
+      <div style="position: absolute; left: 50%; top: 22px; transform: translateX(-50%); pointer-events: none;"><div style="position: relative; background: #2E3A52; color: #FFFFFF; font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 700; padding: 5px 16px; border-radius: 7px; border: 2px solid #FFFFFF; box-shadow: 0 5px 8px rgba(30,38,55,0.4); white-space: nowrap;">{{ newRoomName }}<div style="position: absolute; left: 16px; bottom: 100%; width: 2.5px; height: 18px; background: #5A5448;"></div><div style="position: absolute; right: 16px; bottom: 100%; width: 2.5px; height: 18px; background: #5A5448;"></div><div style="position: absolute; left: 12px; bottom: calc(100% + 16px); width: 9px; height: 6px; border-radius: 2px 2px 3px 3px; background: #5A5448;"></div><div style="position: absolute; right: 12px; bottom: calc(100% + 16px); width: 9px; height: 6px; border-radius: 2px 2px 3px 3px; background: #5A5448;"></div></div></div>
+      <div onClick="{{ openNR1 }}" style="position: absolute; left: 40px; top: 88px; width: 106px; height: 82px; cursor: pointer;"><dc-import name="Workstation" facing="left" body="{{ nr1Body }}" head="#EFC9A2" arm="{{ nr1Arm }}" glow="rgba(79,195,232,0.55)" hint-size="100%,100%"></dc-import></div>
+      <div onClick="{{ openNR2 }}" style="position: absolute; left: 194px; top: 88px; width: 106px; height: 82px; cursor: pointer;"><dc-import name="Workstation" facing="right" body="{{ nr2Body }}" head="#E5B98F" arm="{{ nr2Arm }}" glow="rgba(0,0,0,0)" hint-size="100%,100%"></dc-import></div>
+    </div>
+    </sc-if>
+
+    <!-- SIDE PROJECT OFFICE -->
+    <sc-if value="{{ isSide }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; left: 560px; top: 240px; width: 340px; height: 220px; pointer-events: auto;">
+      <div onClick="{{ openTeamSide }}" style="position: absolute; left: 0; top: 0; width: 340px; height: 40px; border-radius: 8px 8px 0 0; background: linear-gradient(180deg, #8A7A5E 0px, #8A7A5E 9px, #D9CCAB 9px, #CEC09C 40px); cursor: pointer;"></div>
+      <div onClick="{{ openTeamSide }}" style="position: absolute; left: 0; top: 40px; width: 340px; height: 172px; background: #F2EFE3; background-image: linear-gradient(45deg, #E2E4D0 25%, transparent 25%, transparent 75%, #E2E4D0 75%), linear-gradient(45deg, #E2E4D0 25%, transparent 25%, transparent 75%, #E2E4D0 75%); background-position: 0 0, 16px 16px; background-size: 32px 32px; cursor: pointer;"></div>
+      <div style="position: absolute; left: 14px; top: 54px; right: 14px; bottom: 22px; border-radius: 9px; background: #EEE7D6; pointer-events: none;"></div>
+      <div style="position: absolute; left: 50%; top: 22px; transform: translateX(-50%); pointer-events: none;"><div style="position: relative; background: #2E3A52; color: #FFFFFF; font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 700; padding: 5px 16px; border-radius: 7px; border: 2px solid #FFFFFF; box-shadow: 0 5px 8px rgba(30,38,55,0.4); white-space: nowrap;">Design<div style="position: absolute; left: 16px; bottom: 100%; width: 2.5px; height: 18px; background: #5A5448;"></div><div style="position: absolute; right: 16px; bottom: 100%; width: 2.5px; height: 18px; background: #5A5448;"></div><div style="position: absolute; left: 12px; bottom: calc(100% + 16px); width: 9px; height: 6px; border-radius: 2px 2px 3px 3px; background: #5A5448;"></div><div style="position: absolute; right: 12px; bottom: calc(100% + 16px); width: 9px; height: 6px; border-radius: 2px 2px 3px 3px; background: #5A5448;"></div></div></div>
+      <div onClick="{{ openSideux }}" style="position: absolute; left: 117px; top: 88px; width: 106px; height: 82px; cursor: pointer;"><dc-import name="Workstation" facing="right" body="#B58FBF" head="#EFC9A2" arm="#9A75A3" glow="rgba(0,0,0,0)" hint-size="100%,100%"></dc-import></div>
+    </div>
+    </sc-if>
+
+    </div>
+
+    <!-- zoom control -->
+    <div style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; background: rgba(36,46,66,0.92); border-radius: 12px; padding: 6px; box-shadow: 0 6px 16px rgba(20,28,45,0.3);">
+      <span onClick="{{ zoomIn }}" style="width: 30px; height: 30px; border-radius: 8px; background: rgba(255,255,255,0.12); color: #FFFFFF; font-family: 'Baloo 2', sans-serif; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; cursor: pointer;">+</span>
+      <span onClick="{{ zoomReset }}" style="width: 30px; height: 22px; color: #9FB6C9; font-family: 'JetBrains Mono', monospace; font-size: 9px; display: flex; align-items: center; justify-content: center; cursor: pointer;">fit</span>
+      <span onClick="{{ zoomOut }}" style="width: 30px; height: 30px; border-radius: 8px; background: rgba(255,255,255,0.12); color: #FFFFFF; font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800; display: flex; align-items: center; justify-content: center; cursor: pointer;">&minus;</span>
+    </div>
+
+    <!-- ===== HUD ===== -->
+    <!-- project switcher -->
+    <div style="position: absolute; left: 24px; top: 20px;">
+      <div onClick="{{ toggleMenu }}" style="display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2.5px solid #FFFFFF; border-radius: 999px; padding: 9px 18px; box-shadow: 0 3px 8px rgba(40,80,100,0.35); cursor: pointer;"><span style="width: 18px; height: 18px; border-radius: 5px; background: rgba(255,255,255,0.3); border: 2px solid #FFFFFF;"></span><span style="font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #FFFFFF; text-shadow: 0 1px 2px rgba(20,80,110,0.4);">{{ curProjectLabel }}</span><span style="font-size: 11px; color: #FFFFFF;">▾</span></div>
+      <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top: 8px; width: 240px; background: #FFFFFF; border-radius: 14px; border: 2px solid #FFFFFF; box-shadow: 0 12px 30px rgba(50,55,45,0.25); padding: 8px; display: flex; flex-direction: column; gap: 2px;">
+          <div onClick="{{ switchAcme }}" style="display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 10px; background: #F0F7FA; cursor: pointer;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3FB4DC;"></span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 700; color: #2C2925; flex: 1;">{{ projectName }}</span><span style="font-size: 11px; color: #3FB4DC;">✓</span></div>
+          <div onClick="{{ switchSide }}" style="display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 10px; cursor: pointer;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #C9C2B4;"></span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 700; color: #6A6258; flex: 1;">Side Project</span></div>
+          <div style="height: 1px; background: #ECE7DC; margin: 4px 0;"></div>
+          <div onClick="{{ openAddTeam }}" style="display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-radius: 10px; cursor: pointer;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 800; color: #4DBB5C;">+</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 700; color: #4DBB5C;">Add project</span></div>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- utility buttons -->
+    <div style="position: absolute; left: 24px; bottom: 24px; display: flex; flex-direction: column; gap: 10px;">
+      <div onClick="{{ openSettings }}" style="display: flex; align-items: center; justify-content: center; gap: 7px; width: 100px; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2.5px solid #FFFFFF; border-radius: 14px; padding: 10px 0; box-shadow: 0 3px 8px rgba(40,80,100,0.35); cursor: pointer;"><span style="font-size: 14px;">⚙</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; color: #FFFFFF; text-shadow: 0 1px 2px rgba(20,80,110,0.4);">Settings</span></div>
+      <div onClick="{{ openBoard }}" style="display: flex; align-items: center; justify-content: center; gap: 7px; width: 100px; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2.5px solid #FFFFFF; border-radius: 14px; padding: 10px 0; box-shadow: 0 3px 8px rgba(40,80,100,0.35); cursor: pointer;"><span style="font-size: 14px;">☑</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; color: #FFFFFF; text-shadow: 0 1px 2px rgba(20,80,110,0.4);">Board</span></div>
+      <div onClick="{{ openOutputs }}" style="display: flex; align-items: center; justify-content: center; gap: 7px; width: 100px; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2.5px solid #FFFFFF; border-radius: 14px; padding: 10px 0; box-shadow: 0 3px 8px rgba(40,80,100,0.35); cursor: pointer;"><span style="font-size: 14px;">📁</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; color: #FFFFFF; text-shadow: 0 1px 2px rgba(20,80,110,0.4);">Outputs</span></div>
+      <div onClick="{{ openAddTeam }}" style="display: flex; align-items: center; justify-content: center; gap: 7px; width: 100px; background: linear-gradient(180deg, #74D982 0%, #4DBB5C 100%); border: 2.5px solid #FFFFFF; border-radius: 14px; padding: 10px 0; box-shadow: 0 3px 8px rgba(40,100,50,0.35); cursor: pointer;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #FFFFFF;">+</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; color: #FFFFFF; text-shadow: 0 1px 2px rgba(20,90,40,0.4);">Team</span></div>
+    </div>
+
+    <!-- bell -->
+    <div style="position: absolute; right: 336px; top: 22px;">
+      <div onClick="{{ toggleNotif }}" style="position: relative; width: 44px; height: 44px; border-radius: 13px; background: rgba(36,46,66,0.92); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(20,28,45,0.3); cursor: pointer;"><span style="font-size: 19px;">🔔</span><sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}"><span style="position: absolute; right: -4px; top: -4px; min-width: 20px; height: 20px; border-radius: 999px; background: #E8503A; border: 2px solid #FFFFFF; color: #FFFFFF; font-family: 'Baloo 2', sans-serif; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 5px;">{{ unreadCount }}</span></sc-if></div>
+    </div>
+
+    <!-- toast -->
+    <sc-if value="{{ showToast }}" hint-placeholder-val="{{ true }}">
+      <div style="position: absolute; left: 50%; top: 20px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 11px; background: rgba(255,255,255,0.97); border: 2.5px solid #F7B731; border-radius: 999px; padding: 9px 10px 9px 9px; box-shadow: 0 8px 20px rgba(90,70,20,0.25); animation: toastIn 0.3s ease;">
+        <span style="width: 28px; height: 28px; border-radius: 50%; background: #F7B731; border: 2px solid #FFFFFF; color: #4A3406; font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;">!</span>
+        <span style="font-family: 'Nunito', sans-serif; font-size: 13.5px; font-weight: 800; color: #3A3631;">Analyst <span style="color: #8A857C; font-weight: 700;">(Research)</span> needs your input</span>
+        <span onClick="{{ focusAgent.analyst }}" style="font-family: 'Baloo 2', sans-serif; font-size: 12.5px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2px solid #FFFFFF; border-radius: 999px; padding: 4px 14px; cursor: pointer; text-shadow: 0 1px 2px rgba(20,80,110,0.4);">View</span>
+        <span onClick="{{ dismissToast }}" style="width: 22px; height: 22px; border-radius: 50%; background: #F0EDE4; color: #9C958A; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;">×</span>
+      </div>
+    </sc-if>
+
+    <!-- event feed -->
+    <div style="position: absolute; right: 20px; top: 20px; width: 296px; background: rgba(36,46,66,0.92); border-radius: 16px; padding: 16px 16px 12px; box-shadow: 0 8px 24px rgba(20,28,45,0.35);">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #FFFFFF;">Activity</span><span style="display: inline-flex; align-items: center; gap: 5px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #9FB6C9;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #5FC96E;"></span>LIVE</span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <sc-for list="{{ feed }}" as="f" hint-placeholder-count="6">
+          <div onClick="{{ f.onClick }}" style="display: flex; align-items: flex-start; gap: 7px; padding: 5px 8px; border-radius: 8px; background: {{ f.rowBg }}; cursor: pointer;"><span style="width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; background: {{ f.dot }};"></span><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 700; line-height: 1.35; color: #C7D4E0; flex: 1; min-width: 0;"><span style="color: #8298AC;">{{ f.team }}</span> <span style="color: #FFFFFF;">{{ f.who }}</span> <span style="font-weight: 800; color: {{ f.stColor }};">{{ f.stWord }}</span></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #7E92A8; flex-shrink: 0; margin-top: 2px;">{{ f.time }}</span></div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- notification center -->
+    <sc-if value="{{ notifOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; right: 20px; top: 76px; width: 344px; background: rgba(255,255,255,0.98); border-radius: 18px; border: 2.5px solid #FFFFFF; box-shadow: 0 20px 48px rgba(50,55,45,0.3); overflow: hidden;">
+        <div style="padding: 16px 18px 12px; border-bottom: 1px solid #ECE7DC; display: flex; align-items: center; justify-content: space-between;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 800; color: #2C2925;">Notifications</span><span onClick="{{ markAllRead }}" style="font-family: 'Nunito', sans-serif; font-size: 11.5px; font-weight: 800; color: #3FB4DC; cursor: pointer;">Mark all read</span></div>
+        <div style="padding: 10px 11px; display: flex; flex-direction: column; gap: 4px;">
+          <div onClick="{{ focusAgent.qa }}" style="display: flex; gap: 10px; padding: 11px; border-radius: 12px; background: #FDEEEB; cursor: pointer;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #E8503A; border: 2px solid #FFFFFF; color: #FFF; font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">×</span><div style="flex: 1; min-width: 0;"><div style="font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 800; color: #2C2925;">QA Engineer failed</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #B0A89A; margin-top: 3px;">Development · 2m ago</div></div></div>
+          <div onClick="{{ focusAgent.analyst }}" style="display: flex; gap: 10px; padding: 11px; border-radius: 12px; background: #FFF8E8; cursor: pointer;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #F7B731; border: 2px solid #FFFFFF; color: #4A3406; font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">!</span><div style="flex: 1; min-width: 0;"><div style="font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 800; color: #2C2925;">Analyst needs input</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #B0A89A; margin-top: 3px;">Research · 3m ago</div></div></div>
+          <div onClick="{{ openOutputs }}" style="display: flex; gap: 10px; padding: 11px; border-radius: 12px; cursor: pointer;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #5FC96E; border: 2px solid #FFFFFF; color: #FFF; font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">✓</span><div style="flex: 1; min-width: 0;"><div style="font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 800; color: #2C2925;">PM finished a task</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #B0A89A; margin-top: 3px;">Planning · 14m ago</div></div></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- chat -->
+    <sc-if value="{{ chatFocused }}" hint-placeholder-val="{{ false }}"><div style="position: absolute; inset: 0; background: rgba(22,30,24,0.36); pointer-events: none;"></div></sc-if>
+    <div style="position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); width: 640px; max-width: 70vw; display: flex; flex-direction: column; gap: 10px; align-items: flex-start;">
+      <sc-if value="{{ chatFocused }}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-start; width: 100%;">
+      <sc-for list="{{ chat }}" as="m" hint-placeholder-count="1">
+        <div style="display: flex; align-items: flex-start; gap: 8px; max-width: 520px; align-self: {{ m.align }};">
+          <sc-if value="{{ m.isOrch }}" hint-placeholder-val="{{ true }}"><span style="width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2px solid #FFFFFF; flex-shrink: 0; box-shadow: 0 2px 6px rgba(40,80,100,0.3); display: inline-flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 800; color: #FFFFFF;">O</span></sc-if>
+          <div style="background: {{ m.bubbleBg }}; border-radius: {{ m.radius }}; padding: 10px 14px; box-shadow: 0 4px 12px rgba(50,55,45,0.18);"><div style="font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; line-height: 1.5; color: {{ m.color }};">{{ m.text }}</div></div>
+        </div>
+      </sc-for>
+      </div></sc-if>
+      <div style="width: 100%; display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.97); border: 2.5px solid #FFFFFF; border-radius: 999px; padding: 7px 8px 7px 20px; box-shadow: 0 8px 24px rgba(50,55,45,0.3); position: relative;">
+        <input value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" onFocus="{{ onChatFocus }}" onBlur="{{ onChatBlur }}" placeholder="Tell your company what to do…" style="flex: 1; border: none; background: transparent; font-size: 14px; font-weight: 600; color: #3A3631;">
+        <span onClick="{{ send }}" style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2px solid #FFFFFF; border-radius: 999px; padding: 7px 20px; cursor: pointer; text-shadow: 0 1px 2px rgba(20,80,110,0.4);">Send</span>
+      </div>
+    </div>
+
+    <!-- token counter -->
+    <sc-if value="{{ tokenOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; right: 20px; bottom: 78px; width: 280px; background: rgba(36,46,66,0.95); border-radius: 16px; padding: 16px; box-shadow: 0 16px 40px rgba(20,28,45,0.4); display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 800; color: #FFFFFF;">Token usage</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #9FB6C9; letter-spacing: 0.06em;">PER TEAM</span></div>
+        <div style="display: flex; flex-direction: column; gap: 7px;">
+          <sc-for list="{{ tokenTeams }}" as="tt" hint-placeholder-count="3"><div style="display: flex; align-items: center; gap: 9px;"><span style="width: 12px; height: 12px; border-radius: 4px; background: {{ tt.sw }}; flex-shrink: 0;"></span><span style="font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 700; color: #D5E2EC; flex: 1;">{{ tt.name }}</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; color: #FFFFFF;">{{ tt.val }}</span></div></sc-for>
+        </div>
+        <div style="height: 1px; background: rgba(255,255,255,0.14);"></div>
+        <div style="display: flex; align-items: center; justify-content: space-between;"><span style="font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 700; color: #9FB6C9;">Today</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #FFD96B;">128,487</span></div>
+        <div style="display: flex; align-items: center; justify-content: space-between;"><span style="font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 700; color: #9FB6C9;">Total (all time)</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #FFFFFF;">{{ tokenTotal }}</span></div>
+      </div>
+    </sc-if>
+    <div onClick="{{ toggleToken }}" style="position: absolute; right: 20px; bottom: 24px; display: inline-flex; align-items: center; gap: 10px; background: rgba(36,46,66,0.92); border-radius: 14px; padding: 10px 16px; box-shadow: 0 8px 24px rgba(20,28,45,0.35); cursor: pointer;">
+      <span style="width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #FFD96B 0%, #F2A91E 75%); border: 2px solid #FFF3CF; color: #7A5200; font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;">t</span>
+      <span style="display: flex; flex-direction: column; line-height: 1.15;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 19px; font-weight: 800; color: #FFFFFF; text-shadow: 0 2px 0 rgba(0,0,0,0.3);">{{ tokens }}</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #9FB6C9; letter-spacing: 0.06em;">TOKENS TODAY</span></span>
+    </div>
+
+    <!-- ===== TEAM PANEL ===== -->
+    <sc-if value="{{ showTeamPanel }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 372px; background: rgba(253,253,251,0.26); backdrop-filter: blur(10px) saturate(1.15); -webkit-backdrop-filter: blur(10px) saturate(1.15); box-shadow: 8px 0 36px rgba(50,55,45,0.16); display: flex; flex-direction: column;">
+        <div style="padding: 22px 24px 18px; background: linear-gradient(180deg, rgba(238,247,251,0.5) 0%, rgba(255,255,255,0.2) 100%); border-bottom: 1px solid rgba(236,231,220,0.6);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; color: #9CABBC;">TEAM</span><span onClick="{{ closeAll }}" style="width: 26px; height: 26px; border-radius: 8px; background: #F0EDE4; display: flex; align-items: center; justify-content: center; color: #9C958A; font-size: 14px; cursor: pointer;">×</span></div>
+          <div style="display: flex; align-items: center; gap: 12px;"><div style="width: 46px; height: 46px; border-radius: 13px; background: {{ teamSwatch }}; border: 2.5px solid #FFFFFF; box-shadow: 0 2px 6px rgba(90,120,150,0.25); display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 22px; font-weight: 800; color: rgba(44,41,37,0.55);">{{ teamInitial }}</div><div style="flex: 1; min-width: 0;"><sc-if value="{{ notRenaming }}" hint-placeholder-val="{{ true }}"><div style="font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800; color: #2C2925;">{{ teamName }}</div></sc-if><sc-if value="{{ renamingTeam }}" hint-placeholder-val="{{ false }}"><div style="display: flex; gap: 6px; align-items: center;"><input value="{{ renameDraft }}" onChange="{{ onRenameDraft }}" style="flex: 1; min-width: 0; background: #FFFFFF; border: 2px solid #3FB4DC; border-radius: 9px; padding: 5px 10px; font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #2C2925;" /><span onClick="{{ saveRename }}" style="font-family: 'Baloo 2', sans-serif; font-size: 12px; font-weight: 800; color: #FFFFFF; background: #4DBB5C; border-radius: 8px; padding: 7px 12px; cursor: pointer;">Save</span></div></sc-if><div style="font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 700; color: #8A857C;">{{ teamSub }}</div></div></div>
+        </div>
+        <div style="padding: 16px 24px; display: flex; gap: 12px; border-bottom: 1px solid #ECE7DC;"><div style="flex: 1; background: #F7F5EF; border-radius: 12px; padding: 12px 14px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #A8A294;">AGENTS</div><div style="font-family: 'Baloo 2', sans-serif; font-size: 22px; font-weight: 800; color: #2C2925;">{{ teamCount }}</div></div><div style="flex: 1.4; background: #F7F5EF; border-radius: 12px; padding: 12px 14px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #A8A294;">TOKENS</div><div style="font-family: 'Baloo 2', sans-serif; font-size: 22px; font-weight: 800; color: #2C2925;">{{ teamTokens }}</div></div></div>
+        <div style="flex: 1; overflow-y: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #A8A294; letter-spacing: 0.08em; padding: 0 6px 2px;">AGENTS</div>
+          <sc-for list="{{ teamRows }}" as="a" hint-placeholder-count="3">
+            <div onClick="{{ a.onClick }}" style="display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 12px; background: #F7F5EF; cursor: pointer;"><div style="width: 34px; height: 34px; border-radius: 10px; background: {{ teamSwatch }}; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 800; color: rgba(44,41,37,0.5);">{{ a.init }}</div><div style="flex: 1; min-width: 0;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 700; color: #2C2925;">{{ a.name }}</div><div style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 700; color: #8A857C;">{{ a.tier }}</div></div><span style="display: inline-flex; align-items: center; gap: 5px; font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: {{ a.fg }}; background: {{ a.bg }}; border-radius: 999px; padding: 3px 9px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: {{ a.dot }};"></span>{{ a.label }}</span></div>
+          </sc-for>
+        </div>
+        <div style="padding: 16px 20px; border-top: 1px solid #ECE7DC; display: flex; flex-direction: column; gap: 10px;">
+          <button onClick="{{ openAddAgent }}" style="width: 100%; font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #74D982 0%, #4DBB5C 100%); border: 2.5px solid #FFFFFF; border-radius: 12px; padding: 11px 0; cursor: pointer; box-shadow: 0 3px 8px rgba(40,100,50,0.3); text-shadow: 0 1px 2px rgba(20,90,40,0.4);">+ Add agent</button>
+          <div style="display: flex; gap: 10px;"><span onClick="{{ startRename }}" style="flex: 1; text-align: center; font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 800; color: #8A857C; background: #F0EDE4; border-radius: 10px; padding: 9px 0; cursor: pointer;">Rename</span><span style="flex: 1; text-align: center; font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 800; color: #B23A26; background: #FBE5E0; border-radius: 10px; padding: 9px 0; cursor: pointer;">Remove team</span></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== AGENT PANEL ===== -->
+    <sc-if value="{{ showAgentPanel }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 372px; background: rgba(253,253,251,0.26); backdrop-filter: blur(10px) saturate(1.15); -webkit-backdrop-filter: blur(10px) saturate(1.15); box-shadow: 8px 0 36px rgba(50,55,45,0.16); display: flex; flex-direction: column;">
+        <div style="padding: 22px 24px 18px; background: {{ agentHeaderBg }}; border-bottom: 1px solid #ECE7DC;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; color: #B6A179;">AGENT · {{ agentTeam }}</span><span onClick="{{ closeAll }}" style="width: 26px; height: 26px; border-radius: 8px; background: #F0EDE4; display: flex; align-items: center; justify-content: center; color: #9C958A; font-size: 14px; cursor: pointer;">×</span></div>
+          <div style="display: flex; align-items: center; gap: 12px;"><div style="width: 50px; height: 50px; border-radius: 14px; background: {{ teamSwatch }}; border: 2.5px solid #FFFFFF; box-shadow: 0 2px 6px rgba(90,120,150,0.25); display: flex; align-items: center; justify-content: center; font-family: 'Baloo 2', sans-serif; font-size: 24px; font-weight: 800; color: rgba(44,41,37,0.55);">{{ agentInitial }}</div><div style="flex: 1; min-width: 0;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 20px; font-weight: 800; color: #2C2925;">{{ agentName }}</div><span style="display: inline-flex; align-items: center; gap: 5px; font-family: 'Nunito', sans-serif; font-size: 11.5px; font-weight: 800; color: {{ agentFg }}; background: {{ agentBg }}; border-radius: 999px; padding: 3px 10px; margin-top: 3px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: {{ agentDot }};"></span>{{ agentLabel }}</span></div></div>
+        </div>
+        <div style="flex: 1; overflow-y: auto; padding: 16px 22px; display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 6px;"><div style="display: flex; align-items: center; justify-content: space-between;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #A8A294; letter-spacing: 0.08em;">ROLE</span><span onClick="{{ startEditRole }}" style="font-size: 12px; color: #3FB4DC; font-weight: 800; cursor: pointer;">✎ Edit</span></div><sc-if value="{{ notEditingRole }}" hint-placeholder-val="{{ true }}"><p style="margin: 0; font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 600; line-height: 1.55; color: #5C574F;">{{ agentRole }}</p></sc-if><sc-if value="{{ editingRole }}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-direction: column; gap: 7px;"><input value="{{ roleDraft }}" onChange="{{ onRoleDraft }}" style="background: #FFFFFF; border: 2px solid #3FB4DC; border-radius: 9px; padding: 8px 11px; font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 600; color: #3A3631;" /><span onClick="{{ saveRole }}" style="align-self: flex-start; font-family: 'Baloo 2', sans-serif; font-size: 12px; font-weight: 800; color: #FFFFFF; background: #4DBB5C; border-radius: 8px; padding: 6px 14px; cursor: pointer;">Save role</span></div></sc-if></div>
+          <div style="display: flex; align-items: center; gap: 10px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #A8A294; letter-spacing: 0.08em;">MODEL</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 12px; font-weight: 700; color: #5E7CC0; background: #EAF0F8; border: 1.5px solid #C4D3EA; border-radius: 999px; padding: 3px 12px;">{{ agentTier }}</span></div>
+          <sc-if value="{{ agentHasConns }}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; flex-direction: column; gap: 8px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #A8A294; letter-spacing: 0.08em;">CONNECTED AGENTS</span>
+              <sc-for list="{{ agentConns }}" as="c" hint-placeholder-count="2"><div style="display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 11px; background: #F7F5EF;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 700; color: #2C2925; flex: 1;">{{ c.name }}</span><span style="font-family: 'Nunito', sans-serif; font-size: 10.5px; font-weight: 800; color: {{ c.fg }}; background: {{ c.bg }}; border-radius: 999px; padding: 2px 9px;">{{ c.kind }}</span></div></sc-for>
+            </div>
+          </sc-if>
+          <div style="display: flex; gap: 10px;"><div style="flex: 1; background: #F7F5EF; border-radius: 11px; padding: 10px 12px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #A8A294;">TOKENS</div><div style="font-family: 'Baloo 2', sans-serif; font-size: 17px; font-weight: 800; color: #2C2925;">{{ agentTokens }}</div></div><div style="flex: 1; background: #F7F5EF; border-radius: 11px; padding: 10px 12px;"><div style="font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #A8A294;">STATUS</div><div style="font-family: 'Baloo 2', sans-serif; font-size: 17px; font-weight: 800; color: #2C2925;">{{ agentLabel }}</div></div></div>
+          <sc-if value="{{ agentShowInput }}" hint-placeholder-val="{{ false }}">
+            <div style="background: #FFF8E8; border: 2px solid #F7D88A; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 9px;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; color: #8A6200;">Provide human input</div><p style="margin: 0; font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 700; line-height: 1.5; color: #7A6A3A;">“Which competitor set should I prioritize — enterprise or SMB?”</p><input value="{{ inputDraft }}" onChange="{{ onInputDraft }}" placeholder="Type your answer…" style="background: #FFFFFF; border: 2px solid #EBD9A8; border-radius: 9px; padding: 9px 12px; font-size: 12.5px; font-weight: 600; color: #3A3631;"><button onClick="{{ resolveInput }}" style="align-self: flex-start; font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #F7C648 0%, #EBA62A 100%); border: 2px solid #FFFFFF; border-radius: 999px; padding: 7px 18px; cursor: pointer; box-shadow: 0 2px 6px rgba(180,130,20,0.3);">Send &amp; resume</button></div>
+          </sc-if>
+          <sc-if value="{{ agentShowFail }}" hint-placeholder-val="{{ false }}">
+            <div style="background: #FDEEEB; border: 2px solid #F4C4BA; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px;"><div style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 800; color: #B23A26;">Error summary</div><p style="margin: 0; font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 700; line-height: 1.5; color: #9E5247;">Playwright check failed: signup form submitted but no account row was created. Routed back to SWE as a revision round.</p></div>
+          </sc-if>
+        </div>
+        <div style="padding: 16px 20px; border-top: 1px solid #ECE7DC; display: flex; gap: 10px;">
+          <sc-if value="{{ agentShowStop }}" hint-placeholder-val="{{ true }}"><span onClick="{{ stopTask }}" style="flex: 1; text-align: center; font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 800; color: #B23A26; background: #FBE5E0; border-radius: 10px; padding: 10px 0; cursor: pointer;">■ Stop task</span></sc-if>
+          <sc-if value="{{ agentCanRemove }}" hint-placeholder-val="{{ true }}"><span onClick="{{ removeAgent }}" style="flex: 1; text-align: center; font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 800; color: #8A857C; background: #F0EDE4; border-radius: 10px; padding: 10px 0; cursor: pointer;">Remove</span></sc-if>
+          <sc-if value="{{ agentCannotRemove }}" hint-placeholder-val="{{ false }}"><span title="Stop the task before removing" style="flex: 1; text-align: center; font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 800; color: #C7C0B2; background: #F4F1EA; border-radius: 10px; padding: 10px 0; cursor: not-allowed;">Remove</span></sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== ADD AGENT MODAL ===== -->
+    <sc-if value="{{ modalAddAgent }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeAll }}" style="position: absolute; inset: 0; background: rgba(40,46,40,0.42);"></div>
+      <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 660px; max-width: 92vw; background: #FFFFFF; border-radius: 22px; border: 3px solid #FFFFFF; box-shadow: 0 30px 70px rgba(30,35,25,0.4); overflow: hidden;">
+        <div style="padding: 22px 28px 16px; background: linear-gradient(180deg, #EEFBF1 0%, #FFFFFF 100%); border-bottom: 1px solid #ECE7DC; display: flex; align-items: center; justify-content: space-between;"><div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: #6FBA82;">{{ teamNameUpper }}</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 21px; font-weight: 800; color: #2C2925;">Add an agent</span></div><span onClick="{{ closeAll }}" style="width: 30px; height: 30px; border-radius: 9px; background: #F0EDE4; display: flex; align-items: center; justify-content: center; color: #9C958A; font-size: 16px; cursor: pointer;">×</span></div>
+        <sc-if value="{{ addAgentFull }}" hint-placeholder-val="{{ false }}"><div style="margin: 16px 28px 0; padding: 11px 14px; border-radius: 12px; background: #FBEFCB; border: 2px solid #F7D88A; display: flex; align-items: center; gap: 9px;"><span style="width: 22px; height: 22px; border-radius: 50%; background: #F7B731; color: #4A3406; font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">!</span><span style="font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 700; color: #8A6200;">This team&rsquo;s desks are full &mdash; in this demo, hiring works in the Research room.</span></div></sc-if>
+        <div style="padding: 22px 28px; display: flex; flex-direction: column; gap: 18px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div style="display: flex; flex-direction: column; gap: 7px;"><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #9C958A; letter-spacing: 0.04em;">NAME</span><input value="{{ newAgentName }}" onChange="{{ onNewAgentName }}" placeholder="e.g. Performance Tester" style="background: #F7F5EF; border: 2.5px solid #3FB4DC; border-radius: 11px; padding: 11px 14px; font-size: 14px; font-weight: 700; color: #2C2925; box-shadow: 0 0 0 3px rgba(63,180,220,0.12);"></div>
+            <div style="display: flex; flex-direction: column; gap: 7px;"><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #9C958A; letter-spacing: 0.04em;">MODEL TIER</span><div style="display: flex; gap: 8px;"><sc-for list="{{ tiers }}" as="t" hint-placeholder-count="3"><div onClick="{{ t.onClick }}" style="flex: 1; text-align: center; font-family: 'Baloo 2', sans-serif; font-size: 12.5px; font-weight: 800; color: {{ t.fg }}; background: {{ t.bg }}; border: 2px solid {{ t.border }}; border-radius: 10px; padding: 9px 0; cursor: pointer; box-shadow: {{ t.shadow }};">{{ t.name }}</div></sc-for></div></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 7px;"><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #9C958A; letter-spacing: 0.04em;">ROLE · plain language</span><textarea onChange="{{ onNewAgentRole }}" placeholder="What this agent does and how it behaves…" style="background: #F7F5EF; border: 2px solid #E6E1D4; border-radius: 11px; padding: 12px 14px; font-family: 'Nunito', sans-serif; font-size: 13.5px; font-weight: 600; line-height: 1.55; color: #3A3631; min-height: 64px; resize: none;"></textarea></div>
+          <div style="display: flex; flex-direction: column; gap: 9px;"><div style="display: flex; align-items: center; justify-content: space-between;"><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #9C958A; letter-spacing: 0.04em;">OUTPUT &middot; where this agent&rsquo;s work goes</span></div>
+            <div style="display: flex; gap: 8px;"><span onClick="{{ pickHandoff }}" style="flex: 1; text-align: center; font-family: 'Nunito', sans-serif; font-size: 11.5px; font-weight: 800; color: {{ handoffFg }}; background: {{ handoffBg }}; border: 2px solid {{ handoffBorder }}; border-radius: 10px; padding: 8px 0; cursor: pointer;">&rarr; Hand off</span><span onClick="{{ pickLoop }}" style="flex: 1; text-align: center; font-family: 'Nunito', sans-serif; font-size: 11.5px; font-weight: 800; color: {{ loopFg }}; background: {{ loopBg }}; border: 2px solid {{ loopBorder }}; border-radius: 10px; padding: 8px 0; cursor: pointer;">&#8644; Review loop</span><span onClick="{{ pickFinal }}" style="flex: 1; text-align: center; font-family: 'Nunito', sans-serif; font-size: 11.5px; font-weight: 800; color: {{ finalFg }}; background: {{ finalBg }}; border: 2px solid {{ finalBorder }}; border-radius: 10px; padding: 8px 0; cursor: pointer;">&#10003; Final output</span></div>
+            <sc-if value="{{ connIsFinal }}" hint-placeholder-val="{{ false }}"><div style="padding: 10px 13px; border-radius: 11px; background: #EAF6EE; border: 2px solid #BFE3CC; font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 700; color: #2C7A4A;">Standalone &mdash; delivers straight to Outputs, no downstream agent.</div></sc-if>
+            <sc-if value="{{ connNotFinal }}" hint-placeholder-val="{{ true }}"><div style="display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 12px; background: #F0F7FA; border: 2px solid #BFE3F0;"><span style="font-family: 'Nunito', sans-serif; font-size: 10px; font-weight: 800; color: #9C958A; letter-spacing: 0.04em;">TO</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 700; color: #2C2925; flex: 1;">SWE <span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 700; color: #8A857C;">(Development)</span></span><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #A8A294; cursor: pointer;">change</span></div></sc-if></div>
+        </div>
+        <div style="padding: 16px 28px; background: #FAF8F2; border-top: 1px solid #ECE7DC; display: flex; align-items: center; justify-content: flex-end; gap: 12px;"><span onClick="{{ closeAll }}" style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 700; color: #8A857C; cursor: pointer;">Cancel</span><button onClick="{{ hireAgent }}" style="font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #74D982 0%, #4DBB5C 100%); border: 2.5px solid #FFFFFF; border-radius: 999px; padding: 10px 26px; cursor: pointer; box-shadow: 0 4px 10px rgba(40,100,50,0.3); text-shadow: 0 1px 2px rgba(20,90,40,0.4);">Hire agent</button></div>
+      </div>
+    </sc-if>
+
+    <!-- ===== ADD TEAM MODAL ===== -->
+    <sc-if value="{{ modalAddTeam }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeAll }}" style="position: absolute; inset: 0; background: rgba(40,46,40,0.42);"></div>
+      <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 780px; max-width: 94vw; background: #FFFFFF; border-radius: 22px; border: 3px solid #FFFFFF; box-shadow: 0 30px 70px rgba(30,35,25,0.4); overflow: hidden;">
+        <div style="padding: 22px 28px 16px; background: linear-gradient(180deg, #EEF7FB 0%, #FFFFFF 100%); border-bottom: 1px solid #ECE7DC; display: flex; align-items: center; justify-content: space-between;"><div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 21px; font-weight: 800; color: #2C2925;">Add a team</span><span style="font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 600; color: #8A857C;">Pick a template — it arrives as a room with its agents.</span></div><span onClick="{{ closeAll }}" style="width: 30px; height: 30px; border-radius: 9px; background: #F0EDE4; display: flex; align-items: center; justify-content: center; color: #9C958A; font-size: 16px; cursor: pointer;">×</span></div>
+        <sc-if value="{{ addTeamWarnShow }}" hint-placeholder-val="{{ false }}"><div style="margin: 18px 28px 0; padding: 11px 14px; border-radius: 12px; background: #FBE5E0; border: 2px solid #F4C4BA; display: flex; align-items: center; gap: 9px;"><span style="width: 22px; height: 22px; border-radius: 50%; background: #E8503A; color: #FFFFFF; font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">!</span><span style="font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 700; color: #B23A26;">{{ addTeamWarn }} is already in your office — pick a different template.</span></div></sc-if>
+        <div style="padding: 22px 28px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 11px;">
+          <sc-for list="{{ templates }}" as="t" hint-placeholder-count="5"><div onClick="{{ t.onClick }}" style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 16px 10px; border-radius: 15px; background: {{ t.bg }}; border: 2.5px solid {{ t.border }}; cursor: pointer; opacity: {{ t.opacity }};"><sc-if value="{{ t.badgeShow }}" hint-placeholder-val="{{ false }}"><span style="position: absolute; right: 7px; top: 7px; font-family: 'Nunito', sans-serif; font-size: 8.5px; font-weight: 800; color: #6A6258; background: #E6E1D4; border-radius: 999px; padding: 2px 7px;">In office</span></sc-if><div style="width: 48px; height: 48px; border-radius: 13px; background: {{ t.swatch }}; display: flex; align-items: center; justify-content: center;"><div style="width: 18px; height: 22px; border-radius: 3px; background: #FFFDF6; border: 2px solid rgba(70,70,60,0.35);"></div></div><div style="font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 700; color: #2C2925; text-align: center;">{{ t.name }}</div><div style="font-family: 'Nunito', sans-serif; font-size: 10px; font-weight: 700; color: #8A857C; text-align: center; line-height: 1.4;">{{ t.roster }}</div></div></sc-for>
+        </div>
+        <div style="padding: 16px 28px; background: #FAF8F2; border-top: 1px solid #ECE7DC; display: flex; align-items: center; justify-content: flex-end; gap: 12px;"><span onClick="{{ closeAll }}" style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 700; color: #8A857C; cursor: pointer;">Cancel</span><button onClick="{{ buildRoom }}" style="font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #74D982 0%, #4DBB5C 100%); border: 2.5px solid #FFFFFF; border-radius: 999px; padding: 10px 26px; cursor: pointer; box-shadow: 0 4px 10px rgba(40,100,50,0.3); text-shadow: 0 1px 2px rgba(20,90,40,0.4);">Build room</button></div>
+      </div>
+    </sc-if>
+
+    <!-- ===== BOARD OVERLAY ===== -->
+    <sc-if value="{{ overlayBoard }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeAll }}" style="position: absolute; inset: 0; background: rgba(40,46,40,0.42);"></div>
+      <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 840px; max-width: 92vw; max-height: 82vh; background: #FFFFFF; border-radius: 22px; border: 3px solid #FFFFFF; box-shadow: 0 30px 70px rgba(30,35,25,0.4); overflow: hidden; display: flex; flex-direction: column;">
+        <div style="padding: 20px 28px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ECE7DC;"><div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 21px; font-weight: 800; color: #2C2925;">Work plan</span><span style="font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 600; color: #8A857C;">Everything your company is working on, grouped by goal.</span></div><span onClick="{{ closeAll }}" style="width: 30px; height: 30px; border-radius: 9px; background: #F0EDE4; display: flex; align-items: center; justify-content: center; color: #9C958A; font-size: 16px; cursor: pointer;">×</span></div>
+        <div style="flex: 1; overflow-y: auto; padding: 20px 28px; display: flex; flex-direction: column; gap: 20px;">
+          <div style="display: flex; flex-direction: column; gap: 10px;"><div style="display: flex; align-items: center; gap: 10px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3FB4DC;"></span><span style="font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #2C2925;">Competitor analysis → PRD draft</span><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #2C6FA0; background: #DCEEF8; border-radius: 999px; padding: 2px 10px;">in progress</span></div><div style="display: flex; flex-direction: column; gap: 6px; padding-left: 18px;"><div style="display: flex; align-items: center; gap: 10px;"><span style="width: 18px; height: 18px; border-radius: 6px; background: #5FC96E; display: flex; align-items: center; justify-content: center; color: #FFF; font-size: 11px; font-weight: 800;">✓</span><span style="font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; color: #5C574F;">Scrape top 8 competitors</span></div><div onClick="{{ openAgent.analyst }}" style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><span style="width: 18px; height: 18px; border-radius: 6px; background: #FFFFFF; border: 2px solid #4FC3E8;"></span><span style="font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; color: #2C2925;">Synthesize positioning matrix</span><span style="font-family: 'Nunito', sans-serif; font-size: 10.5px; font-weight: 700; color: #2C6FA0;">Analyst · working</span></div><div style="display: flex; align-items: center; gap: 10px;"><span style="width: 18px; height: 18px; border-radius: 6px; background: #F4F1EA; border: 2px solid #E0DBCE;"></span><span style="font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; color: #A8A294;">Draft PRD v1</span><span style="font-family: 'Nunito', sans-serif; font-size: 10.5px; font-weight: 700; color: #B0A89A;">PM · pending</span></div></div></div>
+          <div style="display: flex; flex-direction: column; gap: 10px;"><div style="display: flex; align-items: center; gap: 10px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #E8503A;"></span><span style="font-family: 'Baloo 2', sans-serif; font-size: 15px; font-weight: 800; color: #2C2925;">Build &amp; verify the signup flow</span><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #B23A26; background: #F8DAD3; border-radius: 999px; padding: 2px 10px;">needs attention</span></div><div style="display: flex; flex-direction: column; gap: 6px; padding-left: 18px;"><div style="display: flex; align-items: center; gap: 10px;"><span style="width: 18px; height: 18px; border-radius: 6px; background: #5FC96E; display: flex; align-items: center; justify-content: center; color: #FFF; font-size: 11px; font-weight: 800;">✓</span><span style="font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; color: #5C574F;">Implement signup form + API</span></div><div onClick="{{ openAgent.qa }}" style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><span style="width: 18px; height: 18px; border-radius: 6px; background: #FDEEEB; border: 2px solid #E8503A; display: flex; align-items: center; justify-content: center; color: #E8503A; font-size: 11px; font-weight: 800;">×</span><span style="font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; color: #2C2925;">Verify with headless Playwright</span><span style="font-family: 'Nunito', sans-serif; font-size: 10.5px; font-weight: 700; color: #B23A26;">QA · failed</span></div></div></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== SETTINGS OVERLAY ===== -->
+    <sc-if value="{{ overlaySettings }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeAll }}" style="position: absolute; inset: 0; background: rgba(40,46,40,0.42);"></div>
+      <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 860px; max-width: 92vw; height: 600px; max-height: 82vh; background: #FFFFFF; border-radius: 22px; border: 3px solid #FFFFFF; box-shadow: 0 30px 70px rgba(30,35,25,0.4); overflow: hidden; display: flex;">
+        <div style="width: 210px; background: #FAF8F2; border-right: 1px solid #ECE7DC; padding: 22px 14px; display: flex; flex-direction: column; gap: 4px;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 18px; font-weight: 800; color: #2C2925; padding: 0 12px 14px;">Settings</span>
+          <sc-for list="{{ settingsTabs }}" as="s" hint-placeholder-count="4"><div onClick="{{ s.onClick }}" style="display: flex; align-items: center; gap: 9px; padding: 10px 12px; border-radius: 10px; background: {{ s.bg }}; box-shadow: {{ s.shadow }}; cursor: pointer;"><span style="width: 7px; height: 7px; border-radius: 50%; background: {{ s.dot }};"></span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 700; color: {{ s.fg }};">{{ s.name }}</span></div></sc-for>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column;">
+          <div style="padding: 20px 26px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ECE7DC;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 18px; font-weight: 800; color: #2C2925;">{{ settingsTitle }}</span><span onClick="{{ closeAll }}" style="width: 30px; height: 30px; border-radius: 9px; background: #F0EDE4; display: flex; align-items: center; justify-content: center; color: #9C958A; font-size: 16px; cursor: pointer;">×</span></div>
+          <div style="flex: 1; overflow-y: auto; padding: 22px 26px; display: flex; flex-direction: column; gap: 16px;">
+            <sc-if value="{{ settingsGuardrails }}" hint-placeholder-val="{{ true }}"><div style="display: flex; flex-direction: column; gap: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; border-radius: 14px; background: #F7F5EF;"><div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 700; color: #2C2925;">Daily cost cap</span><span style="font-family: 'Nunito', sans-serif; font-size: 11.5px; font-weight: 600; color: #8A857C;">New dispatches refuse once hit. Now: $32 / $50</span></div><div style="display: flex; align-items: center; gap: 8px;"><div style="width: 130px; height: 9px; border-radius: 5px; background: #E6E1D4; overflow: hidden;"><div style="width: {{ capPct }}; height: 100%; background: linear-gradient(90deg, #74D982, #F7B731);"></div></div><span onClick="{{ capDown }}" style="width: 26px; height: 26px; border-radius: 8px; background: #FFFFFF; border: 2px solid #E0DBCE; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #8A857C; cursor: pointer;">&minus;</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 800; color: #2C2925; min-width: 36px; text-align: center;">{{ costCapLabel }}</span><span onClick="{{ capUp }}" style="width: 26px; height: 26px; border-radius: 8px; background: #FFFFFF; border: 2px solid #E0DBCE; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #8A857C; cursor: pointer;">+</span></div></div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; border-radius: 14px; background: #F7F5EF;"><div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 700; color: #2C2925;">Concurrency cap</span><span style="font-family: 'Nunito', sans-serif; font-size: 11.5px; font-weight: 600; color: #8A857C;">Max agents running at once. Extra tasks queue.</span></div><div style="display: flex; align-items: center; gap: 8px;"><span onClick="{{ concDown }}" style="width: 30px; height: 30px; border-radius: 9px; background: #FFFFFF; border: 2px solid #E0DBCE; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #8A857C; cursor: pointer;">−</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 18px; font-weight: 800; color: #2C2925; width: 26px; text-align: center;">{{ concurrency }}</span><span onClick="{{ concUp }}" style="width: 30px; height: 30px; border-radius: 9px; background: #FFFFFF; border: 2px solid #E0DBCE; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #8A857C; cursor: pointer;">+</span></div></div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; border-radius: 14px; background: {{ pauseRowBg }}; border: 2px solid {{ pauseRowBorder }};"><div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 14px; font-weight: 700; color: #B23A26;">Pause project</span><span style="font-family: 'Nunito', sans-serif; font-size: 11.5px; font-weight: 600; color: #A86B5E;">Panic button — halts all new dispatching.</span></div><div onClick="{{ togglePause }}" style="width: 56px; height: 30px; border-radius: 999px; background: {{ pauseTrackBg }}; position: relative; cursor: pointer;"><div style="position: absolute; left: {{ pauseKnobLeft }}; top: 3px; width: 24px; height: 24px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></div></div></div>
+            </div></sc-if>
+
+            <sc-if value="{{ settingsContext }}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-direction: column; gap: 14px;">
+              <div style="border: 2.5px dashed #D8D2C2; border-radius: 14px; padding: 22px; text-align: center; background: #FAF8F2;"><div style="font-size: 22px; margin-bottom: 4px;">📎</div><div style="font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; color: #A8A294;">Drop files here, or click to browse</div><div style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 600; color: #B0A89A; margin-top: 2px;">Full-text injected into every agent prompt</div></div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 11px; background: #F7F5EF;"><span style="font-size: 15px;">📄</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 700; color: #2C2925; flex: 1;">brand-guidelines.pdf</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #A8A294;">2.4 MB</span><span style="color: #B23A26; font-size: 14px; cursor: pointer;">×</span></div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 11px; background: #F7F5EF;"><span style="font-size: 15px;">📄</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 700; color: #2C2925; flex: 1;">market-notes.md</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #A8A294;">18 KB</span><span style="color: #B23A26; font-size: 14px; cursor: pointer;">×</span></div>
+            </div></sc-if>
+
+            <sc-if value="{{ settingsMemory }}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-direction: column; gap: 10px;">
+              <span style="font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 600; color: #8A857C;">Per-agent scratchpads, auto-appended after each task. View, edit or clear.</span>
+              <div style="padding: 13px 15px; border-radius: 12px; background: #F7F5EF; display: flex; flex-direction: column; gap: 6px;"><div style="display: flex; align-items: center; gap: 8px;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 700; color: #2C2925; flex: 1;">Analyst <span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 700; color: #8A857C;">Research</span></span><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #3FB4DC; cursor: pointer;">Edit</span><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #B23A26; cursor: pointer;">Clear</span></div><p style="margin: 0; font-family: 'Nunito', sans-serif; font-size: 11.5px; font-weight: 600; line-height: 1.5; color: #6A6258;">Prefers SMB competitors first; user dislikes jargon in briefs.</p></div>
+              <div style="padding: 13px 15px; border-radius: 12px; background: #F7F5EF; display: flex; flex-direction: column; gap: 6px;"><div style="display: flex; align-items: center; gap: 8px;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 700; color: #2C2925; flex: 1;">SWE <span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 700; color: #8A857C;">Development</span></span><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #3FB4DC; cursor: pointer;">Edit</span><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #B23A26; cursor: pointer;">Clear</span></div><p style="margin: 0; font-family: 'Nunito', sans-serif; font-size: 11.5px; font-weight: 600; line-height: 1.5; color: #6A6258;">Uses Next.js App Router; test IDs follow data-testid convention.</p></div>
+            </div></sc-if>
+
+            <sc-if value="{{ settingsProject }}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-direction: column; gap: 16px;">
+              <div style="display: flex; flex-direction: column; gap: 7px;"><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 800; color: #9C958A; letter-spacing: 0.04em;">PROJECT NAME</span><div style="display: flex; gap: 8px;"><input value="{{ projectName }}" onChange="{{ onProject }}" style="flex: 1; background: #F7F5EF; border: 2px solid #E6E1D4; border-radius: 10px; padding: 10px 13px; font-size: 14px; font-weight: 700; color: #2C2925;"><button style="font-family: 'Baloo 2', sans-serif; font-size: 13px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2px solid #FFFFFF; border-radius: 10px; padding: 0 18px; cursor: pointer;">Save</button></div></div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border-radius: 12px; background: #FFF1ED; border: 2px solid #F4C4BA;"><div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 700; color: #B23A26;">Delete project</span><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 600; color: #A86B5E;">Removes all teams, agents and outputs. Cannot be undone.</span></div><span style="font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 800; color: #FFFFFF; background: #E8503A; border-radius: 999px; padding: 7px 14px; cursor: pointer;">Delete</span></div>
+              <div style="height: 1px; background: #ECE7DC;"></div>
+              <div style="display: flex; align-items: center; justify-content: space-between;"><div style="display: flex; align-items: center; gap: 10px;"><div style="width: 34px; height: 34px; border-radius: 50%; background: #C8D6E4; border: 2px solid #FFFFFF;"></div><div style="display: flex; flex-direction: column;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 700; color: #2C2925;">Sam Rivera</span><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 600; color: #8A857C;">sam@acme.studio</span></div></div><span style="font-family: 'Nunito', sans-serif; font-size: 12.5px; font-weight: 800; color: #8A857C; background: #F0EDE4; border-radius: 10px; padding: 8px 16px; cursor: pointer;">Log out</span></div>
+              <div style="display: flex; align-items: center; gap: 18px; padding-top: 2px;"><span style="font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 700; color: #9CABBC; cursor: pointer;">Terms of Use</span><span style="font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 700; color: #9CABBC; cursor: pointer;">Privacy Policy</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #C0BBAE; margin-left: auto;">Craft v0.1</span></div>
+            </div></sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===== OUTPUTS OVERLAY ===== -->
+    <sc-if value="{{ overlayOutputs }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeAll }}" style="position: absolute; inset: 0; background: rgba(40,46,40,0.42);"></div>
+      <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 960px; max-width: 94vw; height: 600px; max-height: 82vh; background: #FFFFFF; border-radius: 22px; border: 3px solid #FFFFFF; box-shadow: 0 30px 70px rgba(30,35,25,0.4); overflow: hidden; display: flex;">
+        <div style="width: 350px; border-right: 1px solid #ECE7DC; display: flex; flex-direction: column;">
+          <div style="padding: 20px 22px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ECE7DC;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 18px; font-weight: 800; color: #2C2925;">Outputs</span><span onClick="{{ closeAll }}" style="width: 30px; height: 30px; border-radius: 9px; background: #F0EDE4; display: flex; align-items: center; justify-content: center; color: #9C958A; font-size: 16px; cursor: pointer;">×</span></div>
+          <div style="flex: 1; overflow-y: auto; padding: 14px 14px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="padding: 12px 14px; border-radius: 12px; background: #F0F7FA; border: 2px solid #BFE3F0;"><div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 14px;">📁</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 700; color: #2C2925; flex: 1;">Signup flow</span><span style="font-family: 'Nunito', sans-serif; font-size: 10px; font-weight: 800; color: #2C6FA0; background: #DCEEF8; border-radius: 999px; padding: 2px 8px;">code</span></div><div style="font-family: 'Nunito', sans-serif; font-size: 10.5px; font-weight: 700; color: #8A857C; margin-top: 4px;">Dev · SWE · 14 files · today</div></div>
+            <div style="padding: 12px 14px; border-radius: 12px; background: #FFFFFF; border: 2px solid #ECE7DC;"><div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 14px;">📄</span><span style="font-family: 'Baloo 2', sans-serif; font-size: 13.5px; font-weight: 700; color: #2C2925; flex: 1;">Competitor analysis</span><span style="font-family: 'Nunito', sans-serif; font-size: 10px; font-weight: 800; color: #6B4FA0; background: #ECE4F6; border-radius: 999px; padding: 2px 8px;">doc</span></div><div style="font-family: 'Nunito', sans-serif; font-size: 10.5px; font-weight: 700; color: #8A857C; margin-top: 4px;">Research · Analyst · today</div></div>
+          </div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column;">
+          <div style="padding: 16px 22px; border-bottom: 1px solid #ECE7DC; display: flex; align-items: center; justify-content: space-between;"><div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-family: 'Baloo 2', sans-serif; font-size: 16px; font-weight: 800; color: #2C2925;">Signup flow</span><span style="font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 700; color: #8A857C;">14 files · build &amp; tests passed</span></div><button style="font-family: 'Baloo 2', sans-serif; font-size: 12.5px; font-weight: 800; color: #FFFFFF; background: linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%); border: 2px solid #FFFFFF; border-radius: 999px; padding: 8px 16px; cursor: pointer; box-shadow: 0 2px 6px rgba(40,80,100,0.3); text-shadow: 0 1px 2px rgba(20,80,110,0.4);">⇩ Download zip</button></div>
+          <div style="flex: 1; display: flex; overflow: hidden;">
+            <div style="width: 180px; border-right: 1px solid #ECE7DC; padding: 14px 12px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #5C574F; display: flex; flex-direction: column; gap: 5px;"><div style="color: #8A857C;">▾ app/</div><div style="padding-left: 12px;">▾ signup/</div><div style="padding-left: 24px; background: #EAF4FA; border-radius: 5px; color: #2C6FA0; font-weight: 600; display: flex; justify-content: space-between; padding-right: 6px;"><span>page.tsx</span><span style="color: #3FB4DC; cursor: pointer;">&#8681;</span></div><div style="padding-left: 24px;">actions.ts</div><div style="color: #8A857C;">▾ lib/</div><div style="padding-left: 12px;">auth.ts</div><div>package.json</div><div style="color: #B0A89A;">+ 9 more</div></div>
+            <div style="flex: 1; background: #1F2430; padding: 16px 18px; overflow: hidden; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.7;"><div style="color: #6E7891;">app/signup/page.tsx</div><div style="margin-top: 8px;"><span style="color: #C792EA;">export default function</span> <span style="color: #82AAFF;">SignupPage</span><span style="color: #D5E2EC;">() {</span></div><div style="padding-left: 16px; color: #D5E2EC;"><span style="color: #C792EA;">return</span> (</div><div style="padding-left: 32px; color: #89DDFF;">&lt;<span style="color: #F7B731;">form</span> <span style="color: #C3E88D;">action</span>=<span style="color: #C3E88D;">{signup}</span>&gt;</div><div style="padding-left: 48px; color: #89DDFF;">&lt;<span style="color: #F7B731;">Input</span> <span style="color: #C3E88D;">name</span>=<span style="color: #C3E88D;">"email"</span> /&gt;</div><div style="padding-left: 48px; color: #89DDFF;">&lt;<span style="color: #F7B731;">Button</span>&gt;<span style="color: #D5E2EC;">Create account</span>&lt;/<span style="color: #F7B731;">Button</span>&gt;</div><div style="padding-left: 32px; color: #89DDFF;">&lt;/<span style="color: #F7B731;">form</span>&gt;</div><div style="padding-left: 16px; color: #D5E2EC;">)</div><div style="color: #D5E2EC;">}</div></div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    screen: 'onboarding', step: 0,
+    displayName: 'Sam Rivera', projectName: 'Acme Studio',
+    teams: { research: true, planning: true, dev: true, design: false, data: false },
+    panel: null, modal: null, overlay: null,
+    notifOpen: false, menuOpen: false, unread: true, tokenOpen: false, chatFocused: false, addTeamWarn: null, panX: 0, panY: 0, zoom: 1,
+    roomPos: { research: { x: 330, y: 96 }, dev: { x: 770, y: 300 }, planning: { x: 250, y: 470 }, newroom: { x: 1280, y: 100 }, sideroom: { x: 560, y: 240 } },
+    project: 'acme',
+    overrides: {}, removed: {}, roleOverrides: {},
+    renamingTeam: false, renameDraft: '', teamNames: {},
+    editingRole: false, roleDraft: '',
+    hired: null, newRoom: null, addTeamSel: null,
+    concurrency: 3, costCap: 50,
+    feed: [
+      { team: '[Development]', line: 'QA Engineer: failed', st: 'failed', time: '14:32', agent: 'qa' },
+      { team: '[Research]', line: 'Analyst: needs input', st: 'needs-input', time: '14:31', agent: 'analyst' },
+      { team: '[Development]', line: 'SWE: working', st: 'working', time: '14:28', agent: 'swe' },
+      { team: '[Planning]', line: 'PM: done', st: 'done', time: '14:25', agent: 'pm' },
+      { team: '[Development]', line: 'Architect: working', st: 'working', time: '14:18', agent: 'architect' },
+      { team: '[Development]', line: 'DevOps: queued', st: 'queued', time: '14:02', agent: 'devops' },
+    ],
+    chat: [{ role: 'orch', text: "Welcome! Tell me what to build and I'll dispatch your teams." }],
+    draft: '', inputDraft: '',
+    analystResolved: false, toastDismissed: false,
+    settingsTab: 'guardrails', paused: false,
+    newAgentName: '', newAgentTier: 'medium', newAgentConn: 'handoff',
+  };
+
+  TEAMS = {
+    research: { name: 'Research', swatch: '#C2DAC6', tokens: '24,180', agents: ['analyst', 'researcher'] },
+    planning: { name: 'Product Planning', swatch: '#DDD3E4', tokens: '9,420', agents: ['pm', 'spec'] },
+    dev: { name: 'Development', swatch: '#C8D6E4', tokens: '71,204', agents: ['architect', 'swe', 'qa', 'reviewer', 'devops'] },
+    design: { name: 'Design', swatch: '#EEE7D6', tokens: '4,420', agents: ['ux', 'ux2'] },
+    data: { name: 'Data', swatch: '#E2EAD8', tokens: '3,400', agents: ['data1', 'data2'] },
+    sidedesign: { name: 'Design', swatch: '#EEE7D6', tokens: '1,420', agents: ['sideux'] },
+  };
+  AGENT_POS = { analyst: ['research', 56, 119], researcher: ['research', 248, 119], hired1: ['research', 152, 119], pm: ['planning', 40, 88], spec: ['planning', 194, 88], architect: ['dev', 64, 76], swe: ['dev', 260, 76], qa: ['dev', 64, 168], reviewer: ['dev', 260, 168], devops: ['dev', 162, 252], ux: ['newroom', 40, 88], ux2: ['newroom', 194, 88], data1: ['newroom', 40, 88], data2: ['newroom', 194, 88], sideux: ['sideroom', 40, 88] };
+  CAP = { research: 3, planning: 2, dev: 5, design: 2, data: 2, sidedesign: 2 };
+  AGENTS = {
+    analyst: { name: 'Analyst', team: 'research', tier: 'Medium', status: 'needs-input', tokens: '11,902', role: 'Synthesizes competitor research into a positioning matrix and a short written brief.', conns: [] },
+    researcher: { name: 'Researcher', team: 'research', tier: 'Light', status: 'working', tokens: '12,278', role: 'Scrapes and summarizes sources, hands findings to the Analyst.', conns: [{ name: 'Analyst', kind: '\u2192 handoff', fg: '#2C6FA0', bg: '#DCEEF8' }] },
+    pm: { name: 'PM', team: 'planning', tier: 'Strong', status: 'done', tokens: '6,140', role: 'Turns research into a PRD and breaks goals into work items.', conns: [] },
+    spec: { name: 'Spec Writer', team: 'planning', tier: 'Medium', status: 'idle', tokens: '3,280', role: 'Writes detailed specs from the PM\u2019s outline.', conns: [{ name: 'PM', kind: '\u2192 handoff', fg: '#2C6FA0', bg: '#DCEEF8' }] },
+    architect: { name: 'Architect', team: 'dev', tier: 'Strong', status: 'working', tokens: '18,420', role: 'Designs the system and defines the dev team\u2019s default connections.', conns: [{ name: 'SWE', kind: '\u2192 handoff', fg: '#2C6FA0', bg: '#DCEEF8' }] },
+    swe: { name: 'SWE', team: 'dev', tier: 'Strong', status: 'working', tokens: '24,180', role: 'Implements features in the sandbox: writes code, installs deps, runs the dev server.', conns: [{ name: 'QA Engineer', kind: '\u21c4 review \u00b7 max 3', fg: '#6B4FA0', bg: '#ECE4F6' }, { name: 'Code Reviewer', kind: '\u2192 handoff', fg: '#2C6FA0', bg: '#DCEEF8' }] },
+    qa: { name: 'QA Engineer', team: 'dev', tier: 'Medium', status: 'failed', tokens: '18,902', role: 'Runs the app with headless Playwright and verifies real behavior \u2014 \u201cworks,\u201d not \u201cbuild passed.\u201d', conns: [{ name: 'SWE', kind: '\u21c4 review \u00b7 max 3', fg: '#6B4FA0', bg: '#ECE4F6' }] },
+    reviewer: { name: 'Code Reviewer', team: 'dev', tier: 'Medium', status: 'idle', tokens: '4,120', role: 'Reviews diffs for quality and flags issues before merge.', conns: [] },
+    devops: { name: 'DevOps', team: 'dev', tier: 'Medium', status: 'queued', tokens: '1,480', role: 'Writes deploy configs and a guide; never deploys automatically.', conns: [] },
+    ux: { name: 'UX Designer', team: 'design', tier: 'Medium', status: 'working', tokens: '3,240', role: 'Designs flows and screens from the PRD.', conns: [] },
+    ux2: { name: 'Visual Designer', team: 'design', tier: 'Light', status: 'idle', tokens: '1,180', role: 'Turns wireflows into polished visuals.', conns: [{ name: 'UX Designer', kind: '\u2192 handoff', fg: '#2C6FA0', bg: '#DCEEF8' }] },
+    data1: { name: 'Data Analyst', team: 'data', tier: 'Medium', status: 'working', tokens: '2,420', role: 'Answers product questions with queries and charts.', conns: [] },
+    data2: { name: 'Data Engineer', team: 'data', tier: 'Medium', status: 'idle', tokens: '980', role: 'Builds and maintains the data pipelines.', conns: [] },
+    sideux: { name: 'UX Designer', team: 'sidedesign', tier: 'Medium', status: 'idle', tokens: '1,420', role: 'Explores concepts for the side project.', conns: [] },
+  };
+
+  meta(s) {
+    return ({
+      'working': { label: 'working', dot: '#4FC3E8', fg: '#2C6FA0', bg: '#DCEEF8' },
+      'needs-input': { label: 'needs input', dot: '#F7B731', fg: '#8A6200', bg: '#FBEFCB' },
+      'failed': { label: 'failed', dot: '#E8503A', fg: '#B23A26', bg: '#F8DAD3' },
+      'idle': { label: 'idle', dot: '#A8A294', fg: '#6A6258', bg: '#ECE8DD' },
+      'queued': { label: 'queued', dot: '#F7B731', fg: '#8A6200', bg: '#FBEFCB' },
+      'done': { label: 'done', dot: '#5FC96E', fg: '#2C7A4A', bg: '#E0F2E5' },
+    })[s];
+  }
+  getAgent(id) { if (id === 'hired1') return this.state.hired; return this.AGENTS[id]; }
+  roster(tid) { const base = (this.TEAMS[tid] ? this.TEAMS[tid].agents : []).filter(a => !this.state.removed[a]); if (tid === 'research' && this.state.hired && !this.state.removed.hired1) base.push('hired1'); return base; }
+  feedPush(entry, extra) { this.setState(Object.assign({ feed: [entry].concat(this.state.feed).slice(0, 8) }, extra || {})); }
+  eff(id) { const o = this.state.overrides[id]; if (o) return o; if (id === 'analyst' && this.state.analystResolved) return 'working'; const a = this.getAgent(id); return a ? a.status : 'idle'; }
+  focusAgentFn(id) { return () => { const pos = this.AGENT_POS[id]; const st = { panel: { kind: 'agent', id }, modal: null, overlay: null, notifOpen: false, menuOpen: false, inputDraft: '', editingRole: false }; if (pos && this.state.roomPos[pos[0]]) { const rp = this.state.roomPos[pos[0]]; const z = this.state.zoom || 1; st.panX = Math.round((window.innerWidth || 1280) * 0.48 - (rp.x + pos[1] + 53) * z); st.panY = Math.round((window.innerHeight || 800) * 0.45 - (rp.y + pos[2] + 41) * z); } this.setState(st); }; }
+  closeAllState() { this.setState({ panel: null, modal: null, overlay: null, notifOpen: false, menuOpen: false, tokenOpen: false }); }
+  panStart(e) { this._pan = { x: e.clientX, y: e.clientY, px: this.state.panX, py: this.state.panY, moved: false }; }
+  roomStartFn(id) { return e => { if (e.stopPropagation) e.stopPropagation(); this._roomDrag = { id, x: e.clientX, y: e.clientY, ox: this.state.roomPos[id].x, oy: this.state.roomPos[id].y, moved: false }; }; }
+  panMove(e) {
+    const z = this.state.zoom || 1;
+    if (this._roomDrag) { const dx = (e.clientX - this._roomDrag.x) / z, dy = (e.clientY - this._roomDrag.y) / z; if (Math.abs(dx) + Math.abs(dy) > 4) this._roomDrag.moved = true; const rp = Object.assign({}, this.state.roomPos); rp[this._roomDrag.id] = { x: this._roomDrag.ox + dx, y: this._roomDrag.oy + dy }; this.setState({ roomPos: rp }); return; }
+    if (!this._pan) return; const dx = e.clientX - this._pan.x, dy = e.clientY - this._pan.y; if (Math.abs(dx) + Math.abs(dy) > 4) this._pan.moved = true; this.setState({ panX: this._pan.px + dx, panY: this._pan.py + dy });
+  }
+  panEnd() { if (this._roomDrag) { if (!this._roomDrag.moved) this.openTeamFn(this._roomDrag.id)(); this._roomDrag = null; return; } if (this._pan && !this._pan.moved) this.closeAllState(); this._pan = null; }
+  zoomBy(d) { this.setState({ zoom: Math.min(1.4, Math.max(0.55, Math.round((this.state.zoom + d) * 100) / 100)) }); }
+
+  openAgentFn(id) { return () => this.setState({ panel: { kind: 'agent', id }, modal: null, overlay: null, notifOpen: false, menuOpen: false, inputDraft: '' }); }
+  openTeamFn(id) { return () => this.setState({ panel: { kind: 'team', id }, modal: null, overlay: null, notifOpen: false, menuOpen: false }); }
+
+  renderVals() {
+    const S = this.state;
+    const isOnboarding = S.screen === 'onboarding';
+
+    // ---- onboarding ----
+    const stepDefs = [
+      { label: 'Sign in' }, { label: 'Your name' }, { label: 'Project' }, { label: 'Teams' }, { label: 'Context' },
+    ];
+    const steps = stepDefs.map((d, i) => {
+      const done = i < S.step, active = i === S.step;
+      return {
+        label: d.label, mark: done ? '\u2713' : String(i + 1),
+        bg: done ? '#5FC96E' : active ? '#3FB4DC' : '#ECE8DD',
+        fg: (done || active) ? '#FFFFFF' : '#B0A89A',
+        shadow: active ? '0 3px 8px rgba(40,80,100,0.35)' : 'none',
+        labelColor: active ? '#2E3A52' : '#9C958A',
+      };
+    });
+    const teamMeta = {
+      research: { name: 'Research', roster: 'Analyst, Researcher', swatch: '#C2DAC6', accent: '#3FB4DC' },
+      planning: { name: 'Product Planning', roster: 'PM, Spec writer', swatch: '#DDD3E4', accent: '#9B7FC0' },
+      dev: { name: 'Development', roster: 'Architect, SWE, QA, Reviewer, DevOps', swatch: '#C8D6E4', accent: '#5E7CC0' },
+      design: { name: 'Design', roster: 'UX, Visual', swatch: '#EEE7D6', accent: '#B0A082' },
+      data: { name: 'Data', roster: 'Analyst, Engineer', swatch: '#E2EAD8', accent: '#8FA06E' },
+    };
+    const teamChoices = Object.keys(teamMeta).map(id => {
+      const on = S.teams[id], m = teamMeta[id];
+      return {
+        name: m.name, roster: m.roster, swatch: m.swatch,
+        bg: on ? '#F0F7FA' : '#FFFFFF', border: on ? m.accent : '#E6E1D4',
+        checkBg: on ? m.accent : '#FFFFFF', checkBorder: on ? '#FFFFFF' : '#E0DBCE', check: on ? '\u2713' : '',
+        onToggle: () => this.setState({ teams: Object.assign({}, S.teams, { [id]: !on }) }),
+      };
+    });
+    const lastStep = S.step >= 4;
+    const onb = {
+      steps, isOnboarding,
+      stepSignin: S.step === 0, stepName: S.step === 1, stepProject: S.step === 2, stepTeams: S.step === 3, stepContext: S.step === 4,
+      displayName: S.displayName, projectName: S.projectName, teamChoices,
+      onName: e => this.setState({ displayName: e.target.value }),
+      onProject: e => this.setState({ projectName: e.target.value }),
+      next: () => { if (lastStep) this.setState({ screen: 'map' }); else this.setState({ step: S.step + 1 }); },
+      back: () => { if (S.step > 0) this.setState({ step: S.step - 1 }); },
+      backColor: S.step > 0 ? '#8A857C' : '#D8D2C2',
+      nextLabel: lastStep ? 'Enter the office \u2192' : 'Continue \u2192',
+      nextBg: lastStep ? 'linear-gradient(180deg, #74D982 0%, #4DBB5C 100%)' : 'linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%)',
+    };
+
+    // ---- map handlers ----
+    const openAgent = {}, openTeam = {};
+    Object.keys(this.AGENTS).forEach(id => openAgent[id] = this.openAgentFn(id));
+    Object.keys(this.TEAMS).forEach(id => openTeam[id] = this.openTeamFn(id));
+
+    // ---- feed ----
+    const feed = S.feed.map(f => {
+      const m = this.meta(f.st);
+      const parts = (f.line || '').split(':');
+      const who = parts[0] ? parts[0].trim() : '';
+      const stWord = parts[1] ? parts[1].trim() : m.label;
+      return { team: f.team, who: who, stWord: stWord, stColor: m.dot, dot: m.dot, time: f.time, rowBg: (f.st === 'failed') ? 'rgba(232,80,58,0.16)' : (f.st === 'needs-input') ? 'rgba(247,183,49,0.14)' : 'transparent', onClick: this.focusAgentFn(f.agent) };
+    });
+
+    // ---- chat ----
+    const chat = S.chat.map(m => {
+      const orch = m.role === 'orch';
+      return { text: m.text, isOrch: orch, align: orch ? 'flex-start' : 'flex-end',
+        bubbleBg: orch ? 'rgba(255,255,255,0.96)' : 'linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%)',
+        color: orch ? '#3A3631' : '#FFFFFF', radius: orch ? '4px 14px 14px 14px' : '14px 14px 4px 14px' };
+    });
+    const send = () => {
+      const t = S.draft.trim(); if (!t) return;
+      const officeIds = S.project === 'acme' ? ['spec', 'reviewer', 'devops', 'analyst'] : ['sideux'];
+      const target = officeIds.find(id => this.getAgent(id) && this.eff(id) === 'idle');
+      let reply = "On it \u2014 routing that to the right teams now. I'll update the feed as agents pick it up.";
+      const st = { chat: S.chat.concat([{ role: 'user', text: t }]), draft: '' };
+      if (target) {
+        const a = this.getAgent(target); const tn = S.teamNames[a.team] || this.TEAMS[a.team].name;
+        reply = 'Dispatched to ' + a.name + ' (' + tn + ') \u2014 watch them get typing.';
+        st.overrides = Object.assign({}, S.overrides, { [target]: 'working' });
+        st.feed = [{ team: '[' + tn + ']', line: a.name + ': working', st: 'working', time: 'now', agent: target }].concat(S.feed).slice(0, 8);
+      }
+      st.chat = st.chat.concat([{ role: 'orch', text: reply }]);
+      this.setState(st);
+    };
+
+    // ---- panel ----
+    let showTeamPanel = false, showAgentPanel = false;
+    let teamName = '', teamSwatch = '#C2DAC6', teamSub = '', teamCount = '', teamTokens = '', teamRows = [], teamNameUpper = '';
+    let agentName = '', agentTeam = '', agentRole = '', agentTier = '', agentTokens = '', agentConns = [], agentHasConns = false;
+    let agentLabel = '', agentDot = '', agentFg = '', agentBg = '', agentHeaderBg = '#FFFFFF';
+    let agentShowInput = false, agentShowStop = false, agentShowFail = false;
+    const p = S.panel;
+    if (p && p.kind === 'team') {
+      showTeamPanel = true; const t = this.TEAMS[p.id]; const ids = this.roster(p.id);
+      teamName = S.teamNames[p.id] || t.name; teamSwatch = t.swatch; teamCount = String(ids.length); teamTokens = t.tokens; teamNameUpper = teamName.toUpperCase();
+      const attn = ids.filter(a => ['needs-input', 'failed'].includes(this.eff(a))).length;
+      teamSub = ids.length + ' agents' + (attn ? ' \u00b7 ' + attn + ' need attention' : '');
+      this._teamInit = (teamName || '?').trim().charAt(0).toUpperCase();
+      teamRows = ids.map(aid => { const a = this.getAgent(aid), m = this.meta(this.eff(aid)); return { name: a.name, tier: a.tier, label: m.label, dot: m.dot, fg: m.fg, bg: m.bg, init: (a.name || '?').trim().charAt(0).toUpperCase(), onClick: this.openAgentFn(aid) }; });
+    }
+    if (p && p.kind === 'agent') {
+      showAgentPanel = true; const a = this.getAgent(p.id); const st = this.eff(p.id); const m = this.meta(st);
+      agentName = a.name; agentTeam = S.teamNames[a.team] || this.TEAMS[a.team].name; agentRole = S.roleOverrides[p.id] || a.role; agentTier = a.tier; agentTokens = a.tokens;
+      teamSwatch = this.TEAMS[a.team].swatch; agentConns = a.conns; agentHasConns = a.conns.length > 0;
+      agentLabel = m.label; agentDot = m.dot; agentFg = m.fg; agentBg = m.bg;
+      agentHeaderBg = (st === 'needs-input') ? 'linear-gradient(180deg, #FFF6E2 0%, #FFFFFF 100%)' : (st === 'failed') ? 'linear-gradient(180deg, #FDEEEB 0%, #FFFFFF 100%)' : 'linear-gradient(180deg, #EEF7FB 0%, #FFFFFF 100%)';
+      agentShowInput = (st === 'needs-input'); agentShowStop = (st === 'working'); agentShowFail = (st === 'failed');
+      this._agentInit = (agentName || '?').trim().charAt(0).toUpperCase();
+      this._agentCanRemove = !['working', 'queued'].includes(st);
+      this._teamInit = (teamName || '?').trim().charAt(0).toUpperCase();
+    }
+
+    // ---- add agent modal ----
+    const tierMeta = [['strong', 'Strong'], ['medium', 'Medium'], ['light', 'Light']];
+    const tiers = tierMeta.map(([id, name]) => { const on = S.newAgentTier === id; return { name, onClick: () => this.setState({ newAgentTier: id }),
+      fg: on ? '#FFFFFF' : '#8A857C', bg: on ? 'linear-gradient(180deg, #67D2F2 0%, #3FB4DC 100%)' : '#F4F1EA', border: on ? '#FFFFFF' : '#E6E1D4', shadow: on ? '0 2px 6px rgba(40,80,100,0.3)' : 'none' }; });
+    const conn = S.newAgentConn;
+    const inOfficeMap = { research: true, planning: true, dev: true };
+    if (S.newRoom) inOfficeMap[S.newRoom] = true;
+    const templates = ['research', 'planning', 'design', 'dev', 'data'].map(id => { const m = teamMeta[id]; const inOffice = !!inOfficeMap[id]; const sel = S.addTeamSel === id;
+      return { name: m.name, roster: m.roster, swatch: m.swatch,
+        bg: inOffice ? '#F4F1EA' : sel ? '#F0F7FA' : '#FFFFFF', border: inOffice ? '#E0DBCE' : sel ? '#3FB4DC' : m.accent, opacity: inOffice ? '0.6' : '1',
+        badgeShow: inOffice, onClick: inOffice ? (() => this.setState({ addTeamWarn: m.name })) : (() => this.setState({ addTeamSel: id, addTeamWarn: null })) }; });
+
+    // ---- settings ----
+    const settingsTabsDef = [['context', 'Context files'], ['memory', 'Agent memory'], ['guardrails', 'Guardrails'], ['project', 'Project']];
+    const settingsTabs = settingsTabsDef.map(([id, name]) => { const on = S.settingsTab === id; return { name, onClick: () => this.setState({ settingsTab: id }),
+      bg: on ? '#FFFFFF' : 'transparent', shadow: on ? '0 1px 4px rgba(60,50,30,0.08)' : 'none', dot: on ? '#3FB4DC' : '#D8D2C2', fg: on ? '#2E3A52' : '#8A857C' }; });
+    const settingsTitle = (settingsTabsDef.find(t => t[0] === S.settingsTab) || [, 'Guardrails'])[1];
+
+    const showToast = (S.screen === 'map') && !S.analystResolved && !S.toastDismissed && S.project === 'acme';
+
+    return Object.assign({}, onb, {
+      isMap: S.screen === 'map',
+      openAgent, openTeam,
+      projectName: S.projectName, menuOpen: S.menuOpen, notifOpen: S.notifOpen,
+      toggleMenu: () => this.setState({ menuOpen: !S.menuOpen, panel: null }),
+      closeAll: () => this.closeAllState(),
+      worldTransform: 'translate(' + S.panX + 'px,' + S.panY + 'px) scale(' + S.zoom + ')',
+      onPanStart: e => this.panStart(e), onPanMove: e => this.panMove(e), onPanEnd: () => this.panEnd(),
+      onWheel: e => this.zoomBy(e.deltaY > 0 ? -0.08 : 0.08),
+      zoomIn: () => this.zoomBy(0.12), zoomOut: () => this.zoomBy(-0.12), zoomReset: () => this.setState({ panX: 0, panY: 0, zoom: 1 }),
+      posResearchX: S.roomPos.research.x, posResearchY: S.roomPos.research.y, posDevX: S.roomPos.dev.x, posDevY: S.roomPos.dev.y, posPlanningX: S.roomPos.planning.x, posPlanningY: S.roomPos.planning.y,
+      roomStart: { research: this.roomStartFn('research'), dev: this.roomStartFn('dev'), planning: this.roomStartFn('planning') },
+      analystGlow: S.analystResolved ? 'rgba(79,195,232,0.6)' : 'rgba(247,183,49,0.6)',
+      isAcme: S.project === 'acme', isSide: S.project === 'side',
+      switchSide: () => this.setState({ project: 'side', panel: null, modal: null, overlay: null, notifOpen: false, menuOpen: false, panX: 0, panY: 0, zoom: 1 }),
+      switchAcme: () => this.setState({ project: 'acme', panel: null, modal: null, overlay: null, notifOpen: false, menuOpen: false, panX: 0, panY: 0, zoom: 1 }),
+      curProjectLabel: S.project === 'acme' ? S.projectName : 'Side Project',
+      vis: { analyst: !S.removed.analyst, researcher: !S.removed.researcher, pm: !S.removed.pm, spec: !S.removed.spec, architect: !S.removed.architect, swe: !S.removed.swe, qa: !S.removed.qa, reviewer: !S.removed.reviewer, devops: !S.removed.devops },
+      rxA: (this.roster('research').length >= 3 ? 30 : 56), rxB: (this.roster('research').length >= 3 ? 274 : 248),
+      hiredShow: !!S.hired && !S.removed.hired1, openHired: this.openAgentFn('hired1'),
+      focusAgent: { analyst: this.focusAgentFn('analyst'), qa: this.focusAgentFn('qa') },
+      emptyResearch: this.roster('research').length === 0, emptyPlanning: this.roster('planning').length === 0, emptyDev: this.roster('dev').length === 0,
+      addAgentFull: (p && p.kind === 'team') ? (this.roster(p.id).length >= (this.CAP[p.id] || 5) || p.id !== 'research') : false,
+      renamingTeam: S.renamingTeam, notRenaming: !S.renamingTeam, renameDraft: S.renameDraft,
+      startRename: () => this.setState({ renamingTeam: true, renameDraft: teamName }),
+      onRenameDraft: e => this.setState({ renameDraft: e.target.value }),
+      saveRename: () => { if (p && p.kind === 'team') { const tn = Object.assign({}, S.teamNames); tn[p.id] = (S.renameDraft || '').trim() || teamName; this.setState({ teamNames: tn, renamingTeam: false }); } },
+      editingRole: S.editingRole, notEditingRole: !S.editingRole, roleDraft: S.roleDraft,
+      startEditRole: () => this.setState({ editingRole: true, roleDraft: agentRole }),
+      onRoleDraft: e => this.setState({ roleDraft: e.target.value }),
+      saveRole: () => { if (p && p.kind === 'agent') { const ro = Object.assign({}, S.roleOverrides); ro[p.id] = (S.roleDraft || '').trim() || agentRole; this.setState({ roleOverrides: ro, editingRole: false }); } },
+      stopTask: () => { if (p && p.kind === 'agent') { const a = this.getAgent(p.id); const ov = Object.assign({}, S.overrides, { [p.id]: 'idle' }); this.feedPush({ team: '[' + (S.teamNames[a.team] || this.TEAMS[a.team].name) + ']', line: a.name + ': stopped', st: 'idle', time: 'now', agent: p.id }, { overrides: ov }); } },
+      removeAgent: () => { if (p && p.kind === 'agent') { const rm = Object.assign({}, S.removed); rm[p.id] = true; this.setState({ removed: rm, panel: null }); } },
+      buildRoom: () => { if (!S.addTeamSel) { this.setState({ modal: null }); return; } if (S.newRoom) { this.setState({ addTeamWarn: 'Only one extra room in this demo' }); return; } const nm = S.addTeamSel === 'data' ? 'Data' : 'Design'; this.feedPush({ team: '[' + nm + ']', line: 'Team created', st: 'done', time: 'now', agent: S.addTeamSel === 'data' ? 'data1' : 'ux' }, { newRoom: S.addTeamSel, modal: null, addTeamSel: null, addTeamWarn: null }); },
+      newRoomShow: !!S.newRoom && S.project === 'acme',
+      newRoomName: S.newRoom === 'data' ? 'Data' : 'Design',
+      newRoomCarpet: S.newRoom === 'data' ? '#E2EAD8' : '#EEE7D6',
+      openTeamNew: () => this.setState({ panel: { kind: 'team', id: S.newRoom === 'data' ? 'data' : 'design' }, modal: null, overlay: null, notifOpen: false, menuOpen: false }),
+      openNR1: this.openAgentFn(S.newRoom === 'data' ? 'data1' : 'ux'), openNR2: this.openAgentFn(S.newRoom === 'data' ? 'data2' : 'ux2'),
+      nr1Body: S.newRoom === 'data' ? '#93A86E' : '#B58FBF', nr1Arm: S.newRoom === 'data' ? '#78905A' : '#9A75A3',
+      nr2Body: S.newRoom === 'data' ? '#C9A24B' : '#5FA89B', nr2Arm: S.newRoom === 'data' ? '#AB8736' : '#4E8B80',
+      openTeamSide: () => this.setState({ panel: { kind: 'team', id: 'sidedesign' }, modal: null, overlay: null, notifOpen: false, menuOpen: false }),
+      openSideux: this.openAgentFn('sideux'),
+      concurrency: String(S.concurrency),
+      concUp: () => this.setState({ concurrency: Math.min(5, S.concurrency + 1) }),
+      concDown: () => this.setState({ concurrency: Math.max(1, S.concurrency - 1) }),
+      costCapLabel: '$' + S.costCap, capPct: Math.min(100, Math.round(32 / S.costCap * 100)) + '%',
+      capUp: () => this.setState({ costCap: Math.min(100, S.costCap + 10) }),
+      capDown: () => this.setState({ costCap: Math.max(10, S.costCap - 10) }),
+      openSettings: () => this.setState({ overlay: 'settings', panel: null, modal: null, notifOpen: false, menuOpen: false }),
+      openBoard: () => this.setState({ overlay: 'board', panel: null, modal: null, notifOpen: false, menuOpen: false }),
+      openAddTeam: () => this.setState({ modal: 'addTeam', panel: null, overlay: null, notifOpen: false, menuOpen: false }),
+      openAddAgent: () => this.setState({ modal: 'addAgent', overlay: null, notifOpen: false, menuOpen: false }),
+      openOutputs: () => this.setState({ overlay: 'outputs', panel: null, modal: null, notifOpen: false, menuOpen: false }),
+      toggleNotif: () => this.setState({ notifOpen: !S.notifOpen, unread: false, panel: null, menuOpen: false }),
+      markAllRead: () => this.setState({ unread: false }),
+      hasUnread: S.unread, unreadCount: '3',
+      showToast, dismissToast: () => this.setState({ toastDismissed: true }),
+      feed, chat, draft: S.draft, onDraft: e => this.setState({ draft: e.target.value }), onKey: e => { if (e.key === 'Enter') send(); }, send,
+      tokens: '128,487',
+      // panels
+      showTeamPanel, teamName, teamSwatch, teamSub, teamCount, teamTokens, teamRows, teamNameUpper,
+      showAgentPanel, agentName, agentTeam, agentRole, agentTier, agentTokens, agentConns, agentHasConns,
+      agentLabel, agentDot, agentFg, agentBg, agentHeaderBg, agentShowInput, agentShowStop, agentShowFail,
+      inputDraft: S.inputDraft, onInputDraft: e => this.setState({ inputDraft: e.target.value }),
+      resolveInput: () => this.setState({ analystResolved: true, panel: { kind: 'agent', id: 'analyst' }, inputDraft: '' }),
+      showAnalystBadge: !S.analystResolved, showQaBadge: true,
+      // modals
+      modalAddAgent: S.modal === 'addAgent', modalAddTeam: S.modal === 'addTeam', tiers, templates,
+      newAgentName: S.newAgentName, onNewAgentName: e => this.setState({ newAgentName: e.target.value }), onNewAgentRole: () => {},
+      pickHandoff: () => this.setState({ newAgentConn: 'handoff' }), pickLoop: () => this.setState({ newAgentConn: 'loop' }), pickFinal: () => this.setState({ newAgentConn: 'final' }),
+      handoffFg: conn === 'handoff' ? '#FFFFFF' : '#8A857C', handoffBg: conn === 'handoff' ? '#3FB4DC' : '#FFFFFF', handoffBorder: conn === 'handoff' ? '#3FB4DC' : '#D8D2C2',
+      loopFg: conn === 'loop' ? '#FFFFFF' : '#8A857C', loopBg: conn === 'loop' ? '#6B4FA0' : '#FFFFFF', loopBorder: conn === 'loop' ? '#6B4FA0' : '#D8D2C2',
+      finalFg: conn === 'final' ? '#FFFFFF' : '#8A857C', finalBg: conn === 'final' ? '#4DBB5C' : '#FFFFFF', finalBorder: conn === 'final' ? '#4DBB5C' : '#D8D2C2',
+      connIsFinal: conn === 'final', connNotFinal: conn !== 'final',
+      agentInitial: this._agentInit, teamInitial: this._teamInit, agentCanRemove: this._agentCanRemove, agentCannotRemove: !this._agentCanRemove,
+      hireAgent: () => {
+        const tid = (S.panel && S.panel.kind === 'team') ? S.panel.id : 'research';
+        const full = this.roster(tid).length >= (this.CAP[tid] || 5);
+        if (full || tid !== 'research') return;
+        const nm = (S.newAgentName || '').trim() || 'New Agent';
+        this.feedPush({ team: '[Research]', line: nm + ': idle', st: 'idle', time: 'now', agent: 'hired1' }, { modal: null, newAgentName: '', hired: { name: nm, team: 'research', tier: S.newAgentTier === 'strong' ? 'Strong' : S.newAgentTier === 'light' ? 'Light' : 'Medium', status: 'idle', tokens: '0', role: 'Newly hired \u2014 give it work via the orchestrator.', conns: [] } });
+      },
+      // overlays
+      overlayBoard: S.overlay === 'board', overlaySettings: S.overlay === 'settings', overlayOutputs: S.overlay === 'outputs',
+      settingsTabs, settingsTitle, paused: S.paused, togglePause: () => this.setState({ paused: !S.paused }),
+      settingsGuardrails: S.settingsTab === 'guardrails', settingsContext: S.settingsTab === 'context', settingsMemory: S.settingsTab === 'memory', settingsProject: S.settingsTab === 'project',
+      tokenOpen: S.tokenOpen, toggleToken: () => this.setState({ tokenOpen: !S.tokenOpen, panel: null, notifOpen: false, menuOpen: false }),
+      tokenTeams: [{ name: 'Research', val: '24,180', sw: '#C2DAC6' }, { name: 'Product Planning', val: '9,420', sw: '#DDD3E4' }, { name: 'Development', val: '71,204', sw: '#C8D6E4' }],
+      tokenTotal: '312,940',
+      chatFocused: S.chatFocused, onChatFocus: () => this.setState({ chatFocused: true }), onChatBlur: () => this.setState({ chatFocused: false }),
+      addTeamWarn: S.addTeamWarn, addTeamWarnShow: !!S.addTeamWarn,
+      pauseRowBg: S.paused ? '#FFE9E2' : '#FFF1ED', pauseRowBorder: S.paused ? '#E8503A' : '#F4C4BA',
+      pauseTrackBg: S.paused ? '#E8503A' : '#E6E1D4', pauseKnobLeft: S.paused ? '29px' : '3px',
+    });
+  }
+}
+</script>
+</body>
+</html>
