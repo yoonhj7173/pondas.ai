@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# Craft dev runner — 어느 디렉토리에서나 실행 가능(절대경로 하드코딩).
+#   craft product   풀스택(docker+backend+worker+frontend) → 프로덕트 테스트 http://localhost:3000
+#   craft landing   프론트만 → 랜딩/블로그 테스트 http://localhost:3001
+#   craft stop      전부 종료
+#   craft test      백엔드 테스트 스위트
+set -euo pipefail
+
+ROOT="/Users/yoon/Desktop/Workspace/products/cursor-pm"
+BACKEND="$ROOT/backend"
+FRONTEND="$ROOT/frontend"
+PY="$BACKEND/.venv/bin"
+
+PROD_PORT=3000   # 프로덕트(풀스택 프론트)
+LAND_PORT=3001   # 랜딩(프론트만)
+API_PORT=8000    # 백엔드
+
+c_blue()  { printf "\033[1;36m%s\033[0m\n" "$1"; }
+c_green() { printf "\033[1;32m%s\033[0m\n" "$1"; }
+c_red()   { printf "\033[1;31m%s\033[0m\n" "$1"; }
+
+kill_port() { lsof -ti:"$1" 2>/dev/null | xargs kill -9 2>/dev/null || true; }
+
+stop_all() {
+  c_blue "Stopping Craft..."
+  kill_port "$PROD_PORT"; kill_port "$LAND_PORT"; kill_port "$API_PORT"
+  pkill -f "celery -A app.celery_app" 2>/dev/null || true
+  pkill -f "uvicorn app.main:app" 2>/dev/null || true
+  c_green "Stopped (docker postgres/redis left running — 'craft stop --all' to stop those too)."
+  if [ "${1:-}" = "--all" ]; then
+    (cd "$ROOT" && docker compose down) 2>/dev/null || true
+    c_green "Docker postgres/redis stopped."
+  fi
+}
+
+case "${1:-}" in
+
+product)
+  command -v docker >/dev/null && docker info >/dev/null 2>&1 || { c_red "Docker isn't running. Start Docker Desktop first: open -a Docker"; exit 1; }
+  stop_all >/dev/null 2>&1 || true
+
+  c_blue "[1/4] Postgres + Redis..."
+  (cd "$ROOT" && docker compose up -d postgres redis >/dev/null)
+  for i in $(seq 1 30); do
+    [ "$(docker inspect -f '{{.State.Health.Status}}' cursorpm-postgres 2>/dev/null)" = "healthy" ] && break
+    sleep 1
+  done
+
+  c_blue "[2/4] Migrate + seed..."
+  (cd "$BACKEND" && "$PY/alembic" upgrade head >/dev/null && "$PY/python" seed.py >/dev/null)
+
+  c_blue "[3/4] Backend API + worker (:$API_PORT)..."
+  (cd "$BACKEND" && "$PY/uvicorn" app.main:app --port "$API_PORT" --reload) >/tmp/craft-backend.log 2>&1 &
+  (cd "$BACKEND" && "$PY/celery" -A app.celery_app worker --loglevel=info) >/tmp/craft-worker.log 2>&1 &
+
+  c_blue "[4/4] Frontend (:$PROD_PORT)..."
+  (cd "$FRONTEND" && npm run dev -- -p "$PROD_PORT") >/tmp/craft-frontend.log 2>&1 &
+
+  trap 'echo; stop_all; exit 0' INT TERM
+  sleep 6
+  echo
+  c_green "════════════════════════════════════════════"
+  c_green "  PRODUCT is up → http://localhost:$PROD_PORT"
+  c_green "    sign in (Google) → onboarding → office map"
+  c_green "  Backend API → http://localhost:$API_PORT/health"
+  c_green "  Logs: /tmp/craft-{backend,worker,frontend}.log"
+  c_green "  Ctrl+C to stop."
+  c_green "════════════════════════════════════════════"
+  # 프론트 로그를 따라가며 살아있게 유지(Ctrl+C로 전체 종료).
+  tail -f /tmp/craft-frontend.log
+  ;;
+
+landing)
+  kill_port "$LAND_PORT"
+  c_blue "Frontend only (landing/blog need no backend) on :$LAND_PORT..."
+  trap 'echo; kill_port "$LAND_PORT"; exit 0' INT TERM
+  cd "$FRONTEND"
+  echo
+  c_green "════════════════════════════════════════════"
+  c_green "  LANDING is up → http://localhost:$LAND_PORT"
+  c_green "    landing → /        blog → /blog"
+  c_green "  (product routes /app won't work here — that's 'craft product')"
+  c_green "  Ctrl+C to stop."
+  c_green "════════════════════════════════════════════"
+  npm run dev -- -p "$LAND_PORT"
+  ;;
+
+stop)
+  stop_all "${2:-}"
+  ;;
+
+test)
+  c_blue "Backend test suite (needs Postgres+Redis — start with 'craft product' or docker)..."
+  (cd "$ROOT" && docker compose up -d postgres redis >/dev/null 2>&1) || true
+  cd "$BACKEND" && "$PY/pytest" -p no:warnings
+  ;;
+
+*)
+  echo "Craft dev runner"
+  echo "  craft product       full stack  → product  at http://localhost:$PROD_PORT"
+  echo "  craft landing       frontend    → landing  at http://localhost:$LAND_PORT"
+  echo "  craft stop [--all]  stop servers (--all also stops docker)"
+  echo "  craft test          backend test suite"
+  ;;
+esac
