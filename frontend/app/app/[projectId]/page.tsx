@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import dynamic from "next/dynamic";
 import { apiFetch } from "@/lib/api";
+import { useStore } from "@/lib/store";
+import { connectSSE } from "@/lib/sse";
 import type { MapData } from "@/lib/map/types";
 
 const MapCanvas = dynamic(() => import("@/components/map/MapCanvas"), { ssr: false });
@@ -15,14 +17,19 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let disconnect: (() => void) | null = null;
     (async () => {
       try {
         const token = await getToken();
-        setData(await apiFetch<MapData>(`/api/projects/${params.projectId}/map`, { token }));
+        const map = await apiFetch<MapData>(`/api/projects/${params.projectId}/map`, { token });
+        useStore.getState().setSnapshot(map); // 스냅샷을 store로(글로우/칩/피드 소스)
+        setData(map);
+        if (token) disconnect = connectSSE(params.projectId, token); // 라이브 SSE
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load map");
       }
     })();
+    return () => disconnect?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.projectId]);
 

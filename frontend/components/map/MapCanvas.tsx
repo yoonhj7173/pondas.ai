@@ -4,6 +4,7 @@
 import { useEffect, useRef } from "react";
 import type { MapData } from "@/lib/map/types";
 import { PixiWorld, type WorldCallbacks } from "@/lib/map/world";
+import { useStore } from "@/lib/store";
 
 export default function MapCanvas({ data, callbacks }: { data: MapData; callbacks?: WorldCallbacks }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -13,6 +14,7 @@ export default function MapCanvas({ data, callbacks }: { data: MapData; callback
   useEffect(() => {
     let world: PixiWorld | null = null;
     let disposed = false;
+    let unsub: (() => void) | null = null;
     const wrap = wrapRef.current!;
     (async () => {
       world = new PixiWorld(callbacks ?? {});
@@ -20,10 +22,18 @@ export default function MapCanvas({ data, callbacks }: { data: MapData; callback
       if (disposed) { world.destroy(); return; }
       worldRef.current = world;
       world.render(data);
+      // store 구독 — 상태 변경을 Pixi에 명령형으로 반영(React 리렌더 없이, D36).
+      unsub = useStore.subscribe((state, prev) => {
+        for (const id in state.agents) {
+          if (state.agents[id].status !== prev.agents[id]?.status) {
+            world!.updateAgentStatus(id, state.agents[id].status);
+          }
+        }
+      });
     })();
     const ro = new ResizeObserver(() => world?.resize(wrap.clientWidth, wrap.clientHeight));
     ro.observe(wrap);
-    return () => { disposed = true; ro.disconnect(); world?.destroy(); worldRef.current = null; };
+    return () => { disposed = true; unsub?.(); ro.disconnect(); world?.destroy(); worldRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
