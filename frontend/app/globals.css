@@ -46,3 +46,45 @@ body {
     @apply rounded-tile text-white;
   }
 }
+
+/* 블로그 본문(마크다운) — Mulish 17px/1.75, Baloo H2, dark code, blue-border quote. */
+.prose-craft {
+  font-family: var(--font-mulish), sans-serif;
+  font-size: 17px;
+  line-height: 1.75;
+  color: #3a3631;
+}
+.prose-craft p { margin: 1.1em 0; }
+.prose-craft h2 {
+  font-family: var(--font-baloo), sans-serif;
+  font-weight: 800;
+  font-size: 1.6rem;
+  margin: 1.8em 0 0.5em;
+  color: #2c2925;
+}
+.prose-craft ul { margin: 1.1em 0; padding-left: 1.3em; list-style: disc; }
+.prose-craft li { margin: 0.3em 0; }
+.prose-craft strong { font-weight: 700; color: #2c2925; }
+.prose-craft pre {
+  background: #1f2430;
+  color: #e6e6e6;
+  border-radius: 12px;
+  padding: 16px;
+  overflow-x: auto;
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 1.4em 0;
+}
+.prose-craft code { font-family: var(--font-mono), monospace; }
+.prose-craft :not(pre) > code {
+  background: #ece8dd; border-radius: 5px; padding: 1px 5px; font-size: 0.9em;
+}
+.prose-craft blockquote {
+  font-family: var(--font-bricolage), sans-serif;
+  border-left: 4px solid #3fb4dc;
+  padding: 0.2em 0 0.2em 1.1em;
+  margin: 1.4em 0;
+  color: #2e3a52;
+  font-size: 1.15rem;
+}

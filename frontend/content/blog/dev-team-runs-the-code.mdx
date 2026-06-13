@@ -1,0 +1,32 @@
+---
+title: Why our dev team runs the code instead of writing about it
+summary: "\"Build passed\" isn't \"it works.\" Here's how a sandbox + a headless browser closes that gap — right inside the office."
+category: Engineering
+author: Sam Rivera
+date: 2026-06-10
+readTime: 6 min read
+---
+
+Most AI coding tools stop at "the build succeeded." That's not the same as the feature working. A green build can still render a blank page, 500 on the happy path, or quietly drop half the requirements.
+
+## Working as expected, not build passed
+
+In Craft, the Development team doesn't just write code — it **runs** it. Each dev task spins up an isolated sandbox where the agent writes files, installs dependencies, starts the dev server, and exercises the real flows with a headless browser.
+
+The QA agent only signs off when it has actually run the thing and confirmed it behaves. "Build passed" never closes a review loop; "works as expected" does.
+
+## Why a sandbox
+
+LLM-written code is untrusted by definition. It never runs on our backend — only inside a Firecracker microVM with no secrets and a restricted egress. You get the working files; the blast radius stays zero.
+
+```python
+def add(a, b):
+    return a + b
+
+# and the test that must actually pass:
+assert add(2, 3) == 5
+```
+
+> The point isn't to impress you with a build log. It's to hand you software that runs.
+
+That's the whole idea: an office where the work is real.

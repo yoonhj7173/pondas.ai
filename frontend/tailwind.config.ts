@@ -47,6 +47,8 @@ const config: Config = {
         baloo: ["var(--font-baloo)", "sans-serif"],
         nunito: ["var(--font-nunito)", "sans-serif"],
         mono: ["var(--font-mono)", "monospace"],
+        mulish: ["var(--font-mulish)", "sans-serif"],
+        bricolage: ["var(--font-bricolage)", "sans-serif"],
       },
       borderRadius: {
         pill: "999px",
