@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SignInButton, useAuth, useUser } from "@clerk/nextjs";
 import { PillButton, Stepper } from "@/components/ui/primitives";
-import { apiFetch, TEAM_TEMPLATES } from "@/lib/api";
+import { apiFetch, E2E, TEAM_TEMPLATES } from "@/lib/api";
 import { CARPET } from "@/lib/tokens";
 
 const STEPS = ["Sign in", "Your name", "Project", "Teams", "Context"];
@@ -22,8 +22,8 @@ export default function Onboarding() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 사인인되면 step 0을 자동 통과.
-  const effectiveStep = !isSignedIn ? 0 : Math.max(step, 1);
+  // 사인인되면 step 0을 자동 통과(E2E 모드는 사인인 스킵).
+  const effectiveStep = !(isSignedIn || E2E) ? 0 : Math.max(step, 1);
 
   function toggleTeam(key: string) {
     setTeams((t) => (t.includes(key) ? t.filter((k) => k !== key) : [...t, key]));
@@ -33,7 +33,7 @@ export default function Onboarding() {
     setBusy(true);
     setError(null);
     try {
-      const token = await getToken();
+      const token = E2E ? "e2e" : await getToken();
       const project = await apiFetch<{ id: string }>("/api/projects", {
         method: "POST",
         token,

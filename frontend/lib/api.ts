@@ -1,6 +1,9 @@
 // 백엔드 API 클라이언트 — Clerk JWT를 Authorization으로 싣는다(D24).
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+// E2E 모드(dev 전용) — Clerk 사인인 우회. 백엔드도 E2E_AUTH_BYPASS로 매칭.
+export const E2E = process.env.NEXT_PUBLIC_E2E === "1";
+
 export async function apiFetch<T>(
   path: string,
   opts: RequestInit & { token?: string | null } = {},

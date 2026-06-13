@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import dynamic from "next/dynamic";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, E2E } from "@/lib/api";
 import { useStore } from "@/lib/store";
 import { connectSSE } from "@/lib/sse";
 import type { MapData } from "@/lib/map/types";
@@ -15,7 +15,8 @@ import { BoardOverlay, OutputsOverlay, SettingsOverlay, type OverlayKind } from 
 const MapCanvas = dynamic(() => import("@/components/map/MapCanvas"), { ssr: false });
 
 export default function ProjectMap({ params }: { params: { projectId: string } }) {
-  const { getToken } = useAuth();
+  const { getToken: clerkToken } = useAuth();
+  const getToken = async () => (E2E ? "e2e" : await clerkToken());
   const [data, setData] = useState<MapData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sel, setSel] = useState<Selection>({ kind: "none" });

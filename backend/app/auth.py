@@ -196,6 +196,12 @@ def require_user(
     라우트에서 `user_id: str = Depends(require_user)` 로 주입받으면, 그 핸들러는
     인증된 사용자에 한해서만 실행되고 user_id를 신뢰할 수 있다.
     """
+    # E2E 우회(개발/테스트 전용, 기본 off) — 풀스택 브라우저 E2E에서 실 Clerk 세션 없이
+    # 앱 와이어링을 검증하기 위함. settings.e2e_auth_bypass가 켜질 때만 활성(프로덕션 금지).
+    # 인증 로직 자체는 test_auth.py(실 JWT 검증)로 별도 검증됨.
+    if settings.e2e_auth_bypass:
+        return settings.e2e_user_id
+
     raw = _extract_bearer(authorization, token)
     try:
         return verifier.verify(raw)

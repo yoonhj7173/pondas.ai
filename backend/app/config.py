@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     cost_per_1k_in: float = Field(default=0.015, alias="COST_PER_1K_IN")
     cost_per_1k_out: float = Field(default=0.075, alias="COST_PER_1K_OUT")
 
+    # --- E2E auth bypass (DEV/TEST ONLY — 기본 off, 프로덕션 금지) ---
+    e2e_auth_bypass: bool = Field(default=False, alias="E2E_AUTH_BYPASS")
+    e2e_user_id: str = Field(default="e2e_user", alias="E2E_USER_ID")
+
     # --- App ---
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     cors_origins: str = Field(default="http://localhost:3000", alias="CORS_ORIGINS")
