@@ -101,3 +101,92 @@ class MapOut(BaseModel):
     paused: bool
     teams: list[TeamMapOut]
     edges: list[EdgeMapOut]
+
+
+# --- Team / Agent / Edge management (item 7) ---
+
+
+class TeamCreate(BaseModel):
+    template_key: str
+
+
+class TeamPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    room_x: int | None = None
+    room_y: int | None = None
+
+
+class AgentOutputIn(BaseModel):
+    """Add-agent의 단일 출력(D38) — Final이면 통째로 생략(null)."""
+
+    type: str  # handoff | review_loop
+    to_agent_id: uuid.UUID
+    max_iterations: int | None = None
+
+
+class AgentCreate(BaseModel):
+    # role_key는 모달이 프리필에 쓰는 힌트(서버는 최종 name/role/tier/output을 신뢰).
+    role_key: str | None = None
+    name: str = Field(min_length=1, max_length=200)
+    role_instructions: str = Field(min_length=1)
+    model_tier: str
+    output: AgentOutputIn | None = None
+
+
+class AgentPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    role_instructions: str | None = Field(default=None, min_length=1)
+    model_tier: str | None = None
+
+
+class EdgeCreate(BaseModel):
+    from_agent_id: uuid.UUID
+    to_agent_id: uuid.UUID
+    type: str  # handoff | review_loop
+    max_iterations: int | None = None
+
+
+# --- Panel payloads (D15 / Flow 4) ---
+
+
+class AgentRowOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    model_tier: str
+    slot: int
+    status: str
+
+
+class TeamPanelOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    template_key: str
+    engine: str
+    agent_count: int
+    tokens_total: int
+    agents: list[AgentRowOut]
+
+
+class EdgeRefOut(BaseModel):
+    """패널에 보여줄 연결 한 줄."""
+
+    id: uuid.UUID
+    to_agent_id: uuid.UUID
+    to_agent_name: str
+    type: str
+    max_iterations: int | None
+
+
+class AgentPanelOut(BaseModel):
+    id: uuid.UUID
+    team_id: uuid.UUID
+    name: str
+    role_instructions: str
+    model_tier: str
+    status: str
+    tokens_total: int
+    # 출력 연결(최대 1개, D38) + 들어오는 연결(참고용).
+    outgoing: EdgeRefOut | None
+    incoming: list[EdgeRefOut]

@@ -18,21 +18,20 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import TenantScope, require_user, tenant_scope
 from app.db import get_db
 from app.models import (
     Agent,
-    AgentTemplate,
     Edge,
     Project,
-    Task,
     Team,
     TeamTemplate,
     UserProfile,
 )
+from app.ownership import load_owned_project
+from app.status_util import agent_status_map
 from app.schemas import (
     AgentMapOut,
     EdgeMapOut,
@@ -47,51 +46,14 @@ from app.schemas import (
 
 router = APIRouter(prefix="/api", tags=["projects"])
 
-# 맵에 노출하는 활성 상태 — terminal(done)은 idle로, failed는 유지(D23).
-_ACTIVE_STATUSES = {"queued", "working", "blocked", "needs-input", "failed"}
-
 # 초기 방 배치(2열 그리드). 이후 드래그로 변경(D39).
 _ROOM_COL_W = 480
 _ROOM_ROW_H = 420
 
 
-def _load_owned_project(db: Session, scope: TenantScope, project_id: uuid.UUID) -> Project:
-    """소유한 프로젝트를 로드하거나 404. 교차 사용자는 존재를 은폐(404)."""
-    project = db.get(Project, project_id)
-    if project is None or not scope.owns(project):
-        raise HTTPException(status_code=404, detail="Project not found")
-    return project
-
-
-def _agent_status_map(db: Session, project_id: uuid.UUID) -> dict[uuid.UUID, str]:
-    """프로젝트 에이전트별 현재 상태 = 최신 task 상태(active만), 없으면 idle.
-
-    item 8(TaskService) 전에는 task가 없어 전부 idle. 로직은 이후에도 정확하다.
-    """
-    # 에이전트별 최신 task 시각.
-    subq = (
-        db.query(Task.agent_id, func.max(Task.created_at).label("mx"))
-        .filter(Task.project_id == project_id)
-        .group_by(Task.agent_id)
-        .subquery()
-    )
-    rows = (
-        db.query(Task.agent_id, Task.status)
-        .join(
-            subq,
-            (Task.agent_id == subq.c.agent_id) & (Task.created_at == subq.c.mx),
-        )
-        .all()
-    )
-    return {
-        agent_id: (status if status in _ACTIVE_STATUSES else "idle")
-        for agent_id, status in rows
-    }
-
-
 def _build_map(db: Session, project: Project) -> MapOut:
     """프로젝트를 맵 투영으로 직렬화한다."""
-    status_by_agent = _agent_status_map(db, project.id)
+    status_by_agent = agent_status_map(db, project.id)
 
     teams = (
         db.query(Team)
@@ -257,7 +219,7 @@ def get_project(
     scope: TenantScope = Depends(tenant_scope),
     db: Session = Depends(get_db),
 ) -> ProjectOut:
-    return ProjectOut.model_validate(_load_owned_project(db, scope, project_id))
+    return ProjectOut.model_validate(load_owned_project(db, scope, project_id))
 
 
 @router.patch("/projects/{project_id}", response_model=ProjectOut)
@@ -267,7 +229,7 @@ def rename_project(
     scope: TenantScope = Depends(tenant_scope),
     db: Session = Depends(get_db),
 ) -> ProjectOut:
-    project = _load_owned_project(db, scope, project_id)
+    project = load_owned_project(db, scope, project_id)
     project.name = body.name
     db.commit()
     db.refresh(project)
@@ -280,7 +242,7 @@ def delete_project(
     scope: TenantScope = Depends(tenant_scope),
     db: Session = Depends(get_db),
 ) -> None:
-    project = _load_owned_project(db, scope, project_id)
+    project = load_owned_project(db, scope, project_id)
     # FK ON DELETE CASCADE가 teams/agents/edges/tasks/outputs 등 하위를 정리한다.
     # 샌드박스 destroy(D29)는 WorkspaceService 도입(item 15) 후 연결; 지금은 sandbox_id 없음.
     db.delete(project)
@@ -293,7 +255,7 @@ def pause_project(
     scope: TenantScope = Depends(tenant_scope),
     db: Session = Depends(get_db),
 ) -> ProjectOut:
-    project = _load_owned_project(db, scope, project_id)
+    project = load_owned_project(db, scope, project_id)
     project.paused = True
     db.commit()
     db.refresh(project)
@@ -306,7 +268,7 @@ def resume_project(
     scope: TenantScope = Depends(tenant_scope),
     db: Session = Depends(get_db),
 ) -> ProjectOut:
-    project = _load_owned_project(db, scope, project_id)
+    project = load_owned_project(db, scope, project_id)
     project.paused = False
     db.commit()
     db.refresh(project)
@@ -319,5 +281,5 @@ def get_map(
     scope: TenantScope = Depends(tenant_scope),
     db: Session = Depends(get_db),
 ) -> MapOut:
-    project = _load_owned_project(db, scope, project_id)
+    project = load_owned_project(db, scope, project_id)
     return _build_map(db, project)

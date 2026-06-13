@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.logging_config import configure_logging, get_logger
-from app.routers import auth_demo, projects, system
+from app.routers import auth_demo, edges, projects, system, teams
 
 configure_logging(settings.log_level)
 log = get_logger("app.main")
@@ -53,8 +53,12 @@ def create_app() -> FastAPI:
     app.include_router(system.router)
     # 인증 보호 라우터(/api/me, /api/whoami). require_user 의존성으로 Clerk JWT 강제.
     app.include_router(auth_demo.router)
-    # Projects API + 템플릿 클로닝 + 맵(item 6). 이후 teams/agents/edges(item 7) 등 추가.
+    # Projects API + 템플릿 클로닝 + 맵(item 6).
     app.include_router(projects.router)
+    # Team/Agent 관리(item 7).
+    app.include_router(teams.router)
+    # Edge 관리(item 7).
+    app.include_router(edges.router)
 
     return app
 
