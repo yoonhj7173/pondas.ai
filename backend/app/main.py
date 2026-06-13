@@ -37,6 +37,11 @@ log = get_logger("app.main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 보안 가드(부팅 거부): 프로덕션에서 E2E auth 우회가 켜져 있으면 시작 금지.
+    if settings.e2e_auth_bypass:
+        if settings.is_production:
+            raise RuntimeError("E2E_AUTH_BYPASS must never be enabled in production.")
+        log.warning("⚠️ E2E_AUTH_BYPASS is ON — authentication is bypassed (DEV/TEST ONLY).")
     # 부팅 시 설정 요약을 구조화 로그로 남긴다(시크릿은 절대 찍지 않는다).
     log.info(
         "app starting",

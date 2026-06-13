@@ -158,8 +158,13 @@ class E2BSandboxProvider:
         return path if path.startswith("/") else f"{self.WORKDIR}/{path}"
 
     def create(self, project_id, runtime_image: str) -> str:
+        from app.config import settings
         template = self.RUNTIME_TEMPLATES.get(runtime_image)
-        sbx = self._sdk().create(template=template, api_key=self._api_key, timeout=600)
+        # egress(D31): 프로덕션은 레지스트리 허용리스트 커스텀 템플릿 권장. SDK 레벨 토글로 제어.
+        sbx = self._sdk().create(
+            template=template, api_key=self._api_key, timeout=600,
+            allow_internet_access=settings.sandbox_allow_internet,
+        )
         self._handles[sbx.sandbox_id] = sbx
         return sbx.sandbox_id
 
@@ -227,9 +232,18 @@ class E2BSandboxProvider:
 
 
 def get_provider() -> SandboxProvider:
-    """프로덕션은 E2B(키 있으면), 없으면 Local(dev/test)로 폴백."""
+    """E2B(키 있으면). 키 없으면 dev는 Local 폴백, **프로덕션은 하드 실패**(D29).
+
+    프로덕션에서 Local 폴백 = LLM 코드를 제품 호스트에서 직접 실행 = 보안 원칙 위반.
+    따라서 프로덕션은 E2B 키가 없으면 시작을 거부한다.
+    """
     from app.config import settings
     if getattr(settings, "e2b_api_key", "") or os.environ.get("E2B_API_KEY"):
         return E2BSandboxProvider()
+    if settings.is_production:
+        raise RuntimeError(
+            "E2B_API_KEY required in production — refusing to run LLM-written code on the "
+            "product host via LocalSandboxProvider (D29)."
+        )
     log.warning("E2B_API_KEY not set — using LocalSandboxProvider (DEV/TEST ONLY, no isolation)")
     return LocalSandboxProvider()

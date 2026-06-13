@@ -37,6 +37,14 @@ class Settings(BaseSettings):
         default="", alias="NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"
     )
 
+    # --- Environment ---
+    # "production"이면 보안 가드가 엄격해진다(E2B 강제, auth 우회 금지). 기본 dev.
+    app_env: str = Field(default="dev", alias="APP_ENV")
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env.lower() in ("production", "prod")
+
     # --- Infra ---
     database_url: str = Field(
         default="postgresql://cursorpm:cursorpm@localhost:5432/cursorpm",
@@ -44,8 +52,11 @@ class Settings(BaseSettings):
     )
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
 
-    # --- Execution sandbox (E2B, D29) — 없으면 LocalSandboxProvider 폴백(dev only) ---
+    # --- Execution sandbox (E2B, D29) ---
     e2b_api_key: str = Field(default="", alias="E2B_API_KEY")
+    # 샌드박스 인터넷 접근(D31). 프로덕션은 egress 제한 커스텀 템플릿을 써야 하며(레지스트리
+    # 허용리스트), 그건 E2B 템플릿 빌드 단계에서 설정한다. 이 플래그는 SDK 레벨 토글.
+    sandbox_allow_internet: bool = Field(default=True, alias="SANDBOX_ALLOW_INTERNET")
 
     # --- Concurrency / cost guardrails (tech-design §5 config, §12 concurrency) ---
     concurrency_cap: int = Field(default=3, alias="CONCURRENCY_CAP")
