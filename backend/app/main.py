@@ -27,6 +27,7 @@ from app.routers import (
     projects,
     realtime,
     system,
+    tasks,
     teams,
 )
 
@@ -78,6 +79,8 @@ def create_app() -> FastAPI:
     app.include_router(realtime.router)
     # Orchestrator chat(item 13).
     app.include_router(chat.router)
+    # Task control: stop / continue(item 18).
+    app.include_router(tasks.router)
 
     return app
 

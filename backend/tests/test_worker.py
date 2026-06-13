@@ -98,13 +98,6 @@ def test_crew_exception_fails(env):
     assert "boom" in db.get(Task, tid).error_summary.lower()
 
 
-def test_agent_sdk_stub_blocked(env):
-    db, uid, pid, aid = env
-    tid = _queued(db, uid, pid, aid, engine="agent_sdk")
-    assert worker_core.process_task(db, tid) == "failed"
-    assert "item 18" in db.get(Task, tid).error_summary
-
-
 def test_paused_project_not_dispatched(env):
     db, uid, pid, aid = env
     db.get(Project, pid).paused = True
@@ -151,7 +144,10 @@ def test_reaper_fails_stale_working(env):
 
 
 def test_celery_run_task_wrapper(env):
+    # Celery 래퍼(자체 세션)를 LLM 없이 검증 — paused 프로젝트 → not_dispatched.
     db, uid, pid, aid = env
-    tid = _queued(db, uid, pid, aid, engine="agent_sdk")  # LLM 불필요한 스텁 경로로 래퍼 검증
+    db.get(Project, pid).paused = True
+    db.commit()
+    tid = _queued(db, uid, pid, aid)
     from app.celery_app import run_task
-    assert run_task(str(tid)) == "failed"
+    assert run_task(str(tid)) == "not_dispatched"

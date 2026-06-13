@@ -264,11 +264,11 @@ def run_chat(
 
 
 class LiteLLMClient:
-    """strong tier 모델로 litellm.completion 호출(프롬프트 캐싱 passthrough, D26/D32)."""
+    """litellm.completion 호출(프롬프트 캐싱 passthrough, D26/D32). model 미지정 시 strong."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, model: str | None = None):
         cfg = load_config(db)
-        self.model = model_for_tier(cfg, "strong")
+        self.model = model or model_for_tier(cfg, "strong")
 
     def complete(self, messages: list[dict], tools: list[dict]) -> LLMResponse:
         from litellm import completion

@@ -62,25 +62,15 @@ def _append_memory(db: Session, agent_id, output: str) -> None:
         db.rollback()
 
 
-def _finish_done(db: Session, task: Task, output: str, model: str, tokens_in: int, tokens_out: int, cfg) -> list:
-    """done 전이 + 아웃풋 + 메모리 + 그래프 전파를 한 트랜잭션으로 커밋. 새 child id 반환."""
+def _finalize_done(db: Session, task: Task, tokens_in: int, tokens_out: int, cost: float) -> list:
+    """done 공통 마무리(엔진 무관): 메모리 + 알림 + 전파 + 커밋 + 이벤트. 새 child id 반환.
+
+    호출부가 이미 status=done 전이 + 아웃풋 행 추가를 마친 상태로 호출한다.
+    """
     from app.services import graph_engine
 
-    cost = cost_usd(cfg, model, tokens_in, tokens_out)
-    ts.transition(
-        db, task, "done",
-        result_markdown=output, model_used=model,
-        tokens_in=tokens_in, tokens_out=tokens_out, est_cost_usd=cost,
-    )
-    # 결과를 단일 마크다운 아웃풋 파일로 저장(텍스트팀).
-    db.add(Output(
-        project_id=task.project_id, agent_id=task.agent_id, task_id=task.id,
-        path="output.md", mime="text/markdown", size_bytes=len(output.encode("utf-8")),
-        content=output, content_bytes=None,
-    ))
-    _append_memory(db, task.agent_id, output)
+    _append_memory(db, task.agent_id, task.result_markdown or "")
     events.emit_terminal_notification(db, task)
-    # 그래프 전파(완료와 같은 트랜잭션, dedup으로 재배달 안전).
     new_ids = [n for n in graph_engine.propagate(db, task) if n is not None]
     db.commit()
     events.emit_status(task)
@@ -88,11 +78,36 @@ def _finish_done(db: Session, task: Task, output: str, model: str, tokens_in: in
     return new_ids
 
 
-def process_task(db: Session, task_id: uuid.UUID, *, llm=None, enqueue=None) -> str:
+def _finish_done(db: Session, task: Task, output: str, model: str, tokens_in: int, tokens_out: int, cfg) -> list:
+    """텍스트팀 done — 결과를 단일 마크다운 아웃풋으로 저장 후 공통 마무리."""
+    cost = cost_usd(cfg, model, tokens_in, tokens_out)
+    ts.transition(
+        db, task, "done",
+        result_markdown=output, model_used=model,
+        tokens_in=tokens_in, tokens_out=tokens_out, est_cost_usd=cost,
+    )
+    db.add(Output(
+        project_id=task.project_id, agent_id=task.agent_id, task_id=task.id,
+        path="output.md", mime="text/markdown", size_bytes=len(output.encode("utf-8")),
+        content=output, content_bytes=None,
+    ))
+    return _finalize_done(db, task, tokens_in, tokens_out, cost)
+
+
+def _enqueue_children(new_ids: list, enqueue) -> None:
+    if not new_ids:
+        return
+    if enqueue is None:
+        from app.celery_app import enqueue_task as enqueue
+    for nid in new_ids:
+        enqueue(nid)
+
+
+def process_task(db: Session, task_id: uuid.UUID, *, llm=None, dev_client=None, enqueue=None) -> str:
     """task 1건을 처리하고 최종 상태 문자열을 반환한다(테스트/관측용).
 
     반환: "not_found" | "skipped:<status>" | "not_dispatched" | "done" | "needs-input" | "failed".
-    llm: 주입 LLM(테스트 ScriptedLLM). None이면 tier→model로 실 crewai.LLM 생성.
+    llm: crew 경로 주입 LLM(테스트 ScriptedLLM). dev_client: agent_sdk 경로 주입 에이전트.
     """
     task = db.get(Task, task_id)
     if task is None:
@@ -100,7 +115,7 @@ def process_task(db: Session, task_id: uuid.UUID, *, llm=None, enqueue=None) -> 
     if task.status != "queued":
         return f"skipped:{task.status}"
 
-    # 게이트 통과 + queued→working(원자적).
+    # 게이트 통과 + queued→working(원자적). paused면 dev/text 모두 디스패치 차단(D16).
     if not ts.try_dispatch(db, task):
         db.rollback()
         return "not_dispatched"
@@ -113,12 +128,7 @@ def process_task(db: Session, task_id: uuid.UUID, *, llm=None, enqueue=None) -> 
 
     # 엔진 라우팅.
     if task.engine == "agent_sdk":
-        # item 18에서 WorkspaceService+dev-runner로 대체. 지금은 스텁.
-        ts.transition(db, task, "failed", error_summary="dev/design execution engine not available yet (item 18)")
-        events.emit_terminal_notification(db, task)
-        db.commit()
-        events.emit_status(task)
-        return "failed"
+        return _run_dev_task(db, task, agent, model, cfg, dev_client, enqueue)
 
     # crew 경로.
     prompt = assemble_prompt(db, task, context_token_budget=cfg.context_token_budget)
@@ -153,12 +163,68 @@ def process_task(db: Session, task_id: uuid.UUID, *, llm=None, enqueue=None) -> 
         return "needs-input"
 
     new_ids = _finish_done(db, task, output, model, tokens_in, tokens_out, cfg)
-    # 다운스트림 child를 워커 큐에 넣는다(커밋 후). 기본은 Celery, 테스트는 collector 주입.
-    if new_ids:
-        if enqueue is None:
-            from app.celery_app import enqueue_task as enqueue
-        for nid in new_ids:
-            enqueue(nid)
+    _enqueue_children(new_ids, enqueue)
+    return "done"
+
+
+def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_client, enqueue) -> str:
+    """agent_sdk 경로(Dev/Design) — 워크스페이스에서 dev-runner 실행 + 출력 수집(item 18)."""
+    import time
+
+    from app.models import Project
+    from app.services import dev_runner
+    from app.services.verification import collect_outputs
+    from app.services.workspace import WorkspaceError, workspace_service
+
+    project = db.get(Project, task.project_id)
+    try:
+        sandbox_id = workspace_service.ensure_running(db, project)
+    except WorkspaceError as exc:
+        ts.transition(db, task, "failed", error_summary=str(exc))
+        events.emit_terminal_notification(db, task)
+        db.commit(); events.emit_status(task)
+        return "failed"
+
+    prompt = assemble_prompt(db, task, context_token_budget=cfg.context_token_budget)
+    if dev_client is None:
+        from app.services.orchestrator import LiteLLMClient
+        dev_client = LiteLLMClient(db, model=model)
+
+    start_mtime = time.time()
+    outcome = dev_runner.run_dev_task(
+        prompt, workspace_service.provider, sandbox_id,
+        client=dev_client, role_instructions=agent.role_instructions,
+        task_timeout_sec=cfg.dev_task_timeout_min * 60,
+    )
+    cost = cost_usd(cfg, model, outcome.tokens_in, outcome.tokens_out)
+
+    if outcome.status == "needs-input":
+        ts.transition(db, task, "needs-input", awaiting_prompt=outcome.awaiting_prompt,
+                      result_markdown=outcome.output, model_used=model, verification=outcome.verification,
+                      tokens_in=outcome.tokens_in, tokens_out=outcome.tokens_out, est_cost_usd=cost)
+        events.emit_terminal_notification(db, task)
+        db.commit(); events.emit_status(task)
+        events.emit_usage(task.project_id, task.agent_id, outcome.tokens_in, outcome.tokens_out, cost)
+        workspace_service.pause_if_idle(db, project)
+        return "needs-input"
+
+    if outcome.status == "failed":
+        ts.transition(db, task, "failed", error_summary=outcome.error_summary or "dev task failed",
+                      verification=outcome.verification, model_used=model,
+                      tokens_in=outcome.tokens_in, tokens_out=outcome.tokens_out, est_cost_usd=cost)
+        events.emit_terminal_notification(db, task)
+        db.commit(); events.emit_status(task)
+        workspace_service.pause_if_idle(db, project)
+        return "failed"
+
+    # done — 변경 파일을 아웃풋으로 수집(코드 트리 + 디자인 PNG).
+    ts.transition(db, task, "done", result_markdown=outcome.output, model_used=model,
+                  verification=outcome.verification, tokens_in=outcome.tokens_in,
+                  tokens_out=outcome.tokens_out, est_cost_usd=cost)
+    collect_outputs(db, task, workspace_service.provider, sandbox_id, since_mtime=start_mtime)
+    new_ids = _finalize_done(db, task, outcome.tokens_in, outcome.tokens_out, cost)
+    workspace_service.pause_if_idle(db, project)
+    _enqueue_children(new_ids, enqueue)
     return "done"
 
 
