@@ -109,6 +109,8 @@ class Project(Base):
     sandbox_status: Mapped[str] = mapped_column(
         Text, nullable=False, server_default="none"
     )
+    # CMA 프로젝트 공유 memory store(회사 기억) — Dev 엔진 파일럿(D45), lazy 생성.
+    cma_memory_store_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = _updated_at()
 
@@ -235,6 +237,9 @@ class Agent(Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     role_instructions: Mapped[str] = mapped_column(Text, nullable=False)
     model_tier: Mapped[str] = mapped_column(Text, nullable=False)
+    # CMA Dev 엔진 파일럿(D45) — 에이전트당 영속 agent/session(lazy). null=crew/E2B 경로.
+    cma_agent_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cma_session_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     # slot: 0–4. 점유 슬롯 바운딩박스를 카펫 중앙 정렬하는 건 프론트(item 21).
     slot: Mapped[int] = mapped_column(SmallInteger, nullable=False, server_default=expression.text("0"))
     created_at: Mapped[datetime] = _created_at()

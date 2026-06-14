@@ -20,6 +20,8 @@ _DEFAULTS = {
     "context_token_budget": "100000",
     "dev_task_timeout_min": "30",
     "sandbox_idle_pause_sec": "300",
+    "dev_engine": "e2b",          # agent_sdk 경로 실행기: e2b(현행) | cma(D45 파일럿)
+    "cma_environment_id": "",     # CMA 공유 cloud 환경 id(lazy 생성 후 여기 저장)
 }
 
 
@@ -31,6 +33,8 @@ class GuardConfig:
     context_token_budget: int
     dev_task_timeout_min: int
     sandbox_idle_pause_sec: int
+    dev_engine: str
+    cma_environment_id: str
     tier_models: dict[str, str]
     model_pricing: dict[str, dict[str, float]]
 
@@ -49,6 +53,8 @@ def load_config(db: Session) -> GuardConfig:
         context_token_budget=int(g("context_token_budget")),
         dev_task_timeout_min=int(g("dev_task_timeout_min")),
         sandbox_idle_pause_sec=int(g("sandbox_idle_pause_sec")),
+        dev_engine=g("dev_engine"),
+        cma_environment_id=g("cma_environment_id"),
         tier_models=json.loads(rows.get("tier_models", "{}")),
         model_pricing=json.loads(rows.get("model_pricing", "{}")),
     )
@@ -57,6 +63,16 @@ def load_config(db: Session) -> GuardConfig:
 def model_for_tier(cfg: GuardConfig, tier: str) -> str:
     """티어 → 실제 모델 id(D32). 미지정 티어는 medium으로 폴백."""
     return cfg.tier_models.get(tier) or cfg.tier_models.get("medium", "")
+
+
+def set_config(db: Session, key: str, value: str) -> None:
+    """config 키 upsert — lazy 생성한 리소스 id(예: cma_environment_id) 저장용."""
+    row = db.get(Config, key)
+    if row is None:
+        db.add(Config(key=key, value=value))
+    else:
+        row.value = value
+    db.flush()
 
 
 def cost_usd(cfg: GuardConfig, model: str, tokens_in: int, tokens_out: int) -> float:
