@@ -128,6 +128,9 @@ def process_task(db: Session, task_id: uuid.UUID, *, llm=None, dev_client=None, 
 
     # 엔진 라우팅.
     if task.engine == "agent_sdk":
+        if cfg.dev_engine == "cma":  # D45 파일럿 — 플래그로 CMA, 기본은 E2B 폴백.
+            from app.services.cma_engine import run_dev_task_cma
+            return run_dev_task_cma(db, task, agent, model, cfg, enqueue)
         return _run_dev_task(db, task, agent, model, cfg, dev_client, enqueue)
 
     # crew 경로.
