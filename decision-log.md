@@ -321,6 +321,22 @@
   Engineer 프롬프트는 role-catalog.md에 P1로 보존). 디자인 핸드오프의 5번째 카드/카펫색은 P1에서 사용.
 - **D1/D43 갱신:** D1의 5팀 → 4팀. D43의 엔진 표에서 Data 행 제거.
 
+### D45. Dev팀 실행 엔진 = Claude Managed Agents (CMA), E2B에서 이주 (2026-06-14)
+- **결정:** development 팀의 agent_sdk 실행을 CrewAI/E2B → **Claude Managed Agents(CMA)**로 이주.
+  설계: ① 에이전트당 영속 CMA session(개인 기억 = 세션 히스토리, 자동 압축) ② 프로젝트당 공유
+  memory store = **팀 공유 코드베이스/워크스페이스**(cross-agent: 핸드오프·리뷰가 서로 작업물을 봄)
+  ③ cloud 컨테이너(E2B 대체), 네트워크는 **D31③ 따라 limited(패키지 레지스트리만)** ④ development만
+  (design은 playwright 스크린샷 필요 → E2B 유지, is_dev 게이트) ⑤ E2B는 폴백(`dev_engine=e2b`로 롤백).
+- **근거:** ① 우리 오케스트레이션 하네스(오케스트레이터·그래프·리뷰루프)는 우리 코드 = 유지; CrewAI는
+  "에이전트 1명 실행" 얇은 부분(~5%)만 담당 → 갈아끼우기 쉬움. ② 가장 어려운 메모리/컨텍스트 연속성을
+  Anthropic 관리(자동 압축 + memory store + 캐싱)로 위임 — OpenRouter 하네스가 깨진 그 지점 해결.
+  ③ 이미 Claude 디폴트 + CrewAI 종속 무관심.
+- **검증(라이브):** 크로스에이전트 메모리(A씀→B읽음), 실제 코드작성+출력수집, SWE↔QA 리뷰루프(sonnet
+  round1 승인, QA가 공유 워크스페이스에서 코드 읽음), 7-state 매핑. haiku는 마운트 사용 불안정 →
+  프로덕션 디폴트 sonnet이라 무방.
+- **효과:** D30/D43의 "development=agent_sdk"를 구체화(엔진 실체 = CMA). E2B는 design + 폴백으로 잔존.
+  per-agent 세션은 격리 컨테이너라 E2B의 공유 워크스페이스와 달라 → 공유 memory store로 그 역할 대체.
+
 ---
 
 ## P1 백로그 (확정 결정에서 파생)

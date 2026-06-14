@@ -70,8 +70,14 @@ class CMAClient:
         self._http.close()
 
     # --- 리소스 라이프사이클(setup, 한 번씩) ---
-    def create_environment(self, name: str, *, unrestricted: bool = True) -> str:
-        net = {"type": "unrestricted"} if unrestricted else {"type": "limited"}
+    def create_environment(self, name: str, *, allow_package_managers: bool = True,
+                           allowed_hosts: list | None = None) -> str:
+        """D31③: limited 네트워크 — npm/pypi 등 패키지 레지스트리만 허용, 임의 인터넷 차단(보안).
+        untrusted LLM 코드가 도는 컨테이너라 egress를 허용리스트로 제한한다."""
+        net: dict = {"type": "limited", "allow_package_managers": allow_package_managers,
+                     "allow_mcp_servers": False}
+        if allowed_hosts:
+            net["allowed_hosts"] = allowed_hosts
         return self._req("POST", "/v1/environments", {
             "name": name, "config": {"type": "cloud", "networking": net},
         })["id"]
