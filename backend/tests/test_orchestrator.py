@@ -172,3 +172,34 @@ def test_history_persisted(env):
     msgs = db.query(OrchestratorMessage).filter_by(project_id=pid).order_by(OrchestratorMessage.created_at).all()
     assert [m.role for m in msgs] == ["user", "orchestrator"]
     assert msgs[0].content == "hi"
+
+
+# --- conversational memory: prior turns are restored into the next call's messages ---
+
+
+def test_history_loaded_into_next_turn(env):
+    db, uid, pid, swe, qa = env
+    # 첫 턴 — 대화 한 쌍을 남긴다.
+    run_chat(db, pid, uid, "remember X", client=ScriptedClient([LLMResponse(content="noted X")]), enqueue=lambda x: None)
+    # 둘째 턴 — 직전 대화가 LLM에 전달되는 messages로 복원돼야 한다.
+    c2 = ScriptedClient([LLMResponse(content="sure")])
+    run_chat(db, pid, uid, "what did I say?", client=c2, enqueue=lambda x: None)
+    first_call = c2.seen_messages[0]
+    pairs = [(m["role"], m.get("content")) for m in first_call]
+    assert ("user", "remember X") in pairs            # 과거 사용자 발화
+    assert ("assistant", "noted X") in pairs          # 과거 지휘자 답변(orchestrator→assistant 매핑)
+    assert first_call[0]["role"] == "system"          # 순서: system → 이력 → 현재
+    assert first_call[-1] == {"role": "user", "content": "what did I say?"}  # 현재 메시지가 맨 끝(중복 없음)
+
+
+def test_history_limit_zero_disables(env):
+    db, uid, pid, swe, qa = env
+    run_chat(db, pid, uid, "earlier", client=ScriptedClient([LLMResponse(content="ok")]), enqueue=lambda x: None)
+    c2 = ScriptedClient([LLMResponse(content="hi")])
+    run_chat(db, pid, uid, "now", client=c2, enqueue=lambda x: None, history_limit=0)
+    # limit=0이면 이력 미주입 → system + 현재 메시지뿐.
+    assert c2.seen_messages[0] == [
+        c2.seen_messages[0][0],
+        {"role": "user", "content": "now"},
+    ]
+    assert c2.seen_messages[0][0]["role"] == "system"
