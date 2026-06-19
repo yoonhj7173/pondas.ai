@@ -47,6 +47,16 @@ EDGE_TYPES = ("handoff", "review_loop")
 TASK_STATUSES = ("idle", "queued", "working", "blocked", "needs-input", "done", "failed")
 TASK_ORIGINS = ("chat", "edge", "panel")
 ORCH_ROLES = ("user", "orchestrator")
+# 빌링(D46) — 구독 플랜 + 크레딧 원장 사유. plan=free는 무료크레딧만.
+BILLING_PLANS = ("free", "starter", "pro", "studio")
+LEDGER_REASONS = (
+    "signup_grant",      # 가입 무료 크레딧(1계정 1회)
+    "monthly_refill",    # 구독 월 충전
+    "topup",             # 크레딧 팩 구매
+    "task_charge",       # task 실행 차감(등급 가중)
+    "refund_system_failure",  # 시스템 실패 환불(우리 잘못만, D46 B-4)
+    "adjustment",        # 수동 보정/지원
+)
 
 
 def _uuid_pk() -> Mapped[uuid.UUID]:
@@ -509,3 +519,61 @@ class Config(Base):
 
     key: Mapped[str] = mapped_column(Text, primary_key=True)
     value: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class CreditAccount(Base):
+    """유저 1명의 크레딧 지갑 + 구독 상태 (빌링 D46). 키 = Clerk user_id.
+
+    balance = 현재 크레딧(원장 누적 결과의 캐시). 권위는 항상 ledger 합이며 balance는 캐시.
+    plan/스트라이프 필드는 구독 증분에서 채워짐(지금은 free + 무료크레딧만).
+    spending_cap_enabled = 기본 ON(D46 B-6): 잔액 모자라면 task 차단(폭탄 방지).
+    """
+
+    __tablename__ = "credit_accounts"
+
+    user_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    balance: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    plan: Mapped[str] = mapped_column(Text, nullable=False, server_default="free")
+    # 월 충전량 + 다음 리셋 시각(구독 증분에서 사용). free는 0.
+    monthly_allowance: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    allowance_resets_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    spending_cap_enabled: Mapped[bool] = mapped_column(
+        nullable=False, server_default=expression.true()
+    )
+    signup_granted: Mapped[bool] = mapped_column(
+        nullable=False, server_default=expression.false()
+    )
+    # Stripe 연동(다음 증분). 지금은 null.
+    stripe_customer_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+    __table_args__ = (
+        _in_check("plan", BILLING_PLANS, "ck_credit_accounts_plan"),
+    )
+
+
+class CreditLedger(Base):
+    """추가-전용(append-only) 크레딧 원장 (D46). 모든 잔액 변동 1줄 = 1엔트리.
+
+    delta = 부호 있는 크레딧 변동(+충전/환불, −차감). balance_after = 그 직후 잔액 스냅샷(감사용).
+    task_id = task_charge/refund의 출처. 절대 update/delete 하지 않음(불변 장부).
+    """
+
+    __tablename__ = "credit_ledger"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    user_id: Mapped[str] = mapped_column(Text, nullable=False)
+    delta: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    balance_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    task_id: Mapped[uuid.UUID | None] = _fk_uuid("tasks.id", nullable=True)
+    stripe_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = _created_at()
+
+    __table_args__ = (
+        Index("ix_credit_ledger_user", "user_id", expression.desc("created_at")),
+        _in_check("reason", LEDGER_REASONS, "ck_credit_ledger_reason"),
+    )
