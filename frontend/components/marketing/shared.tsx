@@ -1,6 +1,7 @@
 // 마케팅 공유 컴포넌트 — 로고/Nav/Footer (핸드오프 marketing 토큰).
 import Image from "next/image";
 import Link from "next/link";
+import { CookiePrefsLink } from "@/components/analytics/CookiePrefsLink";
 
 export function Logo({ sub }: { sub?: string }) {
   return (
@@ -35,6 +36,7 @@ export function Footer() {
           <Link href="/privacy" className="hover:text-ink">Privacy</Link>
           <Link href="/terms" className="hover:text-ink">Terms</Link>
           <Link href="/refunds" className="hover:text-ink">Refunds</Link>
+          <CookiePrefsLink className="hover:text-ink" />
           <span className="text-muted">© {new Date().getFullYear()} pondas</span>
         </div>
       </div>

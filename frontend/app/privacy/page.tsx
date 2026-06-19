@@ -57,7 +57,8 @@ export default function Privacy() {
         <li><strong>Stripe</strong> — payment processing;</li>
         <li><strong>Clerk</strong> — authentication;</li>
         <li><strong>Vercel &amp; Railway</strong> — application and database hosting;</li>
-        <li><strong>E2B</strong> — sandboxed code execution.</li>
+        <li><strong>E2B</strong> — sandboxed code execution;</li>
+        <li><strong>Google Analytics &amp; Amplitude</strong> — product analytics (loaded only after you accept analytics cookies).</li>
       </ul>
       <p>
         We may also disclose information to comply with law, enforce our Terms, or protect rights and safety, and in
@@ -99,9 +100,12 @@ export default function Privacy() {
 
       <h2>9. Cookies &amp; tracking</h2>
       <p>
-        We use strictly necessary cookies to keep you signed in and secure. If we add analytics or other
-        non-essential cookies, we will request consent where required (including opt-in consent in the EU/EEA/UK)
-        and honor opt-out signals (including Global Privacy Control) where applicable.
+        We use strictly necessary cookies to keep you signed in and secure. We also use{" "}
+        <strong>analytics cookies via Google Analytics and Amplitude</strong> to understand product usage and
+        improve pondas. Analytics cookies load <strong>only after you accept</strong> them in our cookie banner
+        (opt-in consent, as required in the EU/EEA/UK); you can decline, and you can change your choice anytime via
+        the &ldquo;Cookie preferences&rdquo; link in the footer. We honor opt-out signals (including Global Privacy
+        Control) where applicable.
       </p>
 
       <h2>10. Children</h2>

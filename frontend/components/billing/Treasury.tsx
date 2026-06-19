@@ -7,6 +7,7 @@ import clsx from "clsx";
 import { loadStripe } from "@stripe/stripe-js";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import { apiFetch } from "@/lib/api";
+import { track } from "@/lib/analytics";
 
 type Summary = { balance: number; plan: string; monthly_allowance: number };
 type GetToken = () => Promise<string | null>;
@@ -162,7 +163,10 @@ export function BillingModal({ getToken, onClose }: { getToken: GetToken; onClos
                 {PACKS.map((p) => (
                   <button
                     key={p.item}
-                    onClick={() => setItem(p.item)}
+                    onClick={() => {
+                      track("checkout_started", { item: p.item });
+                      setItem(p.item);
+                    }}
                     className={clsx(
                       "relative rounded-2xl border-2 bg-[#fffdf9] p-4 text-center transition-colors",
                       p.best ? "border-primary-to" : "border-[#e8e2d3] hover:border-[#cfe9f3]",
@@ -185,7 +189,10 @@ export function BillingModal({ getToken, onClose }: { getToken: GetToken; onClos
                   {PLANS.map((pl) => (
                     <button
                       key={pl.item}
-                      onClick={() => setItem(pl.item)}
+                      onClick={() => {
+                        track("checkout_started", { item: pl.item });
+                        setItem(pl.item);
+                      }}
                       className="flex items-center justify-between rounded-xl border border-[#e8e2d3] bg-white px-3 py-2 text-left transition-colors hover:border-[#cfe9f3]"
                     >
                       <span>
