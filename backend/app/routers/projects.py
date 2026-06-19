@@ -172,6 +172,12 @@ def create_project(
             else:
                 profile.display_name = body.display_name
 
+        # 가입 무료 크레딧(D46 B-5) — billing ON일 때만, 1계정 1회(grant_signup 멱등).
+        from app.services import credit_service
+        from app.services.config_store import load_config
+        if load_config(db).billing_enabled:
+            credit_service.grant_signup(db, user_id, credit_service.SIGNUP_CREDITS)
+
         project = Project(user_id=user_id, name=body.name)
         db.add(project)
         db.flush()

@@ -108,6 +108,19 @@ def _enqueue_children(new_ids: list, enqueue) -> None:
         enqueue(nid)
 
 
+def _refund_if_billing(db: Session, task: Task, agent: Agent, cfg) -> None:
+    """시스템 실패(우리 잘못 — 크래시/샌드박스 기동 실패/타임아웃)일 때만 차감분 환불(D46 B-4).
+
+    billing OFF면 no-op. 품질 실패(outcome=='failed')는 여기 안 옴 = 환불 X(어뷰징 방지).
+    """
+    if not cfg.billing_enabled:
+        return
+    from app.services import credit_service
+    credit_service.refund_task(
+        db, task.user_id, task.id, credit_service.credit_cost(agent.model_tier)
+    )
+
+
 def process_task(db: Session, task_id: uuid.UUID, *, llm=None, dev_client=None, enqueue=None) -> str:
     """작업 처리 엔진 — 작업 1건을 실제로 실행하는 일꾼. 에이전트가 '일하는' 바로 그 함수.
 
@@ -148,6 +161,20 @@ def process_task(db: Session, task_id: uuid.UUID, *, llm=None, dev_client=None, 
     agent = db.get(Agent, task.agent_id)
     model = model_for_tier(cfg, agent.model_tier)
 
+    # 미터링(D46) — billing_enabled일 때만. working 진입 후 등급가중 1회 차감.
+    # 잔액 부족 + 스펜딩 캡 ON이면 실행하지 않고 blocked로 멈춤 → 페이월 트리거(컴퓨트 안 태움).
+    if cfg.billing_enabled:
+        from app.services import credit_service
+        try:
+            credit_service.charge_task(db, task.user_id, task.id, agent.model_tier)
+            db.commit()
+        except credit_service.InsufficientCreditsError:
+            ts.transition(db, task, "blocked", error_summary="Insufficient credits — top up to continue")
+            events.emit_terminal_notification(db, task)
+            db.commit()
+            events.emit_status(task)
+            return "insufficient_credits"
+
     # 엔진 라우팅.
     if task.engine == "agent_sdk":
         # CMA 파일럿(D45): development 팀만 cma. design은 playwright 스크린샷(D42) 필요 → E2B 유지.
@@ -170,6 +197,7 @@ def process_task(db: Session, task_id: uuid.UUID, *, llm=None, dev_client=None, 
         raw = crew.kickoff(inputs={"prompt": prompt})
         output = _coerce_output(raw)
     except Exception as exc:  # noqa: BLE001 — 워커 경계.
+        _refund_if_billing(db, task, agent, cfg)  # 시스템 실패(크래시) → 환불
         ts.transition(db, task, "failed", error_summary=f"{type(exc).__name__}: {exc}")
         events.emit_terminal_notification(db, task)
         db.commit()
@@ -222,6 +250,7 @@ def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_cl
     try:
         sandbox_id = workspace_service.ensure_running(db, project)
     except WorkspaceError as exc:
+        _refund_if_billing(db, task, agent, cfg)  # 샌드박스 기동 실패 = 시스템 실패 → 환불
         ts.transition(db, task, "failed", error_summary=str(exc))
         events.emit_terminal_notification(db, task)
         db.commit(); events.emit_status(task)
@@ -285,8 +314,12 @@ def reap_stale_tasks(db: Session, older_than_sec: int = 600) -> int:
         .filter(Task.status == "working", Task.updated_at < cutoff)
         .all()
     )
+    cfg = load_config(db)
     n = 0
     for task in stale:
+        ag = db.get(Agent, task.agent_id)  # 좀비 = 시스템 실패 → 차감분 환불(billing ON일 때).
+        if ag is not None:
+            _refund_if_billing(db, task, ag, cfg)
         task.status = "failed"
         task.error_summary = "Worker timed out (reaped)"
         n += 1

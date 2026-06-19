@@ -47,50 +47,51 @@ def test_signup_grant_is_idempotent(db):
 
 def test_charge_deducts_and_writes_ledger(db):
     uid = _uid()
+    cost = cs.credit_cost("medium")
     cs.grant_signup(db, uid, 100)
-    after = cs.charge_task(db, uid, None, "medium")   # standard = 3
-    assert after == 97
+    after = cs.charge_task(db, uid, None, "medium")
+    assert after == 100 - cost
     entry = (
         db.query(CreditLedger)
         .filter_by(user_id=uid, reason="task_charge")
         .one()
     )
-    assert entry.delta == -3 and entry.balance_after == 97
+    assert entry.delta == -cost and entry.balance_after == 100 - cost
 
 
 def test_charge_is_grade_weighted(db):
     uid = _uid()
-    cs.grant_signup(db, uid, 100)
-    assert cs.credit_cost("light") == 1
-    assert cs.credit_cost("medium") == 3
-    assert cs.credit_cost("strong") == 30
-    cs.charge_task(db, uid, None, "strong")           # senior = 30
-    assert cs.balance(db, uid) == 70
+    # 비율 junior < standard < senior (D46 B-1).
+    assert cs.credit_cost("light") < cs.credit_cost("medium") < cs.credit_cost("strong")
+    cs.grant_signup(db, uid, 1000)
+    cs.charge_task(db, uid, None, "strong")
+    assert cs.balance(db, uid) == 1000 - cs.credit_cost("strong")
 
 
 def test_spending_cap_blocks_when_insufficient(db):
     uid = _uid()
-    cs.grant_signup(db, uid, 2)                        # cap ON by default
+    cs.grant_signup(db, uid, 5)                        # < medium cost, cap ON by default
     with pytest.raises(cs.InsufficientCreditsError) as ei:
-        cs.charge_task(db, uid, None, "medium")        # needs 3
-    assert ei.value.needed == 3 and ei.value.balance == 2
-    assert cs.balance(db, uid) == 2                    # 변동 없음(차단)
+        cs.charge_task(db, uid, None, "medium")
+    assert ei.value.needed == cs.credit_cost("medium") and ei.value.balance == 5
+    assert cs.balance(db, uid) == 5                    # 변동 없음(차단)
 
 
 def test_cap_off_allows_overage(db):
     uid = _uid()
     acct = cs.get_or_create_account(db, uid)
-    cs.grant_signup(db, uid, 2)
+    cs.grant_signup(db, uid, 5)
     acct.spending_cap_enabled = False                  # 후불 허용
     db.flush()
-    assert cs.charge_task(db, uid, None, "medium") == -1  # 음수 잔액 허용
+    assert cs.charge_task(db, uid, None, "medium") == 5 - cs.credit_cost("medium")  # 음수 허용
 
 
 def test_refund_system_failure_adds_back(db):
     uid = _uid()
+    cost = cs.credit_cost("medium")
     cs.grant_signup(db, uid, 100)
-    cs.charge_task(db, uid, None, "medium")            # -3 → 97
-    after = cs.refund_task(db, uid, None, 3)           # +3 → 100
+    cs.charge_task(db, uid, None, "medium")            # −cost
+    after = cs.refund_task(db, uid, None, cost)        # +cost → 100
     assert after == 100
     r = db.query(CreditLedger).filter_by(user_id=uid, reason="refund_system_failure").one()
-    assert r.delta == 3 and r.balance_after == 100
+    assert r.delta == cost and r.balance_after == 100

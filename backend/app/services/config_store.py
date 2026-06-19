@@ -22,6 +22,7 @@ _DEFAULTS = {
     "sandbox_idle_pause_sec": "300",
     "dev_engine": "cma",          # development 팀 실행기: cma(D45, 기본) | e2b(폴백). design은 항상 e2b(게이트).
     "cma_environment_id": "",     # CMA 공유 cloud 환경 id(lazy 생성 후 여기 저장)
+    "billing_enabled": "false",   # 크레딧 미터링(D46) 마스터 스위치. OFF=무과금(현행). Stripe+무료크레딧 준비 후 플립.
 }
 
 
@@ -35,6 +36,7 @@ class GuardConfig:
     sandbox_idle_pause_sec: int
     dev_engine: str
     cma_environment_id: str
+    billing_enabled: bool
     tier_models: dict[str, str]
     model_pricing: dict[str, dict[str, float]]
 
@@ -62,6 +64,7 @@ def load_config(db: Session) -> GuardConfig:
         sandbox_idle_pause_sec=int(g("sandbox_idle_pause_sec")),
         dev_engine=g("dev_engine"),
         cma_environment_id=g("cma_environment_id"),
+        billing_enabled=g("billing_enabled").lower() == "true",
         tier_models=json.loads(rows.get("tier_models", "{}")),
         model_pricing=json.loads(rows.get("model_pricing", "{}")),
     )

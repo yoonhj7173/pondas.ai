@@ -19,10 +19,13 @@ from sqlalchemy.orm import Session
 
 from app.models import CreditAccount, CreditLedger
 
-# 등급(model_tier) → task 1회 차감 크레딧 (D46 B-1, junior 1 : standard 3 : senior ~30).
+# 등급(model_tier) → task 1회 차감 크레딧 (D46 B-1). 비율 junior 1 : standard 3 : senior 30 유지,
+# 단위 스케일은 목업(월≈2,000 = standard ~60개, 팩 +500~5,000)에 맞춰 ×10.
 # 토큰 COGS 비율(haiku $0.015 : sonnet $0.045 : opus 수십센트)을 반영한 가중.
-TIER_CREDIT_COST = {"light": 1, "medium": 3, "strong": 30}
-DEFAULT_TASK_COST = 3  # 등급 불명 시 standard 취급.
+TIER_CREDIT_COST = {"light": 10, "medium": 30, "strong": 300}
+DEFAULT_TASK_COST = 30  # 등급 불명 시 standard 취급.
+# 가입 무료 크레딧(D46 B-5) — ~$0.5 COGS ≈ standard task 8개분. 1계정 1회.
+SIGNUP_CREDITS = 240
 
 
 class InsufficientCreditsError(Exception):
