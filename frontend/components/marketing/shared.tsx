@@ -30,10 +30,11 @@ export function Footer() {
     <footer className="border-t border-black/5 bg-[#FBFAF6] px-6 py-10 md:px-10">
       <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 sm:flex-row">
         <Logo />
-        <div className="flex gap-6 font-nunito text-sm text-secondary">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 font-nunito text-sm text-secondary">
           <Link href="/blog" className="hover:text-ink">Blog</Link>
-          <Link href="/#" className="hover:text-ink">Privacy</Link>
-          <Link href="/#" className="hover:text-ink">Terms</Link>
+          <Link href="/privacy" className="hover:text-ink">Privacy</Link>
+          <Link href="/terms" className="hover:text-ink">Terms</Link>
+          <Link href="/refunds" className="hover:text-ink">Refunds</Link>
           <span className="text-muted">© {new Date().getFullYear()} pondas</span>
         </div>
       </div>

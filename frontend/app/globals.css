@@ -88,3 +88,15 @@ body {
   color: #2e3a52;
   font-size: 1.15rem;
 }
+
+/* 법률 문서(ToS/Privacy/Refunds) prose — 읽기 편한 기본 타이포(D46 Legal). */
+.legal-prose { color: #3a3631; font-size: 15px; }
+.legal-prose h2 { font-family: var(--font-baloo), sans-serif; font-weight: 800; font-size: 1.25rem; color: #2c2925; margin: 1.9em 0 0.5em; }
+.legal-prose h3 { font-weight: 800; font-size: 1rem; color: #2c2925; margin: 1.3em 0 0.35em; }
+.legal-prose p { margin: 0.8em 0; line-height: 1.7; }
+.legal-prose ul { list-style: disc; padding-left: 1.4em; margin: 0.6em 0; }
+.legal-prose li { margin: 0.3em 0; line-height: 1.7; }
+.legal-prose a { color: #3fb4dc; font-weight: 700; }
+.legal-prose a:hover { text-decoration: underline; }
+.legal-prose strong { font-weight: 800; color: #2c2925; }
+.legal-prose .note { background: #fff; border: 1px solid #ece8dd; border-radius: 12px; padding: 12px 14px; font-size: 13.5px; color: #5c574f; }

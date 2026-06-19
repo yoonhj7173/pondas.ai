@@ -183,6 +183,14 @@ export function BillingModal({ getToken, onClose }: { getToken: GetToken; onClos
               </div>
             </>
           )}
+
+          {/* 결제 시점 고지(CA ARL + Stripe 정책 링크). 구독은 취소 전까지 자동갱신. */}
+          <p className="mt-4 border-t border-[#ece8dc] pt-3 text-[11px] leading-relaxed text-muted">
+            Subscriptions renew automatically until you cancel; cancel anytime in billing settings. By continuing
+            you agree to our{" "}
+            <a href="/terms" target="_blank" className="font-bold text-primary-to">Terms</a> and{" "}
+            <a href="/refunds" target="_blank" className="font-bold text-primary-to">Refund Policy</a>.
+          </p>
         </div>
       </div>
     </div>
