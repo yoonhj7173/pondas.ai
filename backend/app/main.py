@@ -28,6 +28,7 @@ from app.logging_config import configure_logging, get_logger
 limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])
 from app.routers import (
     auth_demo,
+    billing,
     chat,
     context,
     edges,
@@ -122,6 +123,8 @@ def create_app() -> FastAPI:
     app.include_router(chat.router)
     # Task control: stop / continue(item 18).
     app.include_router(tasks.router)
+    # Billing: Stripe checkout + webhook(D46).
+    app.include_router(billing.router)
 
     return app
 

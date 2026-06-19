@@ -23,6 +23,15 @@ _DEFAULTS = {
     "dev_engine": "cma",          # development 팀 실행기: cma(D45, 기본) | e2b(폴백). design은 항상 e2b(게이트).
     "cma_environment_id": "",     # CMA 공유 cloud 환경 id(lazy 생성 후 여기 저장)
     "billing_enabled": "false",   # 크레딧 미터링(D46) 마스터 스위치. OFF=무과금(현행). Stripe+무료크레딧 준비 후 플립.
+    # Stripe price id 맵(D46). product key → price_id. test→live 스왑은 이 값만 교체(코드 X). 현재 sandbox.
+    "stripe_prices": (
+        '{"starter":"price_1TjvBtDPr15sURg12rtNfXk9",'
+        '"pro":"price_1TjvBuDPr15sURg1LBDafpNh",'
+        '"studio":"price_1TjvBvDPr15sURg1lDvJAaLJ",'
+        '"pack_s":"price_1TjvBvDPr15sURg1pd3M5brW",'
+        '"pack_m":"price_1TjvBvDPr15sURg14rzhYn16",'
+        '"pack_l":"price_1TjvBwDPr15sURg1fAXKGVTK"}'
+    ),
 }
 
 
@@ -37,6 +46,7 @@ class GuardConfig:
     dev_engine: str
     cma_environment_id: str
     billing_enabled: bool
+    stripe_prices: dict[str, str]
     tier_models: dict[str, str]
     model_pricing: dict[str, dict[str, float]]
 
@@ -65,6 +75,7 @@ def load_config(db: Session) -> GuardConfig:
         dev_engine=g("dev_engine"),
         cma_environment_id=g("cma_environment_id"),
         billing_enabled=g("billing_enabled").lower() == "true",
+        stripe_prices=json.loads(g("stripe_prices")),
         tier_models=json.loads(rows.get("tier_models", "{}")),
         model_pricing=json.loads(rows.get("model_pricing", "{}")),
     )
