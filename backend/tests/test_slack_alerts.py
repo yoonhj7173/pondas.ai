@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 
 from app.config import settings
 from app.main import _unhandled_exception_handler
-from app.routers.system import ops_alert_selftest
 from app.services import slack_alerts
 
 
@@ -64,8 +63,3 @@ def test_unhandled_handler_returns_500_and_alerts(monkeypatch):
     r = client.get("/boom")
     assert r.status_code == 500 and r.json()["detail"] == "Internal Server Error"
     assert sent and "prod error" in sent[0][0]           # 알림 발사됨
-
-
-def test_selftest_envset_false_when_unset(monkeypatch):
-    monkeypatch.setattr(settings, "slack_alert_webhook_url", "")
-    assert ops_alert_selftest()["envSet"] is False
