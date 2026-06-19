@@ -27,3 +27,6 @@ runs/
 # Editor
 .idea/
 .vscode/
+
+# Slack per-project channel binding (turn-summary hook) — local, not shared.
+.claude/slack_config.json
