@@ -20,6 +20,7 @@ import logging
 import stripe
 
 from app.config import settings
+from app.models import CreditAccount
 from app.services import credit_service
 from app.services.config_store import load_config
 
@@ -78,14 +79,38 @@ def construct_event(payload: bytes, sig_header: str):
     return stripe.Webhook.construct_event(payload, sig_header, settings.stripe_webhook_secret)
 
 
+def _remember_customer(db, user_id: str | None, customer_id: str | None) -> None:
+    """결제 이벤트에서 Stripe customer id를 계정에 저장 — Customer Portal(해지) 세션에 필요."""
+    if not (user_id and customer_id):
+        return
+    acct = credit_service.get_or_create_account(db, user_id)
+    if acct.stripe_customer_id != customer_id:
+        acct.stripe_customer_id = customer_id
+
+
+def create_portal_session(db, user_id: str, return_url: str) -> str:
+    """Stripe Customer Portal 세션 URL 반환 — 유저가 거기서 구독 해지/결제수단 변경(CA ARL 충족).
+
+    customer id가 없으면(결제 이력 없음) ValueError. 대시보드에서 Portal 활성화 선행 필요.
+    """
+    acct = db.get(CreditAccount, user_id)
+    if not acct or not acct.stripe_customer_id:
+        raise ValueError("no billing account to manage")
+    session = _api().billing_portal.Session.create(customer=acct.stripe_customer_id, return_url=return_url)
+    return session.url
+
+
 def handle_event(db, event) -> str:
     """검증된 Stripe 이벤트를 크레딧 원장에 반영. 처리한 액션 문자열 반환(관측/테스트용)."""
     etype = event["type"]
     obj = event["data"]["object"]
 
     if etype == "checkout.session.completed":
+        # 구독/탑업 공통: customer id 기억(해지 Portal용).
+        _remember_customer(db, (obj.get("metadata") or {}).get("user_id") or obj.get("client_reference_id"), obj.get("customer"))
         if obj.get("mode") != "payment":
-            return "ignored:subscription-checkout"  # 구독은 invoice.paid가 처리(중복 방지)
+            db.commit()
+            return "ignored:subscription-checkout"  # 구독 적립은 invoice.paid가 처리(중복 방지)
         md = obj.get("metadata") or {}
         uid, credits = md.get("user_id"), md.get("credits")
         if uid and credits:
@@ -100,6 +125,7 @@ def handle_event(db, event) -> str:
             md = sub.get("metadata") or {}
             uid, plan, credits = md.get("user_id"), md.get("plan"), md.get("credits")
             if uid and plan and credits:
+                _remember_customer(db, uid, obj.get("customer"))
                 credit_service.apply_subscription_refill(
                     db, uid, plan, int(credits), stripe_ref=obj.get("id")
                 )

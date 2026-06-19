@@ -73,6 +73,33 @@ def test_unknown_event_ignored(db):
     assert stripe_service.handle_event(db, _evt("payment_intent.created", {})) == "ignored:payment_intent.created"
 
 
+def test_customer_id_captured_on_checkout(db):
+    uid = _uid()
+    evt = _evt("checkout.session.completed",
+               {"id": "cs_3", "mode": "payment", "customer": "cus_abc",
+                "metadata": {"user_id": uid, "credits": "500"}})
+    stripe_service.handle_event(db, evt)
+    acct = cs.get_or_create_account(db, uid)
+    assert acct.stripe_customer_id == "cus_abc" and acct.balance == 500
+
+
+def test_portal_session_created(db, monkeypatch):
+    uid = _uid()
+    acct = cs.get_or_create_account(db, uid)
+    acct.stripe_customer_id = "cus_xyz"; db.commit()
+    monkeypatch.setattr(
+        stripe_service.stripe.billing_portal.Session, "create",
+        lambda customer, return_url: type("S", (), {"url": "https://portal/x"})(),
+    )
+    assert stripe_service.create_portal_session(db, uid, "https://back") == "https://portal/x"
+
+
+def test_portal_without_customer_raises(db):
+    uid = _uid()
+    with pytest.raises(ValueError):
+        stripe_service.create_portal_session(db, uid, "https://back")
+
+
 def test_billing_summary_endpoint(client, auth):
     uid = _uid()
     # 계정 없을 때 기본값(생성 안 함).

@@ -87,6 +87,21 @@ export function BillingModal({ getToken, onClose }: { getToken: GetToken; onClos
     loadSummary(getToken).then(setS);
   }, [getToken]);
 
+  // 구독 관리/해지 — Stripe Customer Portal로 이동(CA ARL click-to-cancel).
+  async function openPortal() {
+    try {
+      const t = await getToken();
+      const r = await apiFetch<{ url: string }>("/billing/portal", {
+        method: "POST",
+        token: t,
+        body: JSON.stringify({ return_url: window.location.href }),
+      });
+      window.location.href = r.url;
+    } catch {
+      /* 결제 이력 없으면 portal 없음 */
+    }
+  }
+
   // 선택한 상품으로 Checkout 세션을 만들어 client_secret을 반환(Stripe가 호출).
   const fetchClientSecret = useCallback(async () => {
     const t = await getToken();
@@ -182,6 +197,16 @@ export function BillingModal({ getToken, onClose }: { getToken: GetToken; onClos
                 </div>
               </div>
             </>
+          )}
+
+          {/* 구독 관리/해지 진입(CA ARL click-to-cancel) — 구독 중일 때. */}
+          {!item && s?.plan && s.plan !== "free" && (
+            <button
+              onClick={openPortal}
+              className="mt-4 w-full rounded-xl border border-[#e8e2d3] bg-white py-2 text-sm font-bold text-secondary transition-colors hover:border-[#cfe9f3]"
+            >
+              Manage subscription &amp; cancel
+            </button>
           )}
 
           {/* 결제 시점 고지(CA ARL + Stripe 정책 링크). 구독은 취소 전까지 자동갱신. */}

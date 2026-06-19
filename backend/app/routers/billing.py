@@ -44,6 +44,10 @@ class CheckoutBody(BaseModel):
     return_url: str = "https://pondas.ai/billing/return?session_id={CHECKOUT_SESSION_ID}"
 
 
+class PortalBody(BaseModel):
+    return_url: str = "https://pondas.ai/"
+
+
 @router.post("/billing/checkout")
 def create_checkout(
     body: CheckoutBody,
@@ -58,6 +62,22 @@ def create_checkout(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"client_secret": client_secret}
+
+
+@router.post("/billing/portal")
+def create_portal(
+    body: PortalBody,
+    user_id: str = Depends(require_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Stripe Customer Portal URL 반환 → 유저가 구독 해지/결제수단 변경(CA ARL click-to-cancel)."""
+    if not settings.stripe_secret_key:
+        raise HTTPException(status_code=503, detail="billing not configured")
+    try:
+        url = stripe_service.create_portal_session(db, user_id, body.return_url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"url": url}
 
 
 @router.post("/billing/webhook")
