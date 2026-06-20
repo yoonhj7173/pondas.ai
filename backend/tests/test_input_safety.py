@@ -54,6 +54,57 @@ def test_lone_surrogate_http_returns_422_not_500(client, auth):
     assert r.json()["detail"]              # 본문 파싱 가능
 
 
+def test_blank_name_rejected():
+    # 공백/탭/개행만인 이름 거부(P2) — min_length=1은 통과시켜 빈 이름이 저장됐었다.
+    for blank in ("   ", "\t\n ", " "):
+        with pytest.raises(ValidationError, match="blank"):
+            ProjectCreate(name=blank, template_keys=["development"])
+
+
+def test_blank_chat_message_rejected():
+    with pytest.raises(ValidationError, match="blank"):
+        ChatIn(message="   ")
+
+
+def test_project_cap_returns_409(client, auth, monkeypatch):
+    # 계정당 프로젝트 총량 캡 — 초과 시 409(스팸 방어). cap=0으로 첫 생성부터 막힘.
+    monkeypatch.setattr("app.routers.projects.MAX_PROJECTS_PER_USER", 0)
+    r = client.post(
+        "/api/projects",
+        json={"name": "e2e-cap", "template_keys": ["development"]},
+        headers=auth("cap_user"),
+    )
+    assert r.status_code == 409
+    assert "limit" in r.json()["detail"].lower()
+
+
+def test_route_rate_limit_dependency(monkeypatch):
+    # per-route dependency: 저장소가 '초과'라 하면 429 + Retry-After, '허용'이면 통과.
+    import time
+
+    from fastapi import HTTPException
+
+    from app import ratelimit
+
+    class _Req:
+        headers = {"x-forwarded-for": "9.9.9.9"}
+        client = type("C", (), {"host": "9.9.9.9"})()
+
+    ratelimit.limiter.enabled = True
+    dep = ratelimit.rate_limit("20/minute", "unit_test_scope")
+    monkeypatch.setattr(ratelimit._route_limiter, "hit", lambda *a, **k: True)
+    assert dep(_Req()) is None                              # 허용
+    monkeypatch.setattr(ratelimit._route_limiter, "hit", lambda *a, **k: False)
+    monkeypatch.setattr(
+        ratelimit._route_limiter, "get_window_stats",
+        lambda *a, **k: type("S", (), {"reset_time": time.time() + 30})(),
+    )
+    with pytest.raises(HTTPException) as ei:
+        dep(_Req())
+    assert ei.value.status_code == 429 and "Retry-After" in ei.value.headers
+    ratelimit.limiter.enabled = False                      # 복원(autouse가 또 끄지만 명시)
+
+
 def test_ratelimit_key_uses_forwarded_for():
     # 프록시 뒤 실 IP는 X-Forwarded-For 첫 항목 — 안 그러면 모두 같은 키로 묶여 리밋 무력화(ABUSE-BUG-3).
     from app.ratelimit import client_ip

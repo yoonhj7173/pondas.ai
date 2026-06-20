@@ -16,14 +16,15 @@ from app.auth import TenantScope, require_user, tenant_scope
 from app.db import get_db
 from app.models import OrchestratorMessage
 from app.ownership import load_owned_project
-from app.schemas import SafeStr
+from app.ratelimit import rate_limit
+from app.schemas import NonBlankStr
 from app.services.orchestrator import run_chat
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
 class ChatIn(BaseModel):
-    message: SafeStr = Field(min_length=1, max_length=8000)
+    message: NonBlankStr = Field(min_length=1, max_length=8000)
 
 
 class ChatOut(BaseModel):
@@ -36,7 +37,12 @@ class ChatMessageOut(BaseModel):
     content: str
 
 
-@router.post("/projects/{project_id}/chat", response_model=ChatOut)
+# LLM을 돌려 비용이 큰 입구 → 전역 120/min보다 빡세게 분당 20(비용 폭발 방어, ABUSE-BUG-3 follow-up).
+@router.post(
+    "/projects/{project_id}/chat",
+    response_model=ChatOut,
+    dependencies=[Depends(rate_limit("20/minute", "chat"))],
+)
 def chat(
     project_id: uuid.UUID,
     body: ChatIn,

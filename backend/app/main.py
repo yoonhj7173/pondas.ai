@@ -159,6 +159,8 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
+        # rate-limit 헤더를 브라우저 JS가 읽을 수 있게 노출(없으면 cross-origin에서 가려짐).
+        expose_headers=["Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
     )
 
     # 시스템 라우터는 prefix 없이 루트에 마운트(/health, /ready).

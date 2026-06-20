@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import TenantScope, require_user, tenant_scope
 from app.db import get_db
+from app.ratelimit import rate_limit
 from app.models import (
     Agent,
     Edge,
@@ -45,6 +46,9 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/api", tags=["projects"])
+
+# 계정당 프로젝트 총량 상한(스팸/누적 방어). 일반 사용자에겐 넉넉, 봇 어뷰즈만 차단.
+MAX_PROJECTS_PER_USER = 100
 
 # 초기 방 배치(2열 그리드). 이후 드래그로 변경(D39).
 _ROOM_COL_W = 480
@@ -138,7 +142,13 @@ def list_templates(
 # --- Projects ---
 
 
-@router.post("/projects", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
+# 무거운 쓰기(팀/에이전트 동시 생성) → 스팸 방어로 분당 30. 추가로 계정당 총량 캡(아래).
+@router.post(
+    "/projects",
+    response_model=ProjectOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit("30/minute", "project_create"))],
+)
 def create_project(
     body: ProjectCreate,
     user_id: str = Depends(require_user),
@@ -156,6 +166,12 @@ def create_project(
         4. 전부 한 트랜잭션(전부 성공 아니면 전부 취소하는 묶음)으로 commit. 중간 오류 시 통째 롤백.
     연결: 팀당 시작 1명이라 이 시점엔 연결선(엣지)이 없다. 이후 팀/에이전트 추가 → teams.py.
     """
+    # 계정당 프로젝트 총량 캡 — 무한 누적 스팸 방어(rate-limit은 속도만 제한). 일반 사용엔 넉넉.
+    if db.query(Project).filter(Project.user_id == user_id).count() >= MAX_PROJECTS_PER_USER:
+        raise HTTPException(
+            status_code=409, detail=f"project limit reached (max {MAX_PROJECTS_PER_USER})"
+        )
+
     templates = {
         t.key: t for t in db.query(TeamTemplate).filter(TeamTemplate.key.in_(body.template_keys)).all()
     }
