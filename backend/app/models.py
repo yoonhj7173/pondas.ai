@@ -575,5 +575,10 @@ class CreditLedger(Base):
 
     __table_args__ = (
         Index("ix_credit_ledger_user", "user_id", expression.desc("created_at")),
+        # 적립(delta>0)에 한해 stripe_ref 유니크 — 동시 웹훅 중복적립 DB 차단(감사 P0).
+        Index(
+            "uq_credit_ledger_stripe_ref", "stripe_ref",
+            unique=True, postgresql_where=expression.text("delta > 0"),
+        ),
         _in_check("reason", LEDGER_REASONS, "ck_credit_ledger_reason"),
     )

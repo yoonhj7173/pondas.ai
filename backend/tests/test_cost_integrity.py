@@ -55,6 +55,19 @@ def test_cma_turn_cap_aborts_runaway(monkeypatch):
     assert res.status == "timeout" and res.stop_reason == "turn_cap"
 
 
+def test_stripe_ref_unique_index_blocks_double_credit(db):
+    # 동시 중복적립 DB 차단(감사 P0) — 같은 stripe_ref로 두 번째 +적립 행은 유니크 인덱스가 막는다.
+    import sqlalchemy
+
+    uid = _uid()
+    ref = f"evt_{uuid.uuid4().hex}"
+    cs.topup(db, uid, 100, stripe_ref=ref)  # 첫 적립(flush됨)
+    db.add(CreditLedger(user_id=uid, delta=50, reason="topup", balance_after=150, stripe_ref=ref))
+    with pytest.raises(sqlalchemy.exc.IntegrityError):
+        db.flush()  # 같은 stripe_ref + delta>0 → 부분 유니크 인덱스 위반
+    db.rollback()
+
+
 def test_credit_post_atomic_balance(db):
     # 원자적 UPDATE 경로 회귀 — 잔액 합산 + balance_after 정확.
     uid = _uid()
