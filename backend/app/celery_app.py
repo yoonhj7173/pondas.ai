@@ -27,6 +27,17 @@ celery_app.conf.update(
     result_serializer="json",
     accept_content=["json"],
     timezone="UTC",
+    # 재배포/워커 사망 시 in-flight task 유실 방지(감사 P1): 메시지를 실행 성공 후에 ack,
+    # 워커가 죽으면 메시지를 브로커로 되돌려 다른 워커가 재실행(process_task는 status 가드로 멱등).
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
+    worker_prefetch_multiplier=1,  # acks_late와 궁합 — 워커당 1개씩만 선점.
+    # 하드/소프트 시간 제한(감사 P1) — agent 루프 밖에서 행 걸린 task를 강제 종료.
+    # dev task는 최대 30분이라 그 위로 잡는다(soft가 먼저 SoftTimeLimitExceeded를 던져 정리 기회).
+    task_soft_time_limit=2100,  # 35분
+    task_time_limit=2400,       # 40분(hard kill)
+    # Redis 브로커 가시성 타임아웃은 hard limit보다 커야 장기 task가 중복 재배달되지 않음.
+    broker_transport_options={"visibility_timeout": 3600},
     beat_schedule={
         "reap-stale-tasks": {
             "task": "app.celery_app.reap_stale",

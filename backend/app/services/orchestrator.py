@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models import Agent, Goal, Output, OrchestratorMessage, Project, Task
 from app.services import task_service as ts
 from app.services.config_store import load_config, model_for_tier
@@ -396,7 +397,15 @@ class LiteLLMClient:
         """
         from litellm import completion
 
-        resp = completion(model=self.model, messages=messages, tools=tools, tool_choice="auto")
+        # timeout/num_retries 필수 — 없으면 프로바이더 행이 chat 요청/Celery 워커를 무한 점유(감사 P0).
+        resp = completion(
+            model=self.model,
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+            timeout=settings.llm_request_timeout_sec,
+            num_retries=settings.llm_num_retries,
+        )
         msg = resp.choices[0].message
         tcs = getattr(msg, "tool_calls", None)
         if tcs:

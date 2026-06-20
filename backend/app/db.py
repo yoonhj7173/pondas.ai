@@ -20,16 +20,34 @@ from app.config import settings
 # 모든 ORM 모델(models.py에서 정의될 clusters/units/tasks 등)이 상속할 베이스.
 Base = declarative_base()
 
-engine = create_engine(
-    settings.sqlalchemy_database_url,
-    pool_pre_ping=True,  # 끊긴 커넥션을 사용 전에 감지
-    future=True,
-)
+# Postgres일 때만 statement_timeout/connect_timeout을 건다(SQLite 등엔 미적용).
+_engine_kwargs: dict = {"pool_pre_ping": True, "future": True}
+if settings.sqlalchemy_database_url.startswith(("postgresql", "postgres")):
+    _engine_kwargs.update(
+        pool_size=5,
+        max_overflow=10,
+        pool_recycle=1800,  # 30분마다 커넥션 재생성(프록시가 끊은 좀비 방지).
+        pool_timeout=30,
+        connect_args={
+            # 런어웨이 쿼리가 커넥션을 무한 점유하지 않게 30s 상한(감사 P2) + 연결 타임아웃.
+            "options": "-c statement_timeout=30000",
+            "connect_timeout": 10,
+        },
+    )
+
+engine = create_engine(settings.sqlalchemy_database_url, **_engine_kwargs)
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 # Redis 클라이언트는 broker(Celery)와 pub/sub(notifications) 양쪽이 공유한다.
-redis_client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+# socket timeout 필수 — Redis 행 시 /ready·enqueue가 무한 블록되지 않게(감사 P1).
+redis_client = redis.Redis.from_url(
+    settings.redis_url,
+    decode_responses=True,
+    socket_timeout=5,
+    socket_connect_timeout=5,
+    health_check_interval=30,
+)
 
 
 def get_db() -> Generator[Session, None, None]:

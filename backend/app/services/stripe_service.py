@@ -40,6 +40,8 @@ CATALOG = {
 
 def _api():
     stripe.api_key = settings.stripe_secret_key
+    # 네트워크 행/일시 오류로 checkout·portal·webhook 스레드가 멈추지 않게(감사 P1).
+    stripe.max_network_retries = 2
     return stripe
 
 

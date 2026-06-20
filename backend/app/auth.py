@@ -95,10 +95,12 @@ class ClerkTokenVerifier:
         with self._lock:
             if self._jwk_client is None:
                 # PyJWKClient: kid→키 캐시 + lifespan. 키 회전 시 자체적으로 재조회한다.
+                # timeout 필수 — 없으면 JWKS 엔드포인트 행 시 모든 인증 요청이 무기한 블록(감사 P1).
                 self._jwk_client = PyJWKClient(
                     self.jwks_url,
                     cache_keys=True,
                     lifespan=_JWKS_CACHE_TTL,
+                    timeout=10,
                 )
             return self._jwk_client
 

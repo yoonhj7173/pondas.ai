@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # --- Claude API ---
     anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
     anthropic_model: str = Field(default="claude-opus-4-8", alias="ANTHROPIC_MODEL")
+    # LLM 호출 타임아웃/재시도 — 프로바이더 행이 워커를 영구 점유하지 않게(prod 감사 P0).
+    llm_request_timeout_sec: float = Field(default=120.0, alias="LLM_REQUEST_TIMEOUT_SEC")
+    llm_num_retries: int = Field(default=1, alias="LLM_NUM_RETRIES")
 
     # --- Auth ---
     clerk_secret_key: str = Field(default="", alias="CLERK_SECRET_KEY")
