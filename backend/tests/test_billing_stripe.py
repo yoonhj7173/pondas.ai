@@ -48,16 +48,32 @@ def test_subscription_checkout_is_ignored(db):
     assert cs.balance(db, uid) == 0                    # invoice.paid가 처리 → 중복 적립 방지
 
 
-def test_invoice_paid_refills_subscription(db, monkeypatch):
+def test_invoice_paid_refills_subscription(db):
+    # Stripe 신버전 구조: parent.subscription_details.metadata에서 직접 읽는다(retrieve 불필요).
     uid = _uid()
-    monkeypatch.setattr(
-        stripe_service.stripe.Subscription, "retrieve",
-        lambda sid: {"metadata": {"user_id": uid, "plan": "pro", "credits": "8000"}},
-    )
-    evt = _evt("invoice.paid", {"id": "in_1", "subscription": "sub_1"})
+    evt = _evt("invoice.paid", {
+        "id": "in_1", "customer": "cus_x",
+        "parent": {"subscription_details": {
+            "subscription": "sub_1",
+            "metadata": {"user_id": uid, "plan": "pro", "credits": "8000"},
+        }},
+    })
     assert stripe_service.handle_event(db, evt) == "refill"
     acct = cs.get_or_create_account(db, uid)
     assert acct.plan == "pro" and acct.monthly_allowance == 8000 and acct.balance == 8000
+    assert acct.stripe_customer_id == "cus_x"
+
+
+def test_invoice_paid_legacy_subscription_field(db, monkeypatch):
+    # 구버전 폴백: parent 없으면 invoice.subscription + Subscription.retrieve.
+    uid = _uid()
+    monkeypatch.setattr(
+        stripe_service.stripe.Subscription, "retrieve",
+        lambda sid: {"metadata": {"user_id": uid, "plan": "starter", "credits": "2000"}},
+    )
+    evt = _evt("invoice.paid", {"id": "in_2", "subscription": "sub_2"})
+    assert stripe_service.handle_event(db, evt) == "refill"
+    assert cs.get_or_create_account(db, uid).plan == "starter"
 
 
 def test_subscription_deleted_downgrades_to_free(db):

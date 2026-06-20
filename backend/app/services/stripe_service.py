@@ -119,18 +119,20 @@ def handle_event(db, event) -> str:
             return "topup"
 
     elif etype == "invoice.paid":
-        sub_id = obj.get("subscription")
-        if sub_id:
-            sub = _api().Subscription.retrieve(sub_id)
-            md = sub.get("metadata") or {}
-            uid, plan, credits = md.get("user_id"), md.get("plan"), md.get("credits")
-            if uid and plan and credits:
-                _remember_customer(db, uid, obj.get("customer"))
-                credit_service.apply_subscription_refill(
-                    db, uid, plan, int(credits), stripe_ref=obj.get("id")
-                )
-                db.commit()
-                return "refill"
+        # Stripe 신버전 API는 invoice.subscription을 제거하고 parent.subscription_details로 옮겼고,
+        # 우리가 구독 생성 시 박은 metadata도 거기 들어있다 → 직접 읽는다(retrieve 불필요).
+        sub_details = (obj.get("parent") or {}).get("subscription_details") or {}
+        md = sub_details.get("metadata") or {}
+        if not md and obj.get("subscription"):  # 구버전 폴백
+            md = (_api().Subscription.retrieve(obj["subscription"]).get("metadata") or {})
+        uid, plan, credits = md.get("user_id"), md.get("plan"), md.get("credits")
+        if uid and plan and credits:
+            _remember_customer(db, uid, obj.get("customer"))
+            credit_service.apply_subscription_refill(
+                db, uid, plan, int(credits), stripe_ref=obj.get("id")
+            )
+            db.commit()
+            return "refill"
 
     elif etype == "customer.subscription.deleted":
         md = obj.get("metadata") or {}
