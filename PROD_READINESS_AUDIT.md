@@ -156,6 +156,6 @@ Both verified: full test suite green; **post-deploy prod smoke ✅** — `/healt
 - None outstanding from this audit (smoke test project auto-deleted). The `stripe_ref` dedup (backlog #1) will need a one-time prod data migration — I'll show the exact dedup before running.
 
 ### Remaining (your-input / flagged — see handoff)
-- 🔴→📋 **stripe_ref unique index + prod dedup** (P0 concurrency, app-level guard covers sequential retries today; concurrent double-delivery still possible). Separate PR — needs prod dedup of sandbox dup rows + balance correction.
+- ✅ **stripe_ref partial unique index + dedup — DONE (PR #32)**, merged+deployed+verified. `UNIQUE(stripe_ref) WHERE delta>0`; dedup NULLs stripe_ref on duplicate +credit rows (rows kept, balances unchanged). Prod migration ran clean (web healthy), balance unchanged (17500), unit test asserts the index blocks a duplicate +credit.
 - 📋 Sentry (P1, needs DSN), metrics (P1), per-user task quota / goal-less budget (P1, product), `get_or_create_account` ON CONFLICT (P1), Next 15/16 upgrade (P1 deps, breaking), DB pool tuning to plan limits (P2), cold-start (P2).
 - 📋 **Infra-level (verify in Railway dashboard, not code):** Postgres backup/PITR retention; Redis persistence (AOF/RDB) — broker durability; `/ready` wired as the healthcheck path; confirm `APP_ENV=production`, `E2B_API_KEY`, `E2E_AUTH_BYPASS=false`, `CORS_ORIGINS`, `SANDBOX_ALLOW_INTERNET=false`.
