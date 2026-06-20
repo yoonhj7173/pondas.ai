@@ -63,3 +63,24 @@ def test_unhandled_handler_returns_500_and_alerts(monkeypatch):
     r = client.get("/boom")
     assert r.status_code == 500 and r.json()["detail"] == "Internal Server Error"
     assert sent and "prod error" in sent[0][0]           # 알림 발사됨
+
+
+def test_unhandled_handler_500_carries_cors_headers(monkeypatch):
+    # 500 응답이 CORS 헤더를 실어야 브라우저가 ERR_FAILED 대신 진짜 에러를 본다(결제 등).
+    monkeypatch.setattr(slack_alerts, "send_slack_alert", lambda *a, **k: None)
+    monkeypatch.setattr(settings, "cors_origins", "https://pondas.ai")
+
+    app = FastAPI()
+    app.add_exception_handler(Exception, _unhandled_exception_handler)
+
+    @app.get("/boom")
+    def boom():
+        raise ValueError("kaboom")
+
+    client = TestClient(app, raise_server_exceptions=False)
+    r = client.get("/boom", headers={"Origin": "https://pondas.ai"})
+    assert r.status_code == 500
+    assert r.headers.get("access-control-allow-origin") == "https://pondas.ai"
+    # 허용되지 않은 origin이면 CORS 헤더 없음.
+    r2 = client.get("/boom", headers={"Origin": "https://evil.example"})
+    assert r2.headers.get("access-control-allow-origin") is None

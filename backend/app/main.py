@@ -80,7 +80,15 @@ async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSON
     await run_in_threadpool(
         send_slack_alert, f"prod error · {where}", f"{type(exc).__name__}: {exc}\n{tb[-1200:]}"
     )
-    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+    # 이 catch-all 핸들러는 CORSMiddleware 바깥(ServerErrorMiddleware)에서 돌아서 500 응답에
+    # CORS 헤더가 안 붙는다 → 브라우저엔 net::ERR_FAILED로 보여 진짜 에러를 가린다(특히 결제). 직접 단다.
+    headers: dict[str, str] = {}
+    origin = request.headers.get("origin")
+    if origin and origin in settings.cors_origin_list:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+        headers["Vary"] = "Origin"
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"}, headers=headers)
 
 
 def create_app() -> FastAPI:

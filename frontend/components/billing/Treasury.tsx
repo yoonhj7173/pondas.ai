@@ -88,6 +88,15 @@ export function BillingModal({ getToken, onClose }: { getToken: GetToken; onClos
     loadSummary(getToken).then(setS);
   }, [getToken]);
 
+  // Esc로 닫기(BUG-3) — 다른 오버레이와 일관성. ✕/바깥클릭 외에 키보드로도 닫힌다.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   // 구독 관리/해지 — Stripe Customer Portal로 이동(CA ARL click-to-cancel).
   async function openPortal() {
     try {
