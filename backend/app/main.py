@@ -20,16 +20,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from slowapi.util import get_remote_address
 
 from app.config import settings
 from app.logging_config import configure_logging, get_logger
-
-# 레이트 리밋 — per-IP 전역 기본(남용/스팸 베이스라인). 채널별 세부는 P1.
-limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])
+from app.ratelimit import limiter  # 프록시 뒤 실 IP + Redis 저장소(ABUSE-BUG-3)
 from app.routers import (
     auth_demo,
     billing,

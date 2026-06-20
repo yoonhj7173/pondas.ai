@@ -54,6 +54,19 @@ def test_lone_surrogate_http_returns_422_not_500(client, auth):
     assert r.json()["detail"]              # 본문 파싱 가능
 
 
+def test_ratelimit_key_uses_forwarded_for():
+    # 프록시 뒤 실 IP는 X-Forwarded-For 첫 항목 — 안 그러면 모두 같은 키로 묶여 리밋 무력화(ABUSE-BUG-3).
+    from app.ratelimit import client_ip
+
+    class _Req:
+        def __init__(self, headers, client_host="10.0.0.1"):
+            self.headers = headers
+            self.client = type("C", (), {"host": client_host})()
+
+    assert client_ip(_Req({"x-forwarded-for": "1.2.3.4, 10.0.0.1"})) == "1.2.3.4"
+    assert client_ip(_Req({})) == "10.0.0.1"  # XFF 없으면 직접 피어
+
+
 def test_surrogate_in_400_detail_does_not_crash(client, auth):
     # 알 수 없는 template_key에 surrogate → 400 detail이 그 값을 echo → 렌더 크래시 안 나야.
     r = client.post(
