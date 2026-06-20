@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.auth import TenantScope, tenant_scope
 from app.db import get_db
 from app.models import Project, Task
+from app.schemas import SafeStr
 from app.services import events
 from app.services import task_service as ts
 
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/api", tags=["tasks"])
 
 
 class ContinueIn(BaseModel):
-    input: str = Field(min_length=1, max_length=8000)
+    input: SafeStr = Field(min_length=1, max_length=8000)
 
 
 def _load_owned_task(db: Session, scope: TenantScope, task_id: uuid.UUID) -> Task:

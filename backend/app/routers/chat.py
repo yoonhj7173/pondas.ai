@@ -16,13 +16,14 @@ from app.auth import TenantScope, require_user, tenant_scope
 from app.db import get_db
 from app.models import OrchestratorMessage
 from app.ownership import load_owned_project
+from app.schemas import SafeStr
 from app.services.orchestrator import run_chat
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
 class ChatIn(BaseModel):
-    message: str = Field(min_length=1, max_length=8000)
+    message: SafeStr = Field(min_length=1, max_length=8000)
 
 
 class ChatOut(BaseModel):

@@ -8,8 +8,30 @@ projects / map 계약을 담는다. teams/agents/edges 관리(item 7), tasks/boa
 from __future__ import annotations
 
 import uuid
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+
+
+def _reject_unsafe_chars(v: object) -> object:
+    """사용자 텍스트에서 DB/UTF-8를 깨는 바이트를 입력 경계에서 거부(→422).
+
+    null byte(\\x00)는 Postgres text 컬럼에 저장 불가, 짝 없는 surrogate(\\uD800 등)는 UTF-8
+    인코딩 불가 → 그대로 두면 커밋 시점에 미처리 예외 → 500. 여기서 ValueError로 막아 깔끔한 422.
+    (악용 테스트 ABUSE-BUG-1/2.)
+    """
+    if isinstance(v, str):
+        if "\x00" in v:
+            raise ValueError("must not contain null bytes")
+        try:
+            v.encode("utf-8")
+        except UnicodeEncodeError:
+            raise ValueError("must not contain unpaired surrogate characters")
+    return v
+
+
+# 사용자 자유입력 문자열에 붙이는 안전 타입 — 길이/필수 제약은 각 필드의 Field()가 담당.
+SafeStr = Annotated[str, BeforeValidator(_reject_unsafe_chars)]
 
 
 # --- Templates (GET /api/templates) — 역할 카탈로그(D41) ---
@@ -41,15 +63,15 @@ class TemplateOut(BaseModel):
 
 
 class ProjectCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
+    name: SafeStr = Field(min_length=1, max_length=200)
     # 선택한 팀 템플릿(최소 1개). 온보딩 Flow 0 step 4.
     template_keys: list[str] = Field(min_length=1)
     # 온보딩 step 2의 표시 이름(선택). user_profiles에 upsert.
-    display_name: str | None = Field(default=None, max_length=200)
+    display_name: SafeStr | None = Field(default=None, max_length=200)
 
 
 class ProjectPatch(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
+    name: SafeStr = Field(min_length=1, max_length=200)
 
 
 class ProjectOut(BaseModel):
@@ -111,7 +133,7 @@ class TeamCreate(BaseModel):
 
 
 class TeamPatch(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=200)
+    name: SafeStr | None = Field(default=None, min_length=1, max_length=200)
     room_x: int | None = None
     room_y: int | None = None
 
@@ -127,15 +149,15 @@ class AgentOutputIn(BaseModel):
 class AgentCreate(BaseModel):
     # role_key는 모달이 프리필에 쓰는 힌트(서버는 최종 name/role/tier/output을 신뢰).
     role_key: str | None = None
-    name: str = Field(min_length=1, max_length=200)
-    role_instructions: str = Field(min_length=1, max_length=20000)
+    name: SafeStr = Field(min_length=1, max_length=200)
+    role_instructions: SafeStr = Field(min_length=1, max_length=20000)
     model_tier: str
     output: AgentOutputIn | None = None
 
 
 class AgentPatch(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=200)
-    role_instructions: str | None = Field(default=None, min_length=1, max_length=20000)
+    name: SafeStr | None = Field(default=None, min_length=1, max_length=200)
+    role_instructions: SafeStr | None = Field(default=None, min_length=1, max_length=20000)
     model_tier: str | None = None
 
 
