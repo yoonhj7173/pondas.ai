@@ -94,6 +94,8 @@ class _Ctx:
     enqueue: object
     current_goal_id: uuid.UUID | None = None
     actions: list = field(default_factory=list)
+    # 디스패치/재개로 만든 task id들 — DB 커밋 후에 enqueue한다(워커 레이스 방지, BUG-5).
+    to_enqueue: list = field(default_factory=list)
 
 
 def _find_agent(ctx: _Ctx, name: str) -> Agent | None:
@@ -152,7 +154,7 @@ def _tool_dispatch_task(ctx: _Ctx, args: dict) -> dict:
     if override:
         task.override_route = override
     ctx.db.flush()
-    ctx.enqueue(task.id)
+    ctx.to_enqueue.append(task.id)  # 커밋 후 run_chat이 enqueue(워커가 미커밋 task를 집어 not_found 내는 레이스 방지)
     ctx.actions.append({"action": "dispatch_task", "task_id": str(task.id), "agent": agent.name})
     return {"task_id": str(task.id), "agent": agent.name, "status": "queued"}
 
@@ -194,7 +196,7 @@ def _tool_resume_task(ctx: _Ctx, args: dict) -> dict:
         return {"error": f"{agent.name} has no task awaiting input"}
     ts.request_continue(ctx.db, task, args.get("input", ""), via="chat")
     ctx.db.flush()
-    ctx.enqueue(task.id)
+    ctx.to_enqueue.append(task.id)  # 커밋 후 run_chat이 enqueue(워커가 미커밋 task를 집어 not_found 내는 레이스 방지)
     ctx.actions.append({"action": "resume_task", "task_id": str(task.id), "agent": agent.name})
     return {"resumed": True, "agent": agent.name}
 
@@ -367,6 +369,10 @@ def run_chat(
     db.add(OrchestratorMessage(project_id=project.id, role="user", content=message))
     db.add(OrchestratorMessage(project_id=project.id, role="orchestrator", content=reply))
     db.commit()
+    # 커밋 이후에 enqueue — 워커가 트랜잭션 커밋 전 task를 집어 not_found를 내고 task가 영원히
+    # queued로 남는 레이스를 막는다(E2E BUG-5). 커밋됐으니 워커가 반드시 task를 본다.
+    for tid in ctx.to_enqueue:
+        enqueue(tid)
     return {"reply": reply, "actions": ctx.actions}
 
 
