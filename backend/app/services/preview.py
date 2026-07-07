@@ -121,8 +121,17 @@ class PreviewService:
             return False
 
     def _materialize(self, sandbox_id: str, files: list[tuple[str, bytes]]) -> None:
-        """현재 파일을 샌드박스에 기록. 이후 install/dev server가 이 위에서 돈다."""
+        """현재 파일을 샌드박스에 기록. 이후 install/dev server가 이 위에서 돈다.
+
+        보안(방어적 심층): 경로는 이미 수집 시 _is_safe_path로 걸러지지만, 여기서도 절대경로·'..'
+        탈출을 재검증한다(zip-slip류가 프리뷰 샌드박스 밖으로 새지 않게). 실행은 격리된 샌드박스
+        안에서만 일어나므로 백엔드로는 절대 새지 않는다(D29).
+        """
+        from app.services.verification import _is_safe_path
         for path, data in files:
+            if not _is_safe_path(path):
+                log.warning("skipped unsafe preview path", extra={"path": path})
+                continue
             self.provider.write_file(sandbox_id, path, data)
 
     def _serve(self, sandbox_id: str, dev_cmd: str) -> str:
