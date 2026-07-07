@@ -3,9 +3,13 @@
 // 인스펙터 사이드 패널(item 24, D15/Flow 4) — 글래스 372px. 팀/에이전트 패널.
 import { useState } from "react";
 import clsx from "clsx";
+import dynamic from "next/dynamic";
 import { GlassPanel, PillButton, StatusChip } from "@/components/ui/primitives";
 import { STATUS_CHIP, visualStatus } from "@/lib/tokens";
 import type { AgentPanelData, TeamPanelData } from "./types";
+
+// 결과 마크다운은 lazy 로드 — react-markdown을 office 기본 청크에서 분리(Phase 2, D51).
+const Markdown = dynamic(() => import("@/components/ui/Markdown"), { ssr: false });
 
 function Avatar({ label, color, size = 46 }: { label: string; color?: string; size?: number }) {
   return (
@@ -75,8 +79,8 @@ export function TeamPanel({ data, onClose, onAddAgent, onSelectAgent, onRemove }
  * 누가 부르나: PanelController가 sel.kind==="agent"일 때.
  * 연결: 버튼 동작(onStop/onProvideInput/onRemove) → PanelController → 백엔드 tasks.py/teams.py.
  */
-export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput }: {
-  data: AgentPanelData; onClose: () => void; onStop: () => void; onRemove: () => void; onProvideInput: (text: string) => void;
+export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput, onViewOutputs }: {
+  data: AgentPanelData; onClose: () => void; onStop: () => void; onRemove: () => void; onProvideInput: (text: string) => void; onViewOutputs?: () => void;
 }) {
   const v = visualStatus(data.status);
   const headerTint = v === "needs-input" ? "#FBEFCB" : v === "failed" ? "#F8DAD3" : "#DCEEF8";
@@ -108,6 +112,22 @@ export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput }: 
         <Tile label="Tokens" value={data.tokens_total.toLocaleString()} />
         <Tile label="Status" value={visualStatus(data.status)} />
       </div>
+
+      {data.last_result_markdown && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between">
+            <Label>Result</Label>
+            {data.last_output_count > 0 && onViewOutputs && (
+              <button onClick={onViewOutputs} className="font-mono text-[10px] font-bold text-primary-to hover:underline">
+                View files ({data.last_output_count}) →
+              </button>
+            )}
+          </div>
+          <div className="mt-1 max-h-72 overflow-y-auto rounded-xl border border-white/60 bg-white/50 p-3">
+            <Markdown>{data.last_result_markdown}</Markdown>
+          </div>
+        </div>
+      )}
 
       {(data.status === "needs-input" || data.status === "blocked") && (
         <div className="mt-4 rounded-xl border-2 border-status-needs-input/40 bg-status-needs-input/10 p-3">

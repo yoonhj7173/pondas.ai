@@ -142,7 +142,7 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
       {/* Treasury HUD 타일 + 충전 모달(빌링 D46). */}
       <TreasuryTile getToken={getToken} onOpen={() => { setBillingPaywall(false); setBillingOpen(true); }} />
       {billingOpen && <BillingModal getToken={getToken} paywall={billingPaywall} onClose={() => { setBillingOpen(false); setBillingPaywall(false); }} />}
-      <PanelController projectId={params.projectId} getToken={getToken} mapData={data} sel={sel} setSel={setSel} onChanged={loadMap} />
+      <PanelController projectId={params.projectId} getToken={getToken} mapData={data} sel={sel} setSel={setSel} onChanged={loadMap} onOpenOutputs={() => openOverlay("outputs")} />
       {overlay === "board" && <BoardOverlay projectId={params.projectId} getToken={getToken} onClose={() => setOverlay(null)} onFocus={(id) => { setOverlay(null); setSel({ kind: "agent", id }); }} />}
       {overlay === "outputs" && <OutputsOverlay projectId={params.projectId} getToken={getToken} onClose={() => setOverlay(null)} />}
       {overlay === "settings" && <SettingsOverlay projectId={params.projectId} getToken={getToken} projectName={data.project.name} paused={data.paused} onClose={() => setOverlay(null)} onChanged={loadMap} />}

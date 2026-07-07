@@ -24,9 +24,9 @@ export type Selection =
  * 누가 부르나: 메인 맵 화면 — frontend/app/app/[projectId]/page.tsx.
  * 연결: 데이터/동작 호출 → frontend/lib/api.ts(→ teams.py/tasks.py/edges.py). 화면 조각 → InspectorPanel.tsx, Modals.tsx.
  */
-export function PanelController({ projectId, getToken, mapData, sel, setSel, onChanged }: {
+export function PanelController({ projectId, getToken, mapData, sel, setSel, onChanged, onOpenOutputs }: {
   projectId: string; getToken: () => Promise<string | null>; mapData: MapData;
-  sel: Selection; setSel: (s: Selection) => void; onChanged: () => void;
+  sel: Selection; setSel: (s: Selection) => void; onChanged: () => void; onOpenOutputs?: () => void;
 }) {
   const [team, setTeam] = useState<TeamPanelData | null>(null);
   const [agent, setAgent] = useState<AgentPanelData | null>(null);
@@ -76,7 +76,7 @@ export function PanelController({ projectId, getToken, mapData, sel, setSel, onC
   if (sel.kind === "agent" && agent) {
     return (
       <>
-        <AgentPanel data={agent} onClose={close}
+        <AgentPanel data={agent} onClose={close} onViewOutputs={onOpenOutputs}
           onStop={async () => { if (agent.current_task_id) { await call(`/api/tasks/${agent.current_task_id}/stop`, "POST"); setSel({ kind: "agent", id: agent.id }); } }}
           onProvideInput={async (text) => { if (agent.current_task_id) { await call(`/api/tasks/${agent.current_task_id}/continue`, "POST", { input: text }); setSel({ kind: "agent", id: agent.id }); } }}
           onRemove={() => setConfirm({ title: "Remove agent?", body: `${agent.name} will be removed.`, run: async () => { await call(`/api/agents/${agent.id}`, "DELETE"); close(); } })} />

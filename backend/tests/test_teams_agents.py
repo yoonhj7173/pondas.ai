@@ -212,3 +212,36 @@ def test_agent_panel_payload(client, auth, made):
     assert panel["status"] == "idle"
     assert panel["outgoing"] is None  # starter = Final
     assert panel["incoming"] == []
+    # 결과 없으면 인-플로우 필드는 비어있다(Phase 2, D51).
+    assert panel["last_result_markdown"] is None and panel["last_output_count"] == 0
+
+
+def test_agent_panel_surfaces_last_result_and_output_count(client, auth, made):
+    """Phase 2 (D51) — done task의 result_markdown + output 개수가 패널에 노출된다."""
+    from app.models import Output, Task
+    from app.services import task_service as ts
+
+    sub = "a_result"
+    pid = _new_project(client, auth, sub, ["planning"])
+    made.append(uuid.UUID(pid))
+    tid = _team_id(client, auth, sub, pid, "planning")
+    aid = client.get(f"/api/teams/{tid}", headers=auth(sub)).json()["agents"][0]["id"]
+
+    db = SessionLocal()
+    try:
+        agent = db.get(Agent, uuid.UUID(aid))
+        task = ts.create_task(db, user_id=sub, project_id=uuid.UUID(pid), agent=agent,
+                              instructions="write PRD", origin="chat")
+        task.status = "done"
+        task.result_markdown = "# PRD\n\n- goal one\n- goal two"
+        db.flush()  # task.id 채우기(SQLAlchemy default는 flush 시점에 적용).
+        db.add(Output(project_id=uuid.UUID(pid), agent_id=agent.id, task_id=task.id,
+                      path="prd.md", mime="text/markdown", size_bytes=10, content="# PRD"))
+        db.commit()
+    finally:
+        db.close()
+
+    panel = client.get(f"/api/agents/{aid}", headers=auth(sub)).json()
+    assert panel["last_result_markdown"].startswith("# PRD")
+    assert panel["last_task_id"] is not None
+    assert panel["last_output_count"] == 1

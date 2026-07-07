@@ -297,7 +297,7 @@ def _agent_panel(db: Session, agent: Agent) -> AgentPanelOut:
     누가 부르나: GET /api/agents/{id} → get_agent. 프론트가 에이전트 패널을 열 때.
     연결: 받는 쪽 → frontend/components/panels/InspectorPanel.tsx의 AgentPanel.
     """
-    from app.models import Task
+    from app.models import Output, Task
 
     status_by_agent = agent_status_map(db, agent.project_id)
     outgoing_edge = db.query(Edge).filter(Edge.from_agent_id == agent.id).first()
@@ -312,6 +312,19 @@ def _agent_panel(db: Session, agent: Agent) -> AgentPanelOut:
     latest = active or (
         db.query(Task).filter(Task.agent_id == agent.id).order_by(Task.created_at.desc()).first()
     )
+
+    # 최근 결과 인-플로우(D51) — 결과가 있는 가장 최근 task를 골라 패널에서 바로 렌더.
+    # 활성(working)일 땐 아직 결과 없음 → result가 담긴 마지막 완료/입력대기 task를 별도로 찾는다.
+    result_task = (
+        db.query(Task)
+        .filter(Task.agent_id == agent.id, Task.result_markdown.isnot(None))
+        .order_by(Task.created_at.desc())
+        .first()
+    )
+    last_output_count = (
+        db.query(Output).filter(Output.task_id == result_task.id).count() if result_task else 0
+    )
+
     return AgentPanelOut(
         id=agent.id,
         team_id=agent.team_id,
@@ -323,6 +336,9 @@ def _agent_panel(db: Session, agent: Agent) -> AgentPanelOut:
         current_task_id=active.id if active else None,
         awaiting_prompt=active.awaiting_prompt if active else None,
         error_summary=latest.error_summary if latest and latest.status == "failed" else None,
+        last_result_markdown=result_task.result_markdown if result_task else None,
+        last_task_id=result_task.id if result_task else None,
+        last_output_count=last_output_count,
         outgoing=_edge_ref(db, outgoing_edge) if outgoing_edge else None,
         incoming=[_edge_ref(db, e) for e in incoming_edges],
     )

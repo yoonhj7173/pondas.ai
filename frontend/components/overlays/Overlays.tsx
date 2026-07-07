@@ -3,9 +3,14 @@
 // 오버레이(item 25) — Board · Settings · Outputs. HUD 유틸 버튼이 연다.
 import { useEffect, useState } from "react";
 import clsx from "clsx";
+import dynamic from "next/dynamic";
 import { Overlay, PillButton } from "@/components/ui/primitives";
 import { apiFetch } from "@/lib/api";
 import { visualStatus, type AgentStatus } from "@/lib/tokens";
+
+// 결과 마크다운 렌더러 — lazy 로드(office 기본 청크 분리, Phase 2 D51).
+const Markdown = dynamic(() => import("@/components/ui/Markdown"), { ssr: false });
+const MARKDOWN_EXTS = /\.(md|markdown|mdx)$/i;
 
 export type OverlayKind = "board" | "settings" | "outputs" | null;
 
@@ -96,10 +101,14 @@ export function OutputsOverlay({ projectId, getToken, onClose }: { projectId: st
               </div>
             ))}
           </div>
-          <div className="w-1/2 overflow-hidden rounded-xl bg-[#1F2430] p-3 text-white">
+          <div className="w-1/2 overflow-auto rounded-xl bg-[#1F2430] p-3 text-white">
             {!sel && <div className="p-4 text-sm opacity-40">Select a file to preview</div>}
             {preview?.is_binary && <div className="p-4 text-sm opacity-60">Binary file — download to view.</div>}
-            {preview?.content && <pre className="h-full overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{preview.content}</pre>}
+            {preview?.content != null && (
+              sel && MARKDOWN_EXTS.test(sel.path)
+                ? <Markdown className="prose-result prose-result-dark">{preview.content}</Markdown>
+                : <pre className="h-full overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{preview.content}</pre>
+            )}
           </div>
         </div>
       </div>

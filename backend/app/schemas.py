@@ -247,6 +247,10 @@ class AgentPanelOut(BaseModel):
     current_task_id: uuid.UUID | None = None
     awaiting_prompt: str | None = None
     error_summary: str | None = None
+    # 최근 결과 인-플로우(Phase 2, D51) — 완료 직후 패널에서 바로 결과를 렌더.
+    last_result_markdown: str | None = None
+    last_task_id: uuid.UUID | None = None
+    last_output_count: int = 0
     # 출력 연결(최대 1개, D38) + 들어오는 연결(참고용).
     outgoing: EdgeRefOut | None
     incoming: list[EdgeRefOut]
