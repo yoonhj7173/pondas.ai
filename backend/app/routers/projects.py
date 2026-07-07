@@ -18,6 +18,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import TenantScope, require_user, tenant_scope
@@ -27,9 +28,12 @@ from app.models import (
     Agent,
     Edge,
     Project,
+    ProjectFile,
+    Task,
     Team,
     TeamTemplate,
     UserProfile,
+    WorkspaceVersion,
 )
 from app.ownership import load_owned_project
 from app.status_util import agent_status_map
@@ -38,11 +42,14 @@ from app.schemas import (
     EdgeMapOut,
     MapOut,
     ProjectCreate,
+    ProjectFileEntry,
+    ProjectFilesOut,
     ProjectOut,
     ProjectPatch,
     RoleTemplateOut,
     TeamMapOut,
     TemplateOut,
+    WorkspaceVersionOut,
 )
 
 router = APIRouter(prefix="/api", tags=["projects"])
@@ -321,3 +328,84 @@ def get_map(
 ) -> MapOut:
     project = load_owned_project(db, scope, project_id)
     return _build_map(db, project)
+
+
+# --- Project files & version snapshots (Phase 2, D50) ---
+
+
+@router.get("/projects/{project_id}/versions", response_model=list[WorkspaceVersionOut])
+def list_versions(
+    project_id: uuid.UUID,
+    scope: TenantScope = Depends(tenant_scope),
+    db: Session = Depends(get_db),
+) -> list[WorkspaceVersionOut]:
+    """버전 스냅샷 목록(최신순, D50) — 시어터의 버전 칩 · Preview가 서빙하는 버전 표시."""
+    load_owned_project(db, scope, project_id)  # 소유권(cross-user 404).
+    versions = (
+        db.query(WorkspaceVersion)
+        .filter(WorkspaceVersion.project_id == project_id)
+        .order_by(WorkspaceVersion.version_no.desc())
+        .all()
+    )
+    # 버전을 만든 task의 에이전트를 한 번에 조회(칩 라벨용).
+    task_ids = [v.task_id for v in versions if v.task_id is not None]
+    agent_by_task: dict = {}
+    if task_ids:
+        for tid, aid in db.query(Task.id, Task.agent_id).filter(Task.id.in_(task_ids)).all():
+            agent_by_task[tid] = aid
+    return [
+        WorkspaceVersionOut(
+            version_no=v.version_no,
+            task_id=v.task_id,
+            agent_id=agent_by_task.get(v.task_id),
+            file_count=len(v.manifest or {}),
+            created_at=v.created_at,
+        )
+        for v in versions
+    ]
+
+
+@router.get("/projects/{project_id}/files", response_model=ProjectFilesOut)
+def list_project_files(
+    project_id: uuid.UUID,
+    version: int | None = None,
+    scope: TenantScope = Depends(tenant_scope),
+    db: Session = Depends(get_db),
+) -> ProjectFilesOut:
+    """프로젝트 canonical 파일 목록(D50). version 미지정=현재 상태(project_files),
+    version 지정=그 스냅샷의 동결 매니페스트. Preview 머티리얼라이즈 · 파일 목록 표시에 사용."""
+    load_owned_project(db, scope, project_id)
+
+    if version is not None:
+        ver = (
+            db.query(WorkspaceVersion)
+            .filter(
+                WorkspaceVersion.project_id == project_id,
+                WorkspaceVersion.version_no == version,
+            )
+            .one_or_none()
+        )
+        if ver is None:
+            raise HTTPException(status_code=404, detail=f"version {version} not found")
+        files = [
+            ProjectFileEntry(path=p, output_id=uuid.UUID(oid))
+            for p, oid in sorted((ver.manifest or {}).items())
+        ]
+        return ProjectFilesOut(version_no=ver.version_no, files=files)
+
+    # 현재 상태 = project_files 매니페스트.
+    rows = (
+        db.query(ProjectFile)
+        .filter(ProjectFile.project_id == project_id)
+        .order_by(ProjectFile.path)
+        .all()
+    )
+    latest = (
+        db.query(func.max(WorkspaceVersion.version_no))
+        .filter(WorkspaceVersion.project_id == project_id)
+        .scalar()
+    )
+    return ProjectFilesOut(
+        version_no=latest,
+        files=[ProjectFileEntry(path=r.path, output_id=r.output_id) for r in rows],
+    )

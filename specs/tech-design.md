@@ -3,6 +3,7 @@
 > Updated 2026-06-13 from `decision-log.md` D1–D44 and PRD v2 (user-authorized direct update; supersedes the v2 design of 2026-06-11). Visuals/interactions: `claude-design-handoff/product/README.md` is the single source of truth (D36).
 > Source of truth: `specs/prd.md` + `decision-log.md`. Companion: `specs/user-flows.md`.
 > v3 delta: execution-included MVP (D28–D31), engines per template (D30/D43: Dev+Design=agent_sdk), E2B sandboxes (D29), Postgres FileStore (D27), per-agent model tiers (D32), authored role catalogs + per-team starters (D40/D41), design output = render→screenshot (D42).
+> **v3.1 delta (2026-07-07, PRD v2.1 Phase 2 / D47–D52): §22 — project file versioning, Preview Service (build-engine ↔ preview-runtime split), result-in-flow rendering, theater mode, signup credits.** Note: dev engine has since migrated to CMA with E2B fallback (D45) and billing is live (D46); §22 is written against that reality.
 
 ---
 
@@ -404,3 +405,70 @@ Claude failure/timeout → bounded in-attempt retries → `failed` + summary + p
 - **No arbitrary graph semantics** — handoff (DAG) + bounded review loop, nothing else (D19/D25).
 - No separate board entity (projection of goals+tasks, D20); no in-product file management (list/preview/zip only, D4/D18); no RAG (D14); no in-process pause/resume anywhere (§14).
 - Keep the 7-state machine exactly; engine/loop bookkeeping in columns, not new statuses.
+
+---
+
+## 22. Phase 2 — Closure (v3.1, D47–D52) ⭐
+
+Design goal: close the receive-see-fix loop (PRD §16) **without touching** the task state machine, GraphEngine, engines, or the office canvas. Phase 2 is additive: one new service (Preview), one new projection (project files/versions), two frontend surfaces (result-in-flow, theater).
+
+### 22.1 Project files & version snapshots (D50)
+
+**Model.** Two additions, no change to `outputs`:
+
+- **`project_files`** — the canonical current file state: `project_id`, `path` (unique per project), `output_id` fk (the Output row holding the content), `updated_at`, `updated_by_task_id`. A *manifest*, not a copy — content stays in FileStore rows.
+- **`workspace_versions`** — one row per completed dev/design task that changed files: `id`, `project_id` idx, `version_no` (per-project sequence 1,2,…), `task_id`, `manifest` jsonb (`{path → output_id}` frozen at cut time), `created_at`.
+
+**Write path.** In the worker, immediately after output collection (both engines — CMA `_collect_outputs` and E2B `collect_outputs`): upsert each collected file into `project_files` (same path → replace `output_id`), then cut a `workspace_versions` row with the full current manifest. Same transaction as the task's terminal transition — a version exists iff its task is `done`. Deletion semantics: MVP treats collection as upsert-only (agent file deletions are rare and recoverable via zip); explicit tombstones = P1 with rollback.
+
+**Read path.** `GET /projects/{id}/versions` → `[{version_no, task_id, agent, created_at, file_count}]`; `GET /projects/{id}/files?version=` → manifest (defaults to latest). Existing per-task outputs endpoints unchanged (regression-free).
+
+**Iteration continuity.** Dev dispatch already shares state via the CMA memory store / E2B workspace (D45/D29). `project_files` adds the *system-of-record* projection of that state — used by Preview materialization, the (P1) GitHub export, and as the recovery source if an engine store is lost. Iteration prompts reference the latest version implicitly (the engine's own store carries truth, per §10; no prompt change needed).
+
+### 22.2 Preview Service (D49)
+
+**The split.** Build engines produce files; the Preview Service runs them. Engines stay untouched (D45): preview always runs in **its own on-demand E2B sandbox**, regardless of `dev_engine`.
+
+```
+PreviewService
+  start(project)  → status:starting → materialize latest version → npm install (lockfile-cached)
+                    → npm run dev (port known) → health poll → url = sandbox.get_host(port)
+                    → status:ready {url, version_no}
+  status(project) → {status: none|starting|ready|error|paused, url?, version_no?}
+  sync(project)   → write changed files of the new version into the running sandbox
+                    (dev-server HMR picks them up; fallback: restart dev server)
+  stop(project)   → pause sandbox
+```
+
+- **Columns:** on `projects`: `preview_sandbox_id`, `preview_status`, `preview_version_no`, `preview_last_active_at`. (Existing `sandbox_id` stays for the design/E2B build path — separate concerns.)
+- **Lifecycle (D49, founder-set cost policy):** start on theater open or (if a preview was already active) on dev-task completion; **beat job pauses after 10 idle min** (`preview_last_active_at` refreshed by status polls/theater heartbeat); destroy after 24h paused; **max 1 per project**; sandbox-minutes logged per project.
+- **Failure modes:** `npm install`/dev-server failure → `preview_status=error` + surfaced in the theater with the command tail ("the app didn't start — ask the dev team to fix it"), never a task failure; E2B outage → preview unavailable, builds unaffected.
+- **API:** `POST /projects/{id}/preview/start|stop`, `GET /projects/{id}/preview` (poll), SSE event **`preview_status`** `{status, url?, version_no?}`.
+- **Non-web projects** (pure docs/research, or Python-only): no runnable target detected (no `package.json` dev script) → preview card hidden; closure is fully served by result-in-flow (§22.3). Detection = manifest inspection, config-listed conventions.
+
+**Security (D49):** preview URL = E2B host URL — unguessable, unauthenticated (unlisted-link bar; auth proxy P1). Never emitted to logs/sitemap/analytics. The iframe embeds a third-party origin — the app CSP must allow that frame; the preview app cannot script the parent (cross-origin). LLM code still never runs on our backend; the preview sandbox holds no secrets.
+
+### 22.3 Result-in-flow (D51)
+
+- **AgentPanel:** on `done`, render `result_markdown` in the panel (sanitized markdown — no raw HTML, schema-allowlisted; same renderer as the blog's `prose-craft` styling family), plus a files link into Outputs. This is the whole closure story for text-team tasks.
+- **Outputs overlay:** replace the `<pre>` dump with rendered markdown for `.md`, syntax-highlighted code otherwise (client-side highlighter, lazy-loaded — keep the office bundle lean).
+- **Sanitization is the regression gate:** stored-XSS via `result_markdown`/output content must stay neutralized (§16 invariant; adversarial suite re-run).
+
+### 22.4 Theater mode & iteration loop (D51)
+
+- **Preview card** (AgentPanel, dev projects with a runnable target): live thumbnail (static screenshot refresh or scaled iframe — implementation's choice on perf), LIVE dot bound to `preview_status`, URL row, open-in-new-tab, download-zip.
+- **Theater** (overlay over the office, z-above panels): large iframe of the preview URL + browser-chrome header (URL, reload, new-tab, zip), version chips from `/versions`, **docked orchestrator chat** — same store/history/endpoint as the main chat (D3/D21/D22; one conversation, two mounts). Open → `preview/start` + heartbeat; close/ESC → office intact.
+- **Iteration:** change requests go through the normal orchestrator dispatch (no new input surface). On the resulting task's `done`: version cut (§22.1) → SSE `preview_status`/`workspace_version` → chips advance + `PreviewService.sync` refreshes the app — no manual reload.
+- Store additions: `preview` slice (status/url/version), `theaterOpen`; SSE handler maps the two new events.
+
+### 22.5 Onboarding economics (D52)
+
+`SIGNUP_CREDITS` 240 → **500** (`credit_service.py` constant; grant path/tests updated). No pricing/tier/margin changes. Existing accounts unaffected (grant is one-shot at first project).
+
+### 22.6 Test strategy & rollout additions
+
+- **Unit/integration:** version cut transactional with task completion (crash between = no orphan version); manifest correctness across 2+ sequential dev tasks incl. unchanged files; preview lifecycle (start/ready/idle-pause/resume/destroy) against real E2B; sanitized-markdown snapshot tests (XSS corpus from `ADVERSARIAL_TEST_RESULTS.md`).
+- **E2E (Playwright, staging-safe):** signup → onboard → first dev task → panel result renders → theater opens → app serves → docked-chat iteration → chips advance + iframe updates → credits 500-depleted correctly → paywall.
+- **Regression:** Phase 1 core flows (map/panels/board/outputs/continuation/stop/pause) + **billing untouched-paths check** (live money — checkout/webhook/topup suite green, no billing code in scope).
+- **Rollout:** additive migrations (2 tables + 4 project columns + credits constant); `preview_enabled` config flag (default OFF in prod until E2E passes → flip ON via migration, same pattern as `billing_enabled`).
+- **Cost watch:** preview sandbox-minutes per project in logs + weekly eyeball; idle-pause verified in prod within the first week.

@@ -1,7 +1,7 @@
-# PRD v2 — Office-Sim Multi-Agent Orchestration Platform
+# PRD v2.1 — Office-Sim Multi-Agent Orchestration Platform
 
-> Status: APPROVED v2 (2026-06-11). Supersedes the v1 StarCraft-HUD PRD.
-> Source of truth for every change: `decision-log.md` (D1–D39). Visuals/interactions: `claude-design-handoff/product/README.md` is the single source of truth (D36) — behavior conflicts resolve to this PRD, visual conflicts to the handoff.
+> Status: APPROVED v2 (2026-06-11) + **Phase 2 amendment v2.1 (2026-07-07, D47–D52)** — post-launch closure revamp: live preview, result-in-flow, iteration loop (§16). Supersedes the v1 StarCraft-HUD PRD.
+> Source of truth for every change: `decision-log.md` (D1–D52). Visuals/interactions: `claude-design-handoff/product/README.md` is the single source of truth (D36) — behavior conflicts resolve to this PRD, visual conflicts to the handoff. Phase 2 UX reference: `mockups/mvp-closure-mockup.html` (D51).
 > Companion doc: `specs/user-flows.md` (detailed screen-by-screen flows + reference mockups note).
 
 ---
@@ -18,17 +18,21 @@ MVP ships **template-based teams that users customize** (D1): four pre-built tea
 
 Critically, the MVP **includes real execution** (D28–D31): the Development team doesn't draft code as text — it implements, runs, and tests it in a per-project sandbox (dev server + headless browser verification), iterating through the same implement→test→fix loops a real engineering team runs. Dev output is **working software**, with "working as expected" — not "build succeeded" — as the success criterion.
 
+**v2.1 adds the third bet — closure (D48):** watching agents work is the hook, but **receiving the work** is the product. The user must see the built app running (live preview), get results in the flow of the office (not buried in a file list), and iterate on the same evolving project by talking to the orchestrator — without ever touching a terminal, `npm`, or a zip file.
+
 ---
 
 ## 2. Target User
 
-**Primary (MVP): solo founders** — building a product alone, needing a virtual company: planning, research, design, and development work delegated to AI agents they can see and steer. (Data work is P1, D44.)
+**Primary (v2.1, D47): the Claude Code-aware builder** — someone who can (or did) use terminal-based AI coding tools at a basic level — including AI-curious non-developers who tried Claude Code "because it's supposed to be good" — but hits the terminal's structural ceiling: a terminal is single-session, multi-agent work means juggling windows and hand-managing workflows. What they want to make is **apps** (with docs/research folded into that journey). The solo-founder persona remains a subset of this cohort.
+
+**Expansion path (D47):** general consumers only after agents work on things users actually own (GitHub, then MCP/integrations) — interface familiarity lowers the barrier, but utility comes from real context. Do not GTM to the general public before that.
 
 **Post-MVP: individual employees at startups / small companies** — with team packs for email/Slack management, scheduling, to-do management, status reporting, etc. (roster TBD after further research).
 
 User characteristics:
-- Comfortable with modern web SaaS (Notion, Figma, Linear).
-- Not necessarily technical; should never need to write orchestration config. Role definitions are written in natural language.
+- Comfortable with modern web SaaS (Notion, Figma, Linear); has at least touched an AI coding tool.
+- Not necessarily an engineer; should never need to write orchestration config, open a terminal, or run `npm` anything (D48). Role definitions are written in natural language.
 - Values legibility and control over raw flexibility.
 - Game familiarity NOT assumed: the office metaphor is chosen precisely because it is intuitive to non-gamers (D13).
 
@@ -64,9 +68,9 @@ MVP success means:
 - Not a real-time streaming console: status is event-feed + on-demand fetch (D5), no live token stream.
 - Not a multi-harness abstraction layer — CrewAI is the single harness, used deeply.
 - Not a team/collaboration product (single-user workspaces only).
-- Not an in-product document editor: outputs are **files** the user downloads and manages themselves (D4; read-only inline preview is allowed, D18).
+- Not an in-product document editor: outputs are **files** the user downloads and manages themselves (D4; read-only inline preview is allowed, D18; v2.1 upgrades preview to rendered markdown and adds the live app preview, D49/D51 — still no editing).
 - Not an integrations platform in MVP — external tools / MCP are **P1**.
-- Not a hosting platform: the product builds and tests the user's app in a sandbox but does **not deploy it** to the public internet — deploy config files + guide only; agent-driven deploy is P1 (D31).
+- Not a hosting platform: the product builds, tests, and (v2.1) **live-previews** the user's app in a sandbox, but does **not deploy it** to the public internet — the preview is an ephemeral, unguessable sandbox URL that idles out (D49), not a custom domain or production hosting. Deploy config files + guide only; agent-driven deploy is P1 (D31).
 - The blog is **admin-authored only** (founder writes MDX files in the repo), not a user-facing CMS or any kind of user-generated content (D33).
 - Not a desktop application (web app only).
 
@@ -80,13 +84,15 @@ MVP success means:
 | **Team template** | Read-only system blueprint (Product Planning, Research, Design, Development; Data is P1, D44). | D1, D2, D44 |
 | **Team (instance)** | Cloned from a template into a project; user-editable; lives as a room/zone on the map. | D2 |
 | **Agent** | A worker character in a team. Has name, role (natural-language instructions — **authored by us as an editable default**, picked from the team's role catalog at hire time, D40/D41), **model tier (strong/medium/light)**, connections, status, memory, token usage. Runs **one task at a time** — parallelism = add more agents. **Execution engine is a per-template property** (D43): **Development & Design agents run on the Claude Agent SDK** inside the project workspace; **Planning & Research agents run on CrewAI** (text). | D1, D6, D17, D30, D32, D40, D41, D43 |
-| **Workspace (sandbox)** | One isolated E2B sandbox per project — a persistent filesystem where **Development & Design agents** write, run, and test real code (Node/Next.js + Python). Design agents render frontend and capture **screenshots as visual output** (we are not a live-preview tool — D42). Paused between tasks (billing stops, state preserved). | D28–D31, D42, D43 |
+| **Workspace (sandbox)** | Where **Development & Design agents** write, run, and test real code (Node/Next.js + Python) — CMA shared store for dev (D45), E2B for design/fallback. Design agents render frontend and capture **screenshots as visual output**. | D28–D31, D42→D49, D43, D45 |
+| **Project files & versions (v2.1)** | The canonical, evolving file state of the project. Each completed dev/design task merges its changed files into the project state and cuts a **version snapshot** (v1, v2, …). Iteration ("fix X") always works on this state; the preview always serves the latest version. Rollback/diff UI is P1. | D50 |
+| **Live Preview (v2.1)** | The project's app **running** in an on-demand preview sandbox, exposed at an ephemeral unguessable URL. Surfaced as a live thumbnail card in the agent panel; expands to **Theater mode** — a large in-office overlay with the running app, version chips, and the orchestrator chat docked for see-it-fix-it iteration. On-demand, idles out after 10 min (cost policy). Not a deploy. | D49, D51 |
 | **Connection (edge)** | Directed link between two agents. Exactly **two kinds** in MVP: **handoff** (A's output → B's input, one-way) and **review loop** (A ↔ B, user-set max N iterations + early exit on reviewer approval signal). Cross-team allowed. **Each agent has at most ONE outgoing connection** — chosen at hire time as Hand off / Review loop / **Final output** (none — result goes straight to Outputs); changing it = remove & re-hire (edit UI is P1) (D38). **Edges always auto-fire**: the graph the user draws is the graph that executes. | D6, D19, D21, D38 ⭐ |
 | **Orchestrator** | One per project. Not on the map — lives in the persistent bottom chat. Entry point for all work; chat routing instructions act as **one-off overrides** that never mutate edges; can relay input to blocked agents; reports status on demand. Cross-crew = P0. | D3, D21, D22 |
 | **Board** | Work-plan checklist (like an implementation plan): instructions are broken into work items, grouped by instruction/goal, showing done / in-progress / pending. **Derived directly from tasks** — no separate action-item protocol. | D20 |
 | **Context** | User-uploaded files, project-scoped, injected into agent prompts (full-text, no RAG in MVP). | D14 |
 | **Agent memory** | Per-agent markdown scratchpad, auto-appended after each task, user-manageable in settings. | D14 |
-| **Output** | Files written by agents — documents from text teams, **file trees of working code** from Development, **code + rendered screenshots** from Design. User sees a list, previews text/markdown/code read-only, downloads individual files or a **per-task zip**. No in-product output management. | D4, D18, D27, D31, D42 |
+| **Output** | Files written by agents — documents from text teams, **file trees of working code** from Development, **code + rendered screenshots** from Design. User sees a list, previews read-only (**v2.1: markdown renders as rich text, code with highlighting** — D51), downloads individual files or a **per-task zip**. Task results also render **directly in the agent panel** on completion (D51). No in-product output editing. | D4, D18, D27, D31, D42, D51 |
 
 Teams are capped at **5 agents** (the room has 5 desks; full team → hiring blocked, D37). Every template starts with **one agent** picked from that team's **authored role catalog** (D40/D41); the rest of the catalog is added via Add agent (up to 5). Starting agents (proposed, adjustable): Product Planning → **PM**, Research → **Researcher**, Design → **Product Designer**, Development → **Software Engineer**. Roles are our-authored, editable defaults — not blank boxes (the design's multi-agent rosters were placeholders); fully from-scratch agents/teams are P1 (D40).
 
@@ -230,7 +236,7 @@ Detailed flows: see `specs/user-flows.md`.
 
 ## 12. Decisions (Resolved)
 
-Authoritative record: **`decision-log.md` D1–D44** — template+customize MVP (D1), project isolation + template/instance split (D2), per-project orchestrator chat with cross-crew P0 (D3), file outputs + list/download (D4), event feed not streaming (D5), agent graph P0 cross-team (D6), board (D7→D20), top-left project switcher (D8), settings incl. context/memory management (D9), two input channels (D10→D22), no minimap (D11), total token counter + per-panel breakdown (D12), Two Point Hospital look & feel (D13), 2-layer context/memory without RAG (D14), team panel contents (D15), Stop/pause as P0 (D16), one task per agent (D17), inline output preview (D18), edges limited to handoff + bounded review loop (D19), board = task-derived work-plan checklist (D20), edges auto-fire / chat = one-off override (D21), chat can resume blocked agents (D22), overhead "!" indicators (D23), public landing page + SEO/GEO as P0 (D24), handoff DAG enforcement (D25), LiteLLM-based orchestrator tool-loop (D26), Postgres-backed FileStore (D27), execution-included MVP + two-track build (D28), E2B sandbox per project (D29), dual engines — Claude Agent SDK for dev / CrewAI for text (D30), execution scope cuts incl. no-deploy (D31), per-agent model tiers (D32), admin-only MDX blog as P0 (D33), flat front-view 2D rendering — supersedes D34's isometric (D35), Claude Design handoff as visual source of truth (D36), 5-agent team cap + one-agent starting rosters (D37), single output connection per agent (D38), draggable rooms with persisted positions (D39), pre-built templates + customize / from-scratch = P1 (D40), authored role catalog as editable defaults + per-team starting agents (D41), design output = rendered screenshots + code, not live preview (D42), execution engine as a per-template property — Dev+Design on Agent SDK, rest on CrewAI (D43), Data team cut from P0 → P1 execution-enabled, MVP = 4 teams (D44).
+Authoritative record: **`decision-log.md` D1–D52** — template+customize MVP (D1), project isolation + template/instance split (D2), per-project orchestrator chat with cross-crew P0 (D3), file outputs + list/download (D4), event feed not streaming (D5), agent graph P0 cross-team (D6), board (D7→D20), top-left project switcher (D8), settings incl. context/memory management (D9), two input channels (D10→D22), no minimap (D11), total token counter + per-panel breakdown (D12), Two Point Hospital look & feel (D13), 2-layer context/memory without RAG (D14), team panel contents (D15), Stop/pause as P0 (D16), one task per agent (D17), inline output preview (D18), edges limited to handoff + bounded review loop (D19), board = task-derived work-plan checklist (D20), edges auto-fire / chat = one-off override (D21), chat can resume blocked agents (D22), overhead "!" indicators (D23), public landing page + SEO/GEO as P0 (D24), handoff DAG enforcement (D25), LiteLLM-based orchestrator tool-loop (D26), Postgres-backed FileStore (D27), execution-included MVP + two-track build (D28), E2B sandbox per project (D29), dual engines — Claude Agent SDK for dev / CrewAI for text (D30), execution scope cuts incl. no-deploy (D31), per-agent model tiers (D32), admin-only MDX blog as P0 (D33), flat front-view 2D rendering — supersedes D34's isometric (D35), Claude Design handoff as visual source of truth (D36), 5-agent team cap + one-agent starting rosters (D37), single output connection per agent (D38), draggable rooms with persisted positions (D39), pre-built templates + customize / from-scratch = P1 (D40), authored role catalog as editable defaults + per-team starting agents (D41), design output = rendered screenshots + code, not live preview (D42), execution engine as a per-template property — Dev+Design on Agent SDK, rest on CrewAI (D43), Data team cut from P0 → P1 execution-enabled, MVP = 4 teams (D44), dev engine migrated to Claude Managed Agents with E2B fallback (D45), credit-based hybrid billing (D46), **Phase 2 (v2.1): target = Claude Code-aware builder (D47), closure-first completion (D48), live preview via Preview Service — supersedes D42's no-preview stance (D49), persistent project files + version snapshots (D50), theater-mode UX with orchestrator-docked iteration (D51), signup credits 240→500 (D52)**.
 
 Carried over from v1: concurrency cap 3 (config-driven); SSE push for events, detail fetched on demand; in-app notifications only (email P1); status model and continuation semantics.
 
@@ -271,7 +277,56 @@ Carried over from v1: concurrency cap 3 (config-driven); SSE push for events, de
 - Sandbox runtimes beyond Node/Next.js + Python (P1).
 - Real-time token streaming (P2).
 - Ad-hoc instructions to running agents (P2).
-- In-product output/document management, artifact versioning (P2+).
+- In-product output/document management (P2+). Version **snapshots** are Phase 2 P0 (D50); version management UI (rollback/diff) is P1.
 - Blog/content marketing (P1, on the landing domain).
 - Desktop/native apps; multi-LLM / multi-harness abstraction.
-- Billing/monetization specifics.
+- Billing/monetization specifics (superseded by D46 — live since 2026-06-20).
+
+---
+
+## 16. Phase 2 — Closure (v2.1 amendment, 2026-07-07, D47–D52)
+
+> Post-launch product reassessment concluded the shipped MVP sells "watching work happen" but not "receiving finished work" (D48). Phase 2 closes the loop. **The office canvas itself is untouched** — the viral asset is done; everything below is the receiving end. UX reference: `mockups/mvp-closure-mockup.html` (D51).
+
+### 16.1 North-star scenario
+
+Idea in → watch the office plan/research/design/build → completion notification → **see the running app in the browser** → "make the search button blue" via the orchestrator → watch the preview update → share. The user never meets a terminal, `npm`, or a zip file.
+
+### 16.2 Phase 2 P0 scope
+
+1. **Project files & version snapshots (D50)** — every completed dev/design task merges its changed files into the project's canonical file state and cuts a version snapshot (v1, v2, …). Iteration tasks work on this state. Outputs-by-task view remains; the project state is the new user-facing truth.
+2. **Live Preview (D49)** — a Preview Service runs the project's current version in an on-demand sandbox (`npm run dev`) and exposes an ephemeral, unguessable URL. Lifecycle: starts when the user opens the theater or a dev task completes; pauses after 10 idle minutes; destroyed after prolonged disuse; max one per project. Preview ≠ deploy (D31 stands).
+3. **Result in-flow (D51)** — when a task completes, its result renders **directly in the agent panel** as sanitized rich markdown (this alone completes closure for docs/research/planning outputs), with a link to its files. The Outputs overlay upgrades from `<pre>` dumps to rendered markdown + highlighted code.
+4. **Live thumbnail + Theater mode (D51)** — the agent panel shows a live preview thumbnail card (LIVE indicator, URL, open-in-new-tab, download code). Clicking it opens **Theater mode**: an in-office overlay with a large browser frame (iframe of the preview URL), version chips, and the **orchestrator chat docked at the bottom** — see the app big, ask for changes in place, watch the version tick. ESC/close returns to the office. Office = home, theater = focus mode; a permanent Lovable-style split is rejected.
+5. **Iteration loop (D50+D51)** — change requests from the (docked or main) orchestrator chat dispatch dev tasks against the current project state; on completion a new version is cut and the preview refreshes, announced in the chat and on the version chips.
+6. **Onboarding economics (D52)** — signup credits 240 → 500 so a new user can complete the north-star loop (one strong dev task + 1–2 iteration nudges) exactly once for free.
+
+### 16.3 Phase 2 acceptance criteria
+
+**Project files & versions**
+- Given two sequential dev tasks in a project, then the project file state after task 2 contains task 1's unchanged files plus task 2's changes, and versions v1 and v2 both exist.
+- Given an iteration request ("change X"), then the dispatched dev task sees the current project state — not an empty or task-scoped workspace.
+
+**Live preview**
+- Given a completed dev task for a runnable web app, when the user opens the preview, then the actual app renders at the preview URL within a bounded startup time (spinner while starting), and the URL serves the **latest** version.
+- Given 10 minutes without preview traffic/theater use, then the preview sandbox pauses (no compute billing) and a later visit restarts it without data loss.
+- Given a preview URL, then it is unguessable, serves only that project's app, and is never listed in sitemaps or logged publicly.
+
+**Result in-flow**
+- Given any task reaching `done`, when the user opens the agent panel, then the result renders as rich markdown in the panel (no separate overlay required), with raw HTML neutralized (stored-XSS safe).
+- Given a text-team task (research/planning doc), then reading the rendered result in the panel requires zero additional clicks after opening the panel.
+
+**Theater & iteration**
+- Given an open theater, when the user sends a change request in the docked chat, then a dev task dispatches, and on completion the version chips advance and the iframe shows the change without a manual page reload.
+- Given theater close (button or ESC), then the user is back on the untouched office canvas with panels preserved.
+
+**Onboarding economics**
+- Given a fresh signup, then the account holds 500 credits and can run one strong dev task plus at least one medium iteration before hitting the paywall.
+
+### 16.4 Explicitly out of Phase 2
+
+- Preview auth proxy (P1 — unguessable URL is the Phase 2 bar, D49).
+- Version rollback/diff UI (P1); in-app file editing (P2+).
+- GitHub export/import (P1 — first step of the D47 expansion path).
+- Deploy of any kind (P1, D31 unchanged).
+- Office canvas changes, new teams, mobile.

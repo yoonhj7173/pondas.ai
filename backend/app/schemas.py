@@ -8,6 +8,7 @@ projects / map 계약을 담는다. teams/agents/edges 관리(item 7), tasks/boa
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field
@@ -91,6 +92,29 @@ class ProjectOut(BaseModel):
     name: str
     paused: bool
     sandbox_status: str
+
+
+# --- Versions & files (Phase 2, D50) ---
+
+
+class WorkspaceVersionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    version_no: int
+    task_id: uuid.UUID | None
+    agent_id: uuid.UUID | None = None  # 그 버전을 만든 task의 에이전트(조인으로 채움)
+    file_count: int = 0
+    created_at: datetime
+
+
+class ProjectFileEntry(BaseModel):
+    path: str
+    output_id: uuid.UUID
+
+
+class ProjectFilesOut(BaseModel):
+    version_no: int | None  # 요청한(또는 최신) 버전; 버전이 없으면 None(빈 프로젝트)
+    files: list[ProjectFileEntry]
 
 
 # --- Map (GET /api/projects/{id}/map) ---

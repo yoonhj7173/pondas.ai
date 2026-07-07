@@ -1,6 +1,6 @@
 # User Flows — Office-Sim Multi-Agent Orchestration Platform
 
-> Companion to `specs/prd.md` (v2). Source decisions: `decision-log.md` D1–D44.
+> Companion to `specs/prd.md` (v2.1). Source decisions: `decision-log.md` D1–D52. Phase 2 flows (6½) reference `mockups/mvp-closure-mockup.html` (D51).
 > Layout reference: §7 of the PRD. Look & feel: Two Point Hospital office sim (D13).
 > **Visual source of truth: `claude-design-handoff/product/README.md` (D36)** — the design is final at pixel level. This doc owns behavior; the handoff owns visuals. The founder wireframes below are historical (they fed the design phase, now complete).
 
@@ -115,15 +115,16 @@ What makes **agent_sdk** teams (Development & Design, D43) different from text t
 2. A dev/design agent picks up a task → Claude Agent SDK session runs in the workspace: writes code, installs deps (registry allowlist), runs builds/tests, starts the dev server. The character just animates "working" — no streaming.
 3. SWE ↔ QA review loops (D19) verify **real behavior**: QA runs the app and checks it with headless Playwright. "Build passed" never closes a loop; "works as expected" does. Failures route back as revision rounds.
 4. On completion, the task's file tree is collected into outputs (Flow 6) — per-file download + zip. The verification record (commands run + results) is attached to the task.
-5. **Design tasks** ride the same path but their deliverable is **frontend code + rendered screenshots** (Playwright screenshots the rendered page → PNG outputs). This is our "see the design" — a static screenshot + runnable code, **not a live in-product preview** (that's deploy-shaped, P1; we are not Lovable — D42).
-6. Stop (Flow 4) kills the running sandbox command; project pause also pauses dispatching to the workspace. Deploy is NOT performed — the DevOps agent writes deploy configs + a guide; the user downloads the zip, runs locally, and deploys themselves (agent-driven deploy = P1).
+5. **Design tasks** ride the same path but their deliverable is **frontend code + rendered screenshots** (Playwright screenshots the rendered page → PNG outputs). *(v2.1: for dev output, the primary "see it" is now the Live Preview — Flow 6½, D49 superseding D42; design screenshots remain as auxiliary artifacts.)*
+6. Stop (Flow 4) kills the running sandbox command; project pause also pauses dispatching to the workspace. Deploy is NOT performed — the preview URL is ephemeral and sandbox-hosted (D49), and the DevOps agent writes deploy configs + a guide for real deployment (agent-driven deploy = P1).
+7. **(v2.1, D50)** Each completed dev/design task merges its changed files into the **project file state** and cuts a **version snapshot** (v1, v2, …) — iteration always continues from the latest version.
 
 ## Flow 5 — Notification → respond
 
 1. An agent hits `done` / `blocked` / `needs-input` / `failed` → toast fires (top-center, with View) + Activity feed line + bell unread count (D5, D36) + overhead badge on the map: **"!"** for blocked/needs-input, **"×"** for failed (D23). Persistent badges survive toast dismissal and clear only on resolution — missing the toast costs nothing.
 2. Click the toast (or feed line, or the "!" agent itself) → camera focuses the agent, highlight, agent panel opens.
 3. `needs-input`/`blocked`: panel shows the agent's question/blocker → user types into **Provide human input** → task resumes to `working`, "!" clears. (Or answer via the orchestrator chat — D22, Flow 2.)
-4. `done`: panel links to the output (Flow 6). `failed`: panel shows a short error summary.
+4. `done` **(v2.1, D51)**: the panel renders the task's **result directly** — rich sanitized markdown, zero extra clicks — plus a files link (Flow 6) and, for runnable dev projects, the **live preview card** (Flow 6½). `failed`: panel shows a short error summary.
 
 ---
 
@@ -131,8 +132,21 @@ What makes **agent_sdk** teams (Development & Design, D43) different from text t
 
 1. Agents write results as **files** to project storage (D4, D27): documents from text teams, **multi-file code trees** from Development, **code + rendered screenshots (PNG)** from Design (collected from the workspace per task, D42). No in-product document management.
 2. User opens the output list (from the agent panel's "outputs", the Outputs button, or Settings) → entries grouped per task: single files or expandable file trees, with name/agent/date.
-3. Click a text/markdown/code file → **read-only inline preview** renders in place; **image files (design screenshots) preview as images** (D18). No editing, versioning, foldering, or search — reading only.
-4. Download per file, or **download the whole task as a zip** (code trees). The user manages files themselves from there — running locally and deploying is their move (Flow 4½ step 5).
+3. Click a text/markdown/code file → **read-only inline preview** renders in place — **v2.1 (D51): markdown renders as rich text, code with syntax highlighting** (no more raw dumps); **image files (design screenshots) preview as images** (D18). No editing, foldering, or search — reading only.
+4. Download per file, or **download the whole task as a zip** (code trees). Running the app in-product is Flow 6½; real deployment remains the user's move with the DevOps agent's configs (Flow 4½ step 6).
+
+---
+
+## Flow 6½ — Live Preview & Theater (v2.1 — D49, D50, D51)
+
+The closure loop: see the built app running, fix it by talking, watch it update. Reference: `mockups/mvp-closure-mockup.html`.
+
+1. **Entry** — a dev task completes on a runnable web project → the agent panel (Flow 5 step 4) shows the **live preview card**: thumbnail of the app, LIVE dot, ephemeral preview URL, "open in new tab", "download code". (Projects with no runnable target — pure docs/research — never show the card; their closure is the in-panel result.)
+2. **Theater open** — click the card → overlay over the office (office dims, canvas untouched underneath): large browser frame (iframe of the preview URL), URL bar + reload + new-tab + zip, **version chips** (v1 · v2 · v3…), and the **orchestrator chat docked at the bottom** — the same conversation as the main chat, just mounted here.
+3. **First start** — if the preview sandbox isn't running, the frame shows a short "starting your app…" state (install + dev server boot), then renders. Startup failure shows a friendly error + the command tail, with a one-click "ask the dev team to fix it" handoff into the chat.
+4. **Iterate in place** — user types a change request in the docked chat ("make the search button blue") → normal orchestrator dispatch (Flow 2; no new input surface) → dev task runs (office animates behind the theater) → on completion: a new version is cut, the chips advance, and the app in the frame refreshes **without a manual reload**. The chat confirms ("Dev team applied it — preview updated ✓ v3").
+5. **Exit** — ✕ or ESC → back to the office exactly as it was. The preview keeps running briefly in the background; after **10 idle minutes** it pauses automatically (cost policy, D49) and restarts in seconds on the next visit.
+6. **Sharing** — "open in new tab" gives the bare app URL (unguessable, unauthenticated, ephemeral — an unlisted link, not a deploy). For a permanent URL the user still deploys themselves (P1: agent-driven deploy).
 
 ---
 

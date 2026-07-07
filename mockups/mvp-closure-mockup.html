@@ -1,0 +1,551 @@
+<title>pondas — MVP closure 목업</title>
+<style>
+  :root {
+    --page-bg: #eceee6;
+    --page-ink: #2c2925;
+    --page-sub: #6d6a60;
+    --card-bg: #ffffff;
+    --card-line: #d8dacd;
+
+    /* pondas product tokens (fixed — the mockup commits to the product's world) */
+    --world: #c6c9bc;
+    --world-deep: #b4b8a8;
+    --ink: #2c2925;
+    --hud: rgba(36, 46, 66, 0.94);
+    --hud-solid: #242e42;
+    --glass: rgba(253, 253, 251, 0.72);
+    --blue-a: #67d2f2; --blue-b: #3fb4dc;
+    --green-a: #74d982; --green-b: #4dbb5c;
+    --coral-a: #ef7a66; --coral-b: #e8503a;
+    --note: #ffd84d;
+    --note-ink: #4a3b00;
+
+    --round: -apple-system, "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --page-bg: #1d1f1a; --page-ink: #e8e7df; --page-sub: #a2a094; --card-bg: #26281f; --card-line: #3a3d31; }
+  }
+  :root[data-theme="dark"] { --page-bg: #1d1f1a; --page-ink: #e8e7df; --page-sub: #a2a094; --card-bg: #26281f; --card-line: #3a3d31; }
+  :root[data-theme="light"] { --page-bg: #eceee6; --page-ink: #2c2925; --page-sub: #6d6a60; --card-bg: #ffffff; --card-line: #d8dacd; }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 20px 64px;
+    background: var(--page-bg); color: var(--page-ink);
+    font-family: var(--round);
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; }
+
+  header.page { margin-bottom: 22px; }
+  .eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--page-sub); }
+  h1 { margin: 6px 0 4px; font-size: 26px; font-weight: 800; text-wrap: balance; }
+  .sub { margin: 0; color: var(--page-sub); font-size: 14.5px; max-width: 62ch; line-height: 1.55; }
+  .sub b { color: var(--page-ink); }
+
+  /* ---------- legend ---------- */
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 14px; }
+  .legend .item {
+    display: flex; align-items: center; gap: 9px;
+    background: var(--card-bg); border: 1px solid var(--card-line);
+    border-radius: 12px; padding: 9px 14px 9px 9px; font-size: 13px; line-height: 1.35;
+  }
+  .badge {
+    flex: none; width: 24px; height: 24px; border-radius: 50%;
+    background: var(--note); color: var(--note-ink);
+    font-weight: 900; font-size: 13px; display: grid; place-items: center;
+    box-shadow: 0 2px 6px rgba(120, 95, 0, .35);
+  }
+  .legend b { font-weight: 800; }
+  .legend small { color: var(--page-sub); display: block; }
+
+  /* ---------- mockup frame ---------- */
+  .scroller { overflow-x: auto; border-radius: 22px; }
+  .app {
+    position: relative;
+    min-width: 1060px;
+    background: var(--world);
+    border-radius: 22px;
+    box-shadow: 0 24px 60px rgba(30, 34, 26, .28);
+    overflow: hidden;
+    color: var(--ink);
+  }
+
+  /* annotation pins */
+  .pin {
+    position: absolute; z-index: 40;
+    display: flex; align-items: center; gap: 7px;
+    background: var(--note); color: var(--note-ink);
+    border-radius: 999px; padding: 5px 12px 5px 7px;
+    font-size: 12.5px; font-weight: 800;
+    box-shadow: 0 4px 12px rgba(120, 95, 0, .4);
+    transform: rotate(-1.2deg);
+    pointer-events: none;
+  }
+  .pin .n { width: 19px; height: 19px; border-radius: 50%; background: var(--note-ink); color: var(--note); display: grid; place-items: center; font-size: 11.5px; }
+
+  /* ---------- top HUD ---------- */
+  .hud {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 18px;
+    background: linear-gradient(180deg, rgba(253,253,251,.55), rgba(253,253,251,.25));
+    backdrop-filter: blur(6px);
+    border-bottom: 1.5px solid rgba(255,255,255,.55);
+  }
+  .logo { font-weight: 900; font-size: 17px; letter-spacing: -.02em; }
+  .logo em { font-style: normal; color: var(--blue-b); }
+  .proj {
+    font-weight: 800; font-size: 13.5px; background: rgba(255,255,255,.6);
+    border: 2px solid #fff; border-radius: 999px; padding: 5px 14px;
+  }
+  .hud .grow { flex: 1; }
+  .tile {
+    background: var(--hud); color: #fff; border-radius: 12px;
+    padding: 7px 13px; font-size: 12.5px; font-weight: 700;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tile .gauge { width: 54px; height: 6px; border-radius: 999px; background: rgba(255,255,255,.22); overflow: hidden; }
+  .tile .gauge i { display: block; width: 62%; height: 100%; background: linear-gradient(90deg, var(--blue-a), var(--blue-b)); }
+  .bell { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.6); border: 2px solid #fff; display: grid; place-items: center; font-size: 15px; position: relative; }
+  .bell .dot { position: absolute; top: -1px; right: -1px; width: 11px; height: 11px; border-radius: 50%; background: var(--coral-b); border: 2px solid #fff; }
+
+  /* ---------- main split ---------- */
+  .main { display: grid; grid-template-columns: 1fr 418px; }
+
+  /* office canvas */
+  .office { position: relative; padding: 26px 24px 88px; min-height: 560px;
+    background:
+      radial-gradient(1100px 340px at 30% -80px, rgba(255,255,255,.35), transparent 60%),
+      repeating-linear-gradient(0deg, transparent 0 46px, rgba(60,66,52,.05) 46px 47px),
+      repeating-linear-gradient(90deg, transparent 0 46px, rgba(60,66,52,.05) 46px 47px),
+      var(--world);
+  }
+  .rooms { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 620px; }
+  .room {
+    background: rgba(253,253,251,.5);
+    border: 2.5px solid rgba(255,255,255,.85);
+    border-radius: 18px; padding: 13px 15px 15px;
+    box-shadow: 0 10px 24px rgba(50,55,45,.12);
+  }
+  .room h3 { margin: 0 0 2px; font-size: 13.5px; font-weight: 900; display: flex; align-items: center; gap: 7px; }
+  .room .state { font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 999px; margin-left: auto; }
+  .st-idle { background: rgba(60,66,52,.12); color: #5c5a50; }
+  .st-done { background: linear-gradient(135deg, var(--green-a), var(--green-b)); color: #fff; }
+  .room p.note { margin: 3px 0 10px; font-size: 11.5px; color: #6d6a60; }
+  .crew { display: flex; gap: 10px; }
+  .agent { position: relative; width: 44px; text-align: center; }
+  .agent .face {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 2.5px solid #fff; display: grid; place-items: center; font-size: 19px;
+    box-shadow: 0 5px 12px rgba(50,55,45,.22);
+    background: linear-gradient(160deg, #fdf7ec, #efe4cf);
+  }
+  .agent .nm { font-size: 9.5px; font-weight: 800; color: #5c5a50; margin-top: 3px; letter-spacing: .01em; }
+  .agent .ring { position: absolute; top: -3px; right: -1px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; }
+  .ring.done { background: var(--green-b); }
+  .ring.idle { background: #9a9c8e; }
+  .bubble {
+    position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
+    background: #fff; border-radius: 10px; padding: 3px 9px;
+    font-size: 10.5px; font-weight: 900; color: var(--green-b);
+    box-shadow: 0 4px 10px rgba(50,55,45,.2); white-space: nowrap;
+  }
+  .bubble::after { content: ""; position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #fff; border-bottom: 0; }
+
+  .deco { position: absolute; font-size: 22px; opacity: .8; }
+
+  /* orchestrator chat bar (③) */
+  .chat {
+    position: absolute; left: 24px; right: 24px; bottom: 18px;
+    background: var(--glass); backdrop-filter: blur(10px) saturate(1.15);
+    border: 2px solid rgba(255,255,255,.9); border-radius: 18px;
+    box-shadow: 0 14px 34px rgba(50,55,45,.2);
+    padding: 12px 14px 12px;
+  }
+  .thread { display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; }
+  .msg { max-width: 78%; font-size: 12.5px; line-height: 1.45; padding: 7px 12px; border-radius: 13px; }
+  .msg.user { align-self: flex-end; background: linear-gradient(135deg, var(--blue-a), var(--blue-b)); color: #fff; font-weight: 700; border-bottom-right-radius: 4px; }
+  .msg.orch { align-self: flex-start; background: #fff; border-bottom-left-radius: 4px; box-shadow: 0 3px 8px rgba(50,55,45,.1); }
+  .msg.orch b { color: var(--green-b); }
+  .vchips { display: inline-flex; gap: 4px; margin-left: 6px; vertical-align: 1px; }
+  .vchip { font-size: 10px; font-weight: 900; padding: 1px 7px; border-radius: 999px; background: rgba(60,66,52,.1); color: #6d6a60; }
+  .vchip.on { background: var(--hud-solid); color: #fff; }
+  .inputrow { display: flex; gap: 9px; align-items: center; }
+  .field {
+    flex: 1; background: #fff; border-radius: 999px; padding: 10px 16px;
+    font-size: 13px; color: #9a988c; border: 1.5px solid rgba(60,66,52,.12);
+  }
+  .send {
+    border-radius: 999px; border: 2.5px solid #fff; color: #fff;
+    font-weight: 900; font-size: 13px; padding: 9px 20px;
+    background: linear-gradient(135deg, var(--blue-a), var(--blue-b));
+    box-shadow: 0 8px 18px rgba(63,180,220,.4);
+  }
+
+  /* ---------- inspector panel ---------- */
+  .panel {
+    background: var(--glass); backdrop-filter: blur(10px) saturate(1.15);
+    border-left: 2px solid rgba(255,255,255,.8);
+    padding: 16px 16px 20px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .taskcard {
+    background: #fff; border-radius: 14px; padding: 12px 14px;
+    box-shadow: 0 6px 16px rgba(50,55,45,.1);
+  }
+  .taskcard .row { display: flex; align-items: center; gap: 8px; }
+  .taskcard h2 { margin: 0; font-size: 14.5px; font-weight: 900; flex: 1; }
+  .chip-done { font-size: 11px; font-weight: 900; color: #fff; padding: 3px 11px; border-radius: 999px; background: linear-gradient(135deg, var(--green-a), var(--green-b)); }
+  .meta { display: flex; gap: 12px; margin-top: 7px; font-size: 11px; color: #8a887c; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .sect-label { font-size: 10.5px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: #7d7b6e; margin: 2px 2px 0; }
+
+  /* ② result (rendered markdown) */
+  .result {
+    background: #fff; border-radius: 14px; padding: 13px 15px;
+    box-shadow: 0 6px 16px rgba(50,55,45,.1);
+    font-size: 12.5px; line-height: 1.6; color: #3a3631;
+  }
+  .result h4 { margin: 0 0 6px; font-size: 13.5px; font-weight: 900; color: var(--ink); }
+  .result ul { margin: 6px 0; padding-left: 18px; }
+  .result li { margin: 3px 0; }
+  .result li::marker { color: var(--blue-b); }
+  .files { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+  .file { font-family: var(--mono); font-size: 10px; background: rgba(36,46,66,.08); color: #3d465c; padding: 2.5px 8px; border-radius: 6px; }
+
+  /* ① live preview — compact card (entry point to theater) */
+  .pvcard {
+    background: var(--hud); border-radius: 16px; padding: 10px 10px 11px;
+    box-shadow: 0 10px 26px rgba(36,46,66,.35);
+  }
+  .thumbwrap { position: relative; border-radius: 10px; overflow: hidden; cursor: pointer; display: block; width: 100%; border: 0; padding: 0; text-align: left; background: #fff; font-family: var(--round); }
+  .thumbwrap:focus-visible { outline: 3px solid var(--blue-a); outline-offset: 2px; }
+  .thumb-shot { transform: scale(.86); transform-origin: top left; width: 116.3%; pointer-events: none; }
+  .thumbwrap .veil {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    background: linear-gradient(180deg, rgba(36,46,66,0) 30%, rgba(36,46,66,.55));
+    transition: background .2s;
+  }
+  .thumbwrap:hover .veil { background: linear-gradient(180deg, rgba(36,46,66,.1) 0%, rgba(36,46,66,.65)); }
+  .playpill {
+    display: inline-flex; align-items: center; gap: 8px;
+    border-radius: 999px; border: 2.5px solid #fff; color: #fff;
+    font-weight: 900; font-size: 13px; padding: 9px 20px;
+    background: linear-gradient(135deg, var(--green-a), var(--green-b));
+    box-shadow: 0 8px 18px rgba(77,187,92,.45);
+    margin-top: 110px;
+  }
+  .livedot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #b6ffbf; box-shadow: 0 0 0 3px rgba(182,255,191,.25); }
+  .pvrow { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+  .pvurl { flex: 1; font-family: var(--mono); font-size: 10px; color: rgba(255,255,255,.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pvurl b { color: #9ddcf5; font-weight: 700; }
+  .pvmini { font-size: 11px; font-weight: 800; color: rgba(255,255,255,.85); background: rgba(255,255,255,.12); border: 1.5px solid rgba(255,255,255,.35); border-radius: 999px; padding: 4px 12px; }
+
+  /* browser chrome (shared: thumb + theater) */
+  .browser { background: #fff; border-radius: 10px; overflow: hidden; }
+  .brbar { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: #edf0f4; border-bottom: 1px solid #dde2e9; }
+  .dots { display: flex; gap: 4px; }
+  .dots i { width: 8px; height: 8px; border-radius: 50%; }
+  .dots i:nth-child(1){ background: #ef7a66; } .dots i:nth-child(2){ background: #f6c65b; } .dots i:nth-child(3){ background: #74d982; }
+  .url {
+    flex: 1; font-family: var(--mono); font-size: 10.5px; color: #4a5568;
+    background: #fff; border-radius: 999px; padding: 4px 11px; border: 1px solid #dde2e9;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .url b { color: #2b6cb0; font-weight: 700; }
+  .reload { font-size: 12px; color: #718096; }
+
+  /* the user's built app, rendered inside */
+  .miniapp { font-family: Georgia, "Times New Roman", serif; padding: 16px 16px 18px; background: linear-gradient(180deg, #fffdf9, #fbf6ee); }
+  .miniapp .brand { font-size: 16px; font-weight: 700; color: #7c4a1e; letter-spacing: -.01em; }
+  .miniapp .tag { font-size: 10.5px; color: #a08a72; margin-top: 1px; }
+  .miniapp .search { display: flex; gap: 6px; margin: 11px 0 12px; }
+  .miniapp .q { flex: 1; font-family: var(--round); font-size: 11px; color: #b0a08c; background: #fff; border: 1px solid #e8dcc9; border-radius: 8px; padding: 7px 11px; }
+  .miniapp .go { font-family: var(--round); font-size: 11px; font-weight: 800; color: #fff; background: #2563eb; border-radius: 8px; padding: 7px 14px; box-shadow: 0 3px 8px rgba(37,99,235,.35); }
+  .cafes { display: grid; gap: 7px; }
+  .cafe { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #efe6d6; border-radius: 10px; padding: 8px 11px; }
+  .cafe .ph { width: 34px; height: 34px; border-radius: 8px; background: linear-gradient(145deg, #e9d3b3, #d3ab77); display: grid; place-items: center; font-size: 15px; }
+  .cafe .nm { font-size: 12px; font-weight: 700; color: #4a3826; }
+  .cafe .ds { font-family: var(--round); font-size: 10px; color: #a08a72; }
+  .cafe .rt { margin-left: auto; font-family: var(--round); font-size: 10.5px; font-weight: 800; color: #b7791f; }
+
+  /* ---------- THEATER MODE ---------- */
+  .theater {
+    position: absolute; inset: 0; z-index: 60;
+    display: none;
+    background: rgba(40, 46, 40, .55);
+    backdrop-filter: blur(5px);
+    padding: 22px 26px;
+    flex-direction: column; gap: 12px;
+  }
+  .theater.open { display: flex; }
+  .th-top { display: flex; align-items: center; gap: 10px; }
+  .th-title { color: #fff; font-weight: 900; font-size: 14px; display: flex; align-items: center; gap: 9px; text-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  .th-status { font-size: 11px; font-weight: 800; color: #d8ffde; background: rgba(77,187,92,.35); border: 1.5px solid rgba(182,255,191,.5); border-radius: 999px; padding: 3px 11px; display: inline-flex; align-items: center; gap: 6px; }
+  .th-top .grow { flex: 1; }
+  .th-vchips { display: flex; gap: 5px; }
+  .th-vchips .vchip { background: rgba(255,255,255,.18); color: rgba(255,255,255,.8); font-size: 10.5px; }
+  .th-vchips .vchip.on { background: #fff; color: var(--hud-solid); }
+  .th-close {
+    border-radius: 999px; border: 2.5px solid #fff; color: #fff;
+    font-weight: 900; font-size: 12.5px; padding: 7px 16px; cursor: pointer;
+    background: linear-gradient(135deg, var(--coral-a), var(--coral-b));
+    box-shadow: 0 8px 18px rgba(232,80,58,.35);
+    font-family: var(--round);
+  }
+  .th-close:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  .th-stage { flex: 1; display: grid; place-items: stretch; min-height: 0; }
+  .th-stage .browser { display: flex; flex-direction: column; box-shadow: 0 24px 70px rgba(0,0,0,.45); border-radius: 14px; }
+  .th-stage .brbar { padding: 9px 12px; }
+  .th-stage .url { font-size: 11.5px; padding: 5px 13px; }
+  .brbtn { font-family: var(--round); font-size: 10.5px; font-weight: 800; color: #4a5568; background: #fff; border: 1px solid #dde2e9; border-radius: 999px; padding: 4px 12px; }
+  .th-app { flex: 1; overflow: auto; }
+  .miniapp.big { padding: 26px 30px 30px; height: 100%; }
+  .miniapp.big .brand { font-size: 24px; }
+  .miniapp.big .tag { font-size: 12.5px; }
+  .miniapp.big .search { margin: 16px 0 16px; max-width: 480px; }
+  .miniapp.big .q { font-size: 12.5px; padding: 10px 14px; }
+  .miniapp.big .go { font-size: 12.5px; padding: 10px 20px; }
+  .cafes.grid2 { grid-template-columns: 1fr 1fr; gap: 10px; max-width: 640px; }
+  .miniapp.big .cafe { padding: 11px 13px; }
+  .miniapp.big .ph { width: 40px; height: 40px; font-size: 18px; }
+  .miniapp.big .nm { font-size: 13px; }
+  .miniapp.big .ds { font-size: 11px; }
+  /* the just-edited element, highlighted */
+  .justchanged { position: relative; }
+  .justchanged::after {
+    content: "방금 파란색으로 변경됨"; position: absolute; top: -26px; left: 0;
+    font-family: var(--round); font-size: 10px; font-weight: 900;
+    background: var(--note); color: var(--note-ink); border-radius: 999px; padding: 3px 9px;
+    white-space: nowrap; box-shadow: 0 3px 8px rgba(120,95,0,.35);
+  }
+  /* theater chat (orchestrator docked) */
+  .th-chat {
+    background: var(--glass); backdrop-filter: blur(10px) saturate(1.15);
+    border: 2px solid rgba(255,255,255,.9); border-radius: 18px;
+    box-shadow: 0 14px 34px rgba(0,0,0,.3);
+    padding: 11px 14px;
+  }
+  .th-chat .thread { margin-bottom: 9px; }
+
+  footer.cap { margin-top: 18px; color: var(--page-sub); font-size: 12.5px; line-height: 1.6; max-width: 74ch; }
+  footer.cap b { color: var(--page-ink); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .bubble { animation: pop .5s ease-out; }
+    @keyframes pop { 0% { transform: translateX(-50%) scale(.6); opacity: 0; } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
+    .theater.open { animation: fadein .22s ease-out; }
+    @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+    .theater.open .browser { animation: rise .26s ease-out; }
+    @keyframes rise { from { transform: translateY(14px) scale(.985); opacity: .6; } to { transform: none; opacity: 1; } }
+    .livedot { animation: blink 1.6s ease-in-out infinite; }
+    @keyframes blink { 50% { opacity: .45; } }
+  }
+</style>
+
+<div class="wrap">
+  <header class="page">
+    <div class="eyebrow">pondas.ai · MVP closure 목업 · v2</div>
+    <h1>워크스페이스 — task 완료 직후의 "받는 경험"</h1>
+    <p class="sub">온보딩 완료 → 첫 task("서울 카페 파인더 만들어줘")가 끝난 순간. 패널의 preview 카드를 <b>클릭하면 시어터 모드</b>가 열려 — 실제로 눌러봐.</p>
+  </header>
+
+  <div class="legend">
+    <div class="item"><span class="badge">1</span><span><b>Live Preview → 시어터</b><small>패널엔 라이브 썸네일만, 클릭하면 크게 — 오피스 위로 시어터 오버레이</small></span></div>
+    <div class="item"><span class="badge">2</span><span><b>Result in-flow</b><small>완료 → 패널에서 결과가 바로 보임 (마크다운 렌더)</small></span></div>
+    <div class="item"><span class="badge">3</span><span><b>Iteration loop</b><small>시어터 안에 오케스트레이터 챗 도킹 — 크게 보면서 그 자리에서 수정 지시</small></span></div>
+  </div>
+
+  <div class="scroller">
+  <div class="app">
+
+    <div class="pin" style="top: 210px; right: 396px;"><span class="n">1</span> 라이브 썸네일 — 클릭하면 시어터</div>
+    <div class="pin" style="top: 96px; right: 396px;"><span class="n">2</span> 결과가 패널에 바로</div>
+
+    <!-- top HUD -->
+    <div class="hud">
+      <div class="logo">p<em>o</em>ndas</div>
+      <div class="proj">☕ cafe-finder</div>
+      <div class="grow"></div>
+      <div class="tile">⚡ 1,840 <span class="gauge"><i></i></span></div>
+      <div class="bell">🔔<span class="dot"></span></div>
+    </div>
+
+    <div class="main">
+      <!-- office canvas -->
+      <div class="office">
+        <span class="deco" style="top: 20px; right: 40px;">🪴</span>
+        <span class="deco" style="bottom: 180px; left: 650px;">🖨️</span>
+
+        <div class="rooms">
+          <div class="room">
+            <h3>📋 Product Planning <span class="state st-idle">idle</span></h3>
+            <p class="note">기획 v1 전달 완료</p>
+            <div class="crew">
+              <div class="agent"><div class="face">👩🏻‍💼</div><span class="ring idle"></span><div class="nm">PM</div></div>
+              <div class="agent"><div class="face">🧑🏽‍💻</div><span class="ring idle"></span><div class="nm">BA</div></div>
+            </div>
+          </div>
+          <div class="room">
+            <h3>🔍 Research <span class="state st-idle">idle</span></h3>
+            <p class="note">카페 데이터 조사 완료</p>
+            <div class="crew">
+              <div class="agent"><div class="face">🧐</div><span class="ring idle"></span><div class="nm">RES</div></div>
+            </div>
+          </div>
+          <div class="room">
+            <h3>🎨 Design <span class="state st-idle">idle</span></h3>
+            <p class="note">랜딩 시안 전달 완료</p>
+            <div class="crew">
+              <div class="agent"><div class="face">👩🏼‍🎨</div><span class="ring idle"></span><div class="nm">DES</div></div>
+            </div>
+          </div>
+          <div class="room">
+            <h3>🛠️ Development <span class="state st-done">done ✓</span></h3>
+            <p class="note">랜딩 + 카페 리스트 v1</p>
+            <div class="crew">
+              <div class="agent"><div class="bubble">Done! ✓</div><div class="face">👨🏻‍💻</div><span class="ring done"></span><div class="nm">ENG</div></div>
+              <div class="agent"><div class="face">🧑🏿‍💻</div><span class="ring done"></span><div class="nm">LEAD</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- orchestrator chat (base view) -->
+        <div class="chat">
+          <div class="thread">
+            <div class="msg orch">개발팀이 <b>카페 파인더 v1</b>을 완성했어요. 오른쪽에서 결과를 확인해보세요 →</div>
+          </div>
+          <div class="inputrow">
+            <div class="field">오피스에 지시하기…</div>
+            <div class="send">보내기</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- inspector panel -->
+      <div class="panel">
+        <div class="taskcard">
+          <div class="row">
+            <h2>랜딩 + 카페 리스트 v1</h2>
+            <span class="chip-done">DONE</span>
+          </div>
+          <div class="meta"><span>🛠️ Development</span><span>⏱ 6m 12s</span><span>⚡ 310 credits</span></div>
+        </div>
+
+        <div class="sect-label">Result</div>
+        <div class="result">
+          <h4>서울 카페 파인더 v1 완성 ☕</h4>
+          랜딩 페이지와 카페 리스트를 구현하고 샌드박스에서 렌더링 확인까지 마쳤어요.
+          <ul>
+            <li>랜딩: 히어로 + 검색바 + 인기 카페 3곳</li>
+            <li>리스트: Research팀 데이터 12곳, 평점순 정렬</li>
+            <li>모바일 반응형 확인 완료</li>
+          </ul>
+          <div class="files">
+            <span class="file">app/page.tsx</span>
+            <span class="file">components/CafeList.tsx</span>
+            <span class="file">data/cafes.json</span>
+            <span class="file">+4 files</span>
+          </div>
+        </div>
+
+        <div class="sect-label">Live Preview</div>
+        <div class="pvcard">
+          <button class="thumbwrap" id="openTheater" aria-label="Preview 크게 보기">
+            <div class="thumb-shot">
+              <div class="miniapp">
+                <div class="brand">Seoul Cafe Finder</div>
+                <div class="tag">동네에서 제일 좋은 원두를 찾아서</div>
+                <div class="search">
+                  <div class="q">연남동, 디카페인, 조용한…</div>
+                  <div class="go">검색</div>
+                </div>
+                <div class="cafes">
+                  <div class="cafe"><div class="ph">☕</div><div><div class="nm">연남 브루잉랩</div><div class="ds">연남동 · 핸드드립</div></div><div class="rt">★ 4.8</div></div>
+                  <div class="cafe"><div class="ph">🥐</div><div><div class="nm">베이크 앤 빈</div><div class="ds">망원동 · 베이커리</div></div><div class="rt">★ 4.6</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="veil"><span class="playpill"><span class="livedot"></span> 크게 보기</span></div>
+          </button>
+          <div class="pvrow">
+            <div class="pvurl"><b>cafe-finder</b>--a1b2.preview.pondas.ai</div>
+            <div class="pvmini">↗ 새 탭</div>
+            <div class="pvmini">⇩ 코드</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== THEATER MODE ===== -->
+    <div class="theater" id="theater" role="dialog" aria-label="Live preview theater">
+      <div class="th-top">
+        <div class="th-title">☕ cafe-finder <span class="th-status"><span class="livedot"></span> 샌드박스 실행 중</span></div>
+        <div class="grow"></div>
+        <div class="th-vchips"><span class="vchip">v1</span><span class="vchip">v2</span><span class="vchip on">v3 · 방금 갱신</span></div>
+        <button class="th-close" id="closeTheater">✕ 오피스로</button>
+      </div>
+
+      <div class="th-stage">
+        <div class="browser">
+          <div class="brbar">
+            <div class="dots"><i></i><i></i><i></i></div>
+            <div class="url"><b>cafe-finder</b>--a1b2.preview.pondas.ai</div>
+            <span class="brbtn">↗ 새 탭</span>
+            <span class="brbtn">⇩ 코드</span>
+            <span class="reload">⟳</span>
+          </div>
+          <div class="th-app">
+            <div class="miniapp big">
+              <div class="brand">Seoul Cafe Finder</div>
+              <div class="tag">동네에서 제일 좋은 원두를 찾아서</div>
+              <div class="search">
+                <div class="q">연남동, 디카페인, 조용한…</div>
+                <div class="go justchanged">검색</div>
+              </div>
+              <div class="cafes grid2">
+                <div class="cafe"><div class="ph">☕</div><div><div class="nm">연남 브루잉랩</div><div class="ds">연남동 · 핸드드립</div></div><div class="rt">★ 4.8</div></div>
+                <div class="cafe"><div class="ph">🥐</div><div><div class="nm">베이크 앤 빈</div><div class="ds">망원동 · 베이커리</div></div><div class="rt">★ 4.6</div></div>
+                <div class="cafe"><div class="ph">🌿</div><div><div class="nm">스틸그린 커피</div><div class="ds">성수동 · 로스터리</div></div><div class="rt">★ 4.5</div></div>
+                <div class="cafe"><div class="ph">🫘</div><div><div class="nm">온기 로스터스</div><div class="ds">합정동 · 스페셜티</div></div><div class="rt">★ 4.4</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ③ orchestrator chat, docked in theater -->
+      <div class="th-chat">
+        <div class="thread">
+          <div class="msg user">검색 버튼 파란색으로 바꿔줘</div>
+          <div class="msg orch">Dev팀이 반영했어요 — <b>Preview 갱신 ✓</b><span class="vchips"><span class="vchip">v1</span><span class="vchip">v2</span><span class="vchip on">v3</span></span></div>
+        </div>
+        <div class="inputrow">
+          <div class="field">보면서 바로 수정 지시…</div>
+          <div class="send">보내기</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  </div>
+
+  <footer class="cap">
+    핵심 동선: <b>완료 → 패널에서 결과(②) → 라이브 썸네일 클릭 → 시어터에서 앱을 크게(①) → 도킹된 챗으로 보면서 수정(③) → 그 자리에서 v3 갱신 확인.</b>
+    오피스가 홈, 시어터가 포커스 모드 — 상시 split을 피해서 오피스 캔버스의 정체성은 유지. 유저가 터미널·npm·zip을 한 번도 만나지 않고 "만들고 → 보고 → 고치는" 루프가 닫힙니다.
+  </footer>
+</div>
+
+<script>
+  var th = document.getElementById("theater");
+  document.getElementById("openTheater").addEventListener("click", function () {
+    th.classList.add("open");
+    document.getElementById("closeTheater").focus();
+  });
+  document.getElementById("closeTheater").addEventListener("click", function () {
+    th.classList.remove("open");
+    document.getElementById("openTheater").focus();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") th.classList.remove("open");
+  });
+</script>

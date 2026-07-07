@@ -45,6 +45,19 @@ def test_signup_grant_is_idempotent(db):
     assert len(rows) == 1 and rows[0].balance_after == 50
 
 
+def test_signup_credits_cover_north_star_loop(db):
+    """D52 — 가입 크레딧이 north-star 루프(D48)를 1회 무료 완주시킨다:
+    strong dev task 1회 + 최소 1회의 medium 수정 지시까지 커버."""
+    assert cs.SIGNUP_CREDITS == 500
+    assert cs.SIGNUP_CREDITS >= cs.TIER_CREDIT_COST["strong"] + cs.TIER_CREDIT_COST["medium"]
+
+    # 실제로 가입 → strong task 1회 차감 후에도 medium 1회 여력이 남는지.
+    uid = _uid()
+    cs.grant_signup(db, uid, cs.SIGNUP_CREDITS)
+    cs.charge_task(db, uid, None, "strong")
+    assert cs.balance(db, uid) >= cs.TIER_CREDIT_COST["medium"]
+
+
 def test_charge_deducts_and_writes_ledger(db):
     uid = _uid()
     cost = cs.credit_cost("medium")

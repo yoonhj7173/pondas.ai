@@ -431,6 +431,60 @@ class Output(Base):
 
 
 # ======================================================================
+# 프로젝트 파일 상태 + 버전 스냅샷 (Phase 2, D50)
+# ======================================================================
+
+
+class ProjectFile(Base):
+    """프로젝트의 canonical 현재 파일 상태 — path당 1행, 최신 Output을 가리키는 매니페스트(D50).
+
+    Output(=task별 산출 이력)을 복제하지 않는다: content는 Output에 남고 여기는 path→output_id
+    포인터만. dev/design task 완료 시 collect된 파일이 여기로 upsert(같은 path=최신으로 교체)되고,
+    Preview Service(§22.2)와 버전 스냅샷이 이 상태를 읽는다.
+    """
+
+    __tablename__ = "project_files"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    project_id: Mapped[uuid.UUID] = _fk_uuid("projects.id")
+    path: Mapped[str] = mapped_column(Text, nullable=False)
+    output_id: Mapped[uuid.UUID] = _fk_uuid("outputs.id")
+    updated_by_task_id: Mapped[uuid.UUID | None] = _fk_uuid(
+        "tasks.id", ondelete="SET NULL", nullable=True
+    )
+    updated_at: Mapped[datetime] = _updated_at()
+
+    __table_args__ = (
+        UniqueConstraint("project_id", "path", name="uq_project_files_path"),
+        Index("ix_project_files_project", "project_id"),
+    )
+
+
+class WorkspaceVersion(Base):
+    """버전 스냅샷 — 파일을 바꾼 dev/design task 완료마다 1행(v1, v2, …, D50).
+
+    manifest = 커팅 시점의 프로젝트 전체 {path: output_id} 동결(Output 행 참조 = 복제 없음).
+    version_no는 프로젝트별 1부터의 시퀀스. 롤백/diff UI는 P1(스키마는 지금부터 대비).
+    """
+
+    __tablename__ = "workspace_versions"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    project_id: Mapped[uuid.UUID] = _fk_uuid("projects.id")
+    version_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    task_id: Mapped[uuid.UUID | None] = _fk_uuid(
+        "tasks.id", ondelete="SET NULL", nullable=True
+    )
+    manifest: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = _created_at()
+
+    __table_args__ = (
+        UniqueConstraint("project_id", "version_no", name="uq_workspace_versions_no"),
+        Index("ix_workspace_versions_project", "project_id"),
+    )
+
+
+# ======================================================================
 # 보조 — context / memory / orchestrator / notifications / config
 # ======================================================================
 
