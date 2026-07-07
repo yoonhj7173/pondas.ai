@@ -121,11 +121,12 @@
 - ✅ **P1-3** 루트 layout에 Organization + WebSite `@graph` JSON-LD 추가 — 홈 HTML 렌더 실측 OK(2026-07-07)
 - ✅ **P1-4** `llms.txt` 최신화 + ISR 동적화(`app/llms.txt/route.ts`, revalidate 1h) — "Craft"→"pondas.ai", 마크다운 링크, 블로그 3편 자동 등재 실측. `public/llms.txt`(정적) 제거
 - ✅ **P1-5** Article 스키마 보강(image=사이트 OG · dateModified · publisher @id 참조 · mainEntityOfPage) + Breadcrumb — 블로그 HTML 렌더 실측 OK. **Rich Results Test는 배포 후 라이브 URL로 검증 예정(⬜)**
-- 🔄 **P1-6** IndexNow — 키 `public/b32c41acfa97f9f77d41045346aa1cfb.txt` + `scripts/indexnow-ping.mjs`(의존성 0, sitemap 전체 또는 URL 인자). **코드 완료, 활성화는 배포 후**(키 파일이 prod에서 200이어야 함. 신규 키 첫 핑 403 정상)**👤**
+- ✅ **P1-6** IndexNow — 키 `public/b32c41acfa97f9f77d41045346aa1cfb.txt` + `scripts/indexnow-ping.mjs`. **배포·활성화 완료(2026-07-07)**: 키 파일 prod 200, 첫 핑 **202 Accepted, 8 URL 제출**(403 없이 통과). 이후 블로그 발행 시 새 URL 인자로 재호출
 
 ### P2 — 인덱싱 / 성능 / 후순위
-- ⬜ **P2-8** Lighthouse 모바일 베이스라인(랜딩/블로그)
-- ⬜ **P2-9** GSC sitemap 제출 + 노출/색인 베이스라인 · Bing sitemap 상태 재확인
+- ✅ **P2-8** Lighthouse 모바일 베이스라인(2026-07-07, prod). 랜딩 **Perf 76·SEO 100·A11y 93·BP 100**(FCP 1.2s·LCP 6.4s·CLS 0·TBT 30ms) / 블로그 **Perf 77·SEO 100·A11y 95·BP 100**(FCP 0.8s·LCP 5.9s·CLS 0·TBT 30ms). SEO 100·CLS 0·TBT 30ms 우수, **LCP ~6s만 lab 소프트스팟**(모바일 Slow-4G 시뮬 — 최종 판단은 CrUX 필드데이터). 스냅샷 하단
+- 🔄👤 **P2-9** GSC sitemap 제출 + 노출/색인 베이스라인 · Bing sitemap 재확인 — **유저 대시보드 액션**(OAuth 필요, 헤드리스 불가). IndexNow는 이미 Bing/Naver/Yandex push 완료
+- ✅ **Rich Results(라이브 파싱 검증)** — 홈/블로그 JSON-LD 전 블록 유효(Organization·WebSite·SoftwareApplication·Article·BreadcrumbList, 구문에러 0). 구글 공식 Rich Results Test 배지 미리보기는 유저가 원할 때(후순위)
 - ⬜ (후순위) manifest · 404/redirect 체인 확인
 
 ### P3 — 콘텐츠/키워드 (별도 세션)
@@ -138,8 +139,16 @@
 
 ---
 
+## 현황 스냅샷
+
+### 2026-07-07 — Lighthouse 모바일 (prod, 배포 직후 P0+P1 반영)
+- 랜딩(`/`): **Perf 76 · SEO 100 · A11y 93 · BP 100** — FCP 1.2s · LCP 6.4s · CLS 0 · TBT 30ms
+- 블로그(`/blog/one-agent-per-desk`): **Perf 77 · SEO 100 · A11y 95 · BP 100** — FCP 0.8s · LCP 5.9s · CLS 0 · TBT 30ms
+- 해석: SEO 100 = 기술 기본기 통과선(랭킹 보장 아님). CLS 0·TBT 30ms 우수. **유일한 소프트스팟 = LCP ~6s**(모바일 Slow-4G 시뮬의 워스트케이스 — 랜딩은 Pixi 없이 CSS라 실사용은 훨씬 빠를 것). 최종 판단은 트래픽 쌓인 뒤 CrUX/GSC CWV 리포트로. 성능 튜닝은 필드데이터 불합격 시 착수(현재 후순위)
+
 ## Changelog
 
+- **2026-07-07** — **배포 + 인덱싱 활성화**. PR #38 squash 머지→main(`a25d22f`)→Vercel 자동배포(~50s 착지). 라이브 전수 검증: robots(신규 disallow+AI봇), sitemap(글별 날짜), llms.txt(pondas+블로그), 홈/블로그 JSON-LD 전 블록 파싱 유효. **IndexNow 첫 핑 202 Accepted(8 URL)**. Lighthouse 베이스라인 확보(스냅샷). 남은 유저 액션 = GSC sitemap 제출 + Bing 재확인(대시보드 OAuth 필요).
 - **2026-07-07** — **P1 완료**(구조화 데이터 + GEO). 루트 layout에 Organization+WebSite @graph(P1-3). llms.txt 정적("Craft")→`app/llms.txt/route.ts` ISR 동적화, 마크다운 링크·블로그 자동 등재(P1-4). 블로그 Article 스키마 보강(image/dateModified/publisher@id/mainEntityOfPage)+Breadcrumb(P1-5). IndexNow 키+`indexnow-ping.mjs` 코드 완료(P1-6, 활성화는 배포 후). `next build` PASS·tsc 클린, 홈/블로그/llms.txt 렌더 실측 검증. 다음 = P2(Lighthouse 베이스라인·GSC/Bing sitemap 제출) + 배포 후 Rich Results Test·IndexNow 활성화.
 - **2026-07-07** — **P0 완료**(robots.ts + sitemap.ts 보강). robots: `*`+AI봇 8종 disallow 통일(`/app /onboarding /billing /api`+프리뷰4) · OAI-SearchBot/ChatGPT-User 추가. sitemap: 블로그 lastmod=frontmatter date + changeFrequency(allSlugs→allPosts). `next build` PASS·tsc 클린, `/robots.txt`·`/sitemap.xml` 렌더 실측 검증. 다음 = P1(Org/WebSite @graph · llms.txt 최신화 · IndexNow · Article 보강).
 - **2026-07-07** — **감사 정정 + 재수립.** 초판이 robots/sitemap/OG이미지를 "없음"으로 오기록(zsh multi-glob abort + 루트/frontend `app/` 중복으로 오판) → 파일별 `test -f` 재실측: **셋 다 존재**. 실제 상태 = 기술 SEO 뼈대 런치 때 상당 구축(robots·sitemap·OG·canonical·per-route metadata·랜딩/블로그 JSON-LD·GSC verification). 진짜 갭 = Org/WebSite @graph 부재 · llms.txt stale("Craft") · IndexNow 부재 · robots disallow 미흡(billing/api/preview) · Article 스키마 얕음. 보드를 P0(보강)~P3으로 재편.
