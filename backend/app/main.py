@@ -35,6 +35,7 @@ from app.routers import (
     edges,
     memory,
     outputs,
+    preview,
     projects,
     realtime,
     system,
@@ -185,6 +186,8 @@ def create_app() -> FastAPI:
     app.include_router(tasks.router)
     # Billing: Stripe checkout + webhook(D46).
     app.include_router(billing.router)
+
+    app.include_router(preview.router)
 
     return app
 
