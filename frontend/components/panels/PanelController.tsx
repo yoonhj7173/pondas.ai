@@ -24,9 +24,9 @@ export type Selection =
  * 누가 부르나: 메인 맵 화면 — frontend/app/app/[projectId]/page.tsx.
  * 연결: 데이터/동작 호출 → frontend/lib/api.ts(→ teams.py/tasks.py/edges.py). 화면 조각 → InspectorPanel.tsx, Modals.tsx.
  */
-export function PanelController({ projectId, getToken, mapData, sel, setSel, onChanged, onOpenOutputs }: {
+export function PanelController({ projectId, getToken, mapData, sel, setSel, onChanged, onOpenOutputs, onOpenTheater }: {
   projectId: string; getToken: () => Promise<string | null>; mapData: MapData;
-  sel: Selection; setSel: (s: Selection) => void; onChanged: () => void; onOpenOutputs?: () => void;
+  sel: Selection; setSel: (s: Selection) => void; onChanged: () => void; onOpenOutputs?: () => void; onOpenTheater?: () => void;
 }) {
   const [team, setTeam] = useState<TeamPanelData | null>(null);
   const [agent, setAgent] = useState<AgentPanelData | null>(null);
@@ -74,9 +74,13 @@ export function PanelController({ projectId, getToken, mapData, sel, setSel, onC
     );
   }
   if (sel.kind === "agent" && agent) {
+    // 프리뷰 카드 노출 조건: agent_sdk 팀(개발/디자인) + 결과물 존재(D51). 실제 runnable 여부는 시어터가 판정.
+    const agentTeam = mapData.teams.find((t) => t.agents.some((a) => a.id === agent.id));
+    const canPreview = agentTeam?.engine === "agent_sdk" && (agent.last_output_count ?? 0) > 0;
     return (
       <>
         <AgentPanel data={agent} onClose={close} onViewOutputs={onOpenOutputs}
+          canPreview={canPreview} onOpenTheater={onOpenTheater}
           onStop={async () => { if (agent.current_task_id) { await call(`/api/tasks/${agent.current_task_id}/stop`, "POST"); setSel({ kind: "agent", id: agent.id }); } }}
           onProvideInput={async (text) => { if (agent.current_task_id) { await call(`/api/tasks/${agent.current_task_id}/continue`, "POST", { input: text }); setSel({ kind: "agent", id: agent.id }); } }}
           onRemove={() => setConfirm({ title: "Remove agent?", body: `${agent.name} will be removed.`, run: async () => { await call(`/api/agents/${agent.id}`, "DELETE"); close(); } })} />
