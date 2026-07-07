@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { LegalShell } from "@/components/legal/LegalShell";
 
-export const metadata: Metadata = { title: "Privacy Policy — pondas", robots: { index: true } };
+export const metadata: Metadata = { title: "Privacy Policy — pondas", robots: { index: true }, alternates: { canonical: "/privacy" } };
 
 export default function Privacy() {
   return (

@@ -54,10 +54,11 @@
 | canonical URLs | ✅ | 홈(`app/page.tsx:15` `canonical:"/"`) · `/blog` · `/blog/[slug]` 전부 canonical 지정됨. 법무 페이지는 미확인(우선순위 낮음) |
 | meta title/description | ✅🟡 | 루트 template(`%s · pondas.ai`)+metadataBase(`NEXT_PUBLIC_SITE_URL`)+GSC verification. 랜딩/블로그/법무 per-route. **카피·키워드 적합성 미평가**(랜딩="Run your AI company like a tiny office sim"). **[P3]** |
 | viewport / mobile | ✅ | Next.js 14 기본 viewport 자동 주입(명시 export 불필요). Lighthouse SEO/A11y 실측은 미실시(→E) |
-| manifest | ❌ | `app/manifest.*` 부재. PWA 안 하면 필수 아님 — 후순위 |
-| 404 / redirects | ⬜ | soft-404, www→apex, http→https 체인 미확인 |
-| GSC 등록 | 🟡 | verification 태그 있음=프로퍼티 등록됨. **sitemap 제출·색인 커버리지·노출 베이스라인 미확인**. **[P2-9]** |
-| Bing Webmaster | 🟡 | Swoony 로그(7/2)에 GSC 임포트로 pondas 등록 기록 — sitemap 크롤 상태 **재확인 필요**. **[P2-9]** |
+| manifest | ✅ | **완료(2026-07-07)**. `app/manifest.ts`(name/short_name/desc/icons=/icon.png/theme #1f2a44). Next가 `/manifest.webmanifest`+`<link rel=manifest>` 자동 주입. 렌더 실측 OK |
+| 404 / redirects | ✅ | **실측(2026-07-07 prod)**: 없는 URL→**404**(soft-404 아님) · `www→apex` **308** · `http→https` **308**. 정상 |
+| canonical (법무) | ✅ | **완료(2026-07-07)**. `/terms /privacy /refunds`에 canonical 추가(기존 없었음). 렌더 실측 OK |
+| GSC 등록 | ✅ | **sitemap 제출 완료(2026-07-07, 유저)**. `/sitemap.xml` Status=**Success**, **8 discovered**(=전 URL). ⚠️ discovered≠indexed — 실제 색인/노출 베이스라인은 며칠 뒤 Index Coverage 리포트로 |
+| Bing Webmaster | 🔄👤 | sitemap 크롤 상태 재확인만 남음(대시보드). IndexNow가 이미 Bing push 중이라 급하지 않음 |
 
 ### B. Structured data (JSON-LD)
 | 항목 | 상태 | 현황 / 목표 / 다음스텝 / 근거 |
@@ -66,16 +67,16 @@
 | Organization / WebSite @graph | ✅ | **완료(P1-3)**. 루트 layout에 Org(`#organization`, logo=/icon.png)+WebSite(`#website`, publisher→org) @graph. 모든 페이지에 심김. 홈 HTML 실측 OK |
 | Article (블로그) | ✅ | **완료(P1-5)**. headline/description/datePublished/dateModified/image(사이트 OG)/author/publisher(@id 참조)/mainEntityOfPage/url. 블로그 HTML 실측 OK |
 | Breadcrumb | ✅ | **완료(P1-5)**. Home>Blog>글 BreadcrumbList. 블로그 HTML 실측 OK |
-| 유효성 (Rich Results Test) | ⬜ | 미실측. → P1 스키마 후 검증(에러 0, aggregateRating은 실평점 없으면 금지) |
+| 유효성 (Rich Results Test) | ✅ | **라이브 파싱 검증(2026-07-07)**: 홈/블로그 전 ld+json 블록 유효 파싱(Organization·WebSite·SoftwareApplication·Article·BreadcrumbList), 구문에러 0. 구글 공식 배지 미리보기는 후순위 |
 
 ### C. On-page
 | 항목 | 상태 | 현황 / 목표 / 다음스텝 / 근거 |
 |------|------|------|
 | H1 | ✅ | 랜딩·블로그 인덱스/상세 h1 존재 |
 | OG 이미지 | ✅ | **존재**(`app/opengraph-image.tsx`, ImageResponse 동적 — 로고(`app/icon.png`)+"pondas.ai"+태그라인, asset 못 읽어도 try/catch로 500 방지). Next가 OG/twitter 메타에 자동 연결 |
-| 크롤러 시점 렌더링(SSR) | ⬜ | 랜딩/블로그 SSR HTML에 본문 실존 curl 미확인(랜딩은 Pixi 안 쓰고 CSS라 경량). `/app`은 인증 게이트라 무관 |
+| 크롤러 시점 렌더링(SSR) | ✅ | **실측(2026-07-07 prod)**: 랜딩 curl HTML에 h1("Run your AI company like a tiny office sim") 실존, 블로그 본문·스키마 실존. 크롤러가 콘텐츠 봄. `/app`은 인증 게이트라 무관 |
 | 이미지 파이프라인 | 🟡 | next/image는 `components/marketing/shared.tsx`만. 마케팅 페이지 이미지 경량이라 Swoony 같은 임팩트 없을 듯 — 성능 실측(E) 후 판단 |
-| 내부 링크 구조 | ⬜ | 홈→블로그, 블로그 상호링크 미확인 |
+| 내부 링크 구조 | ✅🟡 | 홈→`/blog` 링크 실측 OK(2026-07-07). 블로그 글 상호링크/관련글은 미확인(콘텐츠 볼륨 늘면 P3에서) |
 | URL 구조 | ✅ | `/blog/[slug]` 시맨틱 슬러그 |
 
 ### D. Content · Keywords
@@ -104,7 +105,7 @@
 | AI 크롤러 접근 허용 | ✅ | **완료(P0-1)**. GPTBot·OAI-SearchBot·ChatGPT-User·ClaudeBot·anthropic-ai·PerplexityBot·Google-Extended·CCBot 허용 + 비공개 경로는 이들에게도 disallow |
 | IndexNow (Bing/Naver/Yandex push) | 🔄 | **코드 완료(P1-6)** — 키 `public/b32c...cfb.txt` + `scripts/indexnow-ping.mjs`. **활성화는 배포 후**(키 파일 prod 200 필요, 신규 키 첫 핑 403 정상)👤 |
 | llms-full.txt | ❌ | 없음. 콘텐츠 볼륨 늘면 검토(후순위) |
-| structured data 유효성 | ⬜ | Rich Results Test 미실측(B와 연결) |
+| structured data 유효성 | ✅ | 라이브 파싱 검증 완료(B 트랙 참조) — 전 블록 유효, 에러 0 |
 | AI 검색 실제 노출 | ⬜ | ChatGPT/Perplexity에 "AI agent team app" 등 물었을 때 pondas 언급 여부 — 베이스라인 미측정 |
 
 ---
@@ -125,9 +126,9 @@
 
 ### P2 — 인덱싱 / 성능 / 후순위
 - ✅ **P2-8** Lighthouse 모바일 베이스라인(2026-07-07, prod). 랜딩 **Perf 76·SEO 100·A11y 93·BP 100**(FCP 1.2s·LCP 6.4s·CLS 0·TBT 30ms) / 블로그 **Perf 77·SEO 100·A11y 95·BP 100**(FCP 0.8s·LCP 5.9s·CLS 0·TBT 30ms). SEO 100·CLS 0·TBT 30ms 우수, **LCP ~6s만 lab 소프트스팟**(모바일 Slow-4G 시뮬 — 최종 판단은 CrUX 필드데이터). 스냅샷 하단
-- 🔄👤 **P2-9** GSC sitemap 제출 + 노출/색인 베이스라인 · Bing sitemap 재확인 — **유저 대시보드 액션**(OAuth 필요, 헤드리스 불가). IndexNow는 이미 Bing/Naver/Yandex push 완료
-- ✅ **Rich Results(라이브 파싱 검증)** — 홈/블로그 JSON-LD 전 블록 유효(Organization·WebSite·SoftwareApplication·Article·BreadcrumbList, 구문에러 0). 구글 공식 Rich Results Test 배지 미리보기는 유저가 원할 때(후순위)
-- ⬜ (후순위) manifest · 404/redirect 체인 확인
+- ✅ **P2-9(GSC)** sitemap 제출 완료(2026-07-07, 유저) — Status Success, 8 discovered. **색인/노출 베이스라인은 며칠 뒤 Index Coverage 리포트로**(discovered≠indexed). 🔄👤 Bing sitemap 재확인만 잔여
+- ✅ **Rich Results(라이브 파싱 검증)** — 홈/블로그 JSON-LD 전 블록 유효, 구문에러 0
+- ✅ **manifest · 404/redirect · 법무 canonical** 완료(2026-07-07) — A 트랙 참조. manifest 신설, 리다이렉트/404 prod 실측 정상, 법무 3페이지 canonical 추가
 
 ### P3 — 콘텐츠/키워드 (별도 세션)
 - ⬜ **P3-10** 키워드 수요 리서치 + 키워드↔페이지 매핑
@@ -148,6 +149,7 @@
 
 ## Changelog
 
+- **2026-07-07** — **P2 마무리(P3 제외 전부 완료)**. GSC sitemap 제출 확인(Status Success·8 discovered, 유저). net-new: `app/manifest.ts`(웹 매니페스트) + 법무 3페이지(`/terms /privacy /refunds`) canonical 추가. prod 헬스 실측 = 404 정상(soft-404 아님)·www→apex 308·http→https 308·랜딩 SSR h1 실존·홈→blog 내부링크. Rich Results 라이브 파싱 검증(홈/블로그 전 블록 유효, 에러 0). 남은 것 = Bing sitemap 재확인(👤) · 며칠 뒤 GSC 색인 커버리지 확인 · P3 콘텐츠(별도 세션).
 - **2026-07-07** — **배포 + 인덱싱 활성화**. PR #38 squash 머지→main(`a25d22f`)→Vercel 자동배포(~50s 착지). 라이브 전수 검증: robots(신규 disallow+AI봇), sitemap(글별 날짜), llms.txt(pondas+블로그), 홈/블로그 JSON-LD 전 블록 파싱 유효. **IndexNow 첫 핑 202 Accepted(8 URL)**. Lighthouse 베이스라인 확보(스냅샷). 남은 유저 액션 = GSC sitemap 제출 + Bing 재확인(대시보드 OAuth 필요).
 - **2026-07-07** — **P1 완료**(구조화 데이터 + GEO). 루트 layout에 Organization+WebSite @graph(P1-3). llms.txt 정적("Craft")→`app/llms.txt/route.ts` ISR 동적화, 마크다운 링크·블로그 자동 등재(P1-4). 블로그 Article 스키마 보강(image/dateModified/publisher@id/mainEntityOfPage)+Breadcrumb(P1-5). IndexNow 키+`indexnow-ping.mjs` 코드 완료(P1-6, 활성화는 배포 후). `next build` PASS·tsc 클린, 홈/블로그/llms.txt 렌더 실측 검증. 다음 = P2(Lighthouse 베이스라인·GSC/Bing sitemap 제출) + 배포 후 Rich Results Test·IndexNow 활성화.
 - **2026-07-07** — **P0 완료**(robots.ts + sitemap.ts 보강). robots: `*`+AI봇 8종 disallow 통일(`/app /onboarding /billing /api`+프리뷰4) · OAI-SearchBot/ChatGPT-User 추가. sitemap: 블로그 lastmod=frontmatter date + changeFrequency(allSlugs→allPosts). `next build` PASS·tsc 클린, `/robots.txt`·`/sitemap.xml` 렌더 실측 검증. 다음 = P1(Org/WebSite @graph · llms.txt 최신화 · IndexNow · Article 보강).

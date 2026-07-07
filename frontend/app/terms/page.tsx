@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { LegalShell } from "@/components/legal/LegalShell";
 
-export const metadata: Metadata = { title: "Terms of Service — pondas", robots: { index: true } };
+export const metadata: Metadata = { title: "Terms of Service — pondas", robots: { index: true }, alternates: { canonical: "/terms" } };
 
 export default function Terms() {
   return (
