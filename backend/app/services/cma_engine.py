@@ -206,6 +206,11 @@ def run_dev_task_cma(db: Session, task: Task, agent: Agent, model: str, cfg, enq
         from app.services.versioning import snapshot_version
         snapshot_version(db, task)  # 프로젝트 파일 상태 갱신 + 버전 커팅(D50, 격리).
         new_ids = _finalize_done(db, task, res.tokens_in, res.tokens_out, cost)
+        from app.models import Project
+        from app.services.preview import preview_service
+        project = db.get(Project, task.project_id)
+        if project is not None:
+            preview_service.refresh_if_active(db, project)  # 프리뷰 켜져 있으면 새 버전 반영(iteration, D51).
         _enqueue_children(new_ids, enqueue)
         return "done"
     finally:
