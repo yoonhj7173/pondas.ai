@@ -25,8 +25,9 @@ from app.models import CreditAccount, CreditLedger
 # 토큰 COGS 비율(haiku $0.015 : sonnet $0.045 : opus 수십센트)을 반영한 가중.
 TIER_CREDIT_COST = {"light": 10, "medium": 30, "strong": 300}
 DEFAULT_TASK_COST = 30  # 등급 불명 시 standard 취급.
-# 가입 무료 크레딧(D46 B-5) — ~$0.5 COGS ≈ standard task 8개분. 1계정 1회.
-SIGNUP_CREDITS = 240
+# 가입 무료 크레딧(D46 B-5 → D52 갱신) — north-star 루프(D48)를 정확히 1회 무료 완주:
+# strong dev task 1회(300) + light/medium 수정 지시 1~2회 커버. ~$1 COGS. 1계정 1회.
+SIGNUP_CREDITS = 500
 
 
 class InsufficientCreditsError(Exception):
