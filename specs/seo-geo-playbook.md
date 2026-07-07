@@ -63,9 +63,9 @@
 | 항목 | 상태 | 현황 / 목표 / 다음스텝 / 근거 |
 |------|------|------|
 | SoftwareApplication (랜딩) | ✅ | `app/page.tsx`에 SoftwareApplication(BusinessApplication, offer price 0) — 유효 형태 |
-| Organization / WebSite @graph | ❌ | **루트 layout에 없음**(grep 확인 — @graph/Organization/WebSite 전무). 브랜드 엔티티·sitelinks searchbox 신호 누락. → layout에 Org+WebSite @graph 추가. **[P1-3]** |
-| Article (블로그) | 🟡 | `blog/[slug]`에 Article(headline/description/datePublished/author:Person). **미흡**: `image`·`dateModified`·`publisher`(Organization)·`mainEntityOfPage` 없음. → 보강. **[P1-5]** |
-| Breadcrumb | ❌ | 없음. → 블로그 상세에 추가. **[P1-5]** |
+| Organization / WebSite @graph | ✅ | **완료(P1-3)**. 루트 layout에 Org(`#organization`, logo=/icon.png)+WebSite(`#website`, publisher→org) @graph. 모든 페이지에 심김. 홈 HTML 실측 OK |
+| Article (블로그) | ✅ | **완료(P1-5)**. headline/description/datePublished/dateModified/image(사이트 OG)/author/publisher(@id 참조)/mainEntityOfPage/url. 블로그 HTML 실측 OK |
+| Breadcrumb | ✅ | **완료(P1-5)**. Home>Blog>글 BreadcrumbList. 블로그 HTML 실측 OK |
 | 유효성 (Rich Results Test) | ⬜ | 미실측. → P1 스키마 후 검증(에러 0, aggregateRating은 실평점 없으면 금지) |
 
 ### C. On-page
@@ -100,9 +100,9 @@
 
 | 항목 | 상태 | 현황 / 목표 / 다음스텝 / 근거 |
 |------|------|------|
-| llms.txt | 🟡 **stale** | `public/llms.txt` 정적 존재. **문제**: ① 아직 옛 이름 **"Craft"**(제품명 pondas 미반영) ② 마크다운 링크 `[제목](URL)` 형식 아님(Lighthouse Agentic 감점) ③ 정적이라 새 블로그 자동 반영 X ④ `/`·`/blog`만 나열. → `app/llms.txt/route.ts`(ISR)로 동적화 + 이름·링크 형식 교정. **[P1-4]** |
-| AI 크롤러 접근 허용 | ✅🟡 | robots에 GPTBot·ClaudeBot·anthropic-ai·PerplexityBot·Google-Extended·CCBot 허용. **미흡**: OAI-SearchBot·ChatGPT-User 누락, AI 규칙에 disallow 없어 `/app`도 크롤 가능. → P0-1에서 튜닝 |
-| IndexNow (Bing/Naver/Yandex push) | ❌ | 키 파일·핑 스크립트 없음. → `public/<key>.txt` + `scripts/indexnow-ping.ts`(블로그 발행 훅). **[P1-6]** |
+| llms.txt | ✅ | **완료(P1-4)**. `app/llms.txt/route.ts`(ISR 1h) 동적 생성 — pondas.ai 이름, 마크다운 링크, 블로그 3편 자동 등재. 정적 `public/llms.txt` 제거. 실측 OK |
+| AI 크롤러 접근 허용 | ✅ | **완료(P0-1)**. GPTBot·OAI-SearchBot·ChatGPT-User·ClaudeBot·anthropic-ai·PerplexityBot·Google-Extended·CCBot 허용 + 비공개 경로는 이들에게도 disallow |
+| IndexNow (Bing/Naver/Yandex push) | 🔄 | **코드 완료(P1-6)** — 키 `public/b32c...cfb.txt` + `scripts/indexnow-ping.mjs`. **활성화는 배포 후**(키 파일 prod 200 필요, 신규 키 첫 핑 403 정상)👤 |
 | llms-full.txt | ❌ | 없음. 콘텐츠 볼륨 늘면 검토(후순위) |
 | structured data 유효성 | ⬜ | Rich Results Test 미실측(B와 연결) |
 | AI 검색 실제 노출 | ⬜ | ChatGPT/Perplexity에 "AI agent team app" 등 물었을 때 pondas 언급 여부 — 베이스라인 미측정 |
@@ -118,10 +118,10 @@
 - ✅ **P0-2** `app/sitemap.ts` 보강 — `allSlugs`→`allPosts`, 블로그 `lastModified`=frontmatter `date` + `changeFrequency`. `/sitemap.xml` 렌더 실측 OK(글별 날짜 06-05~06-10 반영)
 
 ### P1 — net-new (구조화 데이터 + GEO)
-- ⬜ **P1-3** 루트 layout에 Organization + WebSite `@graph` JSON-LD 추가
-- ⬜ **P1-4** `llms.txt` 최신화 + ISR 동적화(`app/llms.txt/route.ts`) — "Craft"→"pondas", 마크다운 링크, 블로그 자동 반영
-- ⬜ **P1-5** Article 스키마 보강(image/dateModified/publisher) + Breadcrumb + Rich Results Test 검증
-- ⬜ **P1-6** IndexNow — 키 파일 + `scripts/indexnow-ping.ts`(블로그 발행 훅)
+- ✅ **P1-3** 루트 layout에 Organization + WebSite `@graph` JSON-LD 추가 — 홈 HTML 렌더 실측 OK(2026-07-07)
+- ✅ **P1-4** `llms.txt` 최신화 + ISR 동적화(`app/llms.txt/route.ts`, revalidate 1h) — "Craft"→"pondas.ai", 마크다운 링크, 블로그 3편 자동 등재 실측. `public/llms.txt`(정적) 제거
+- ✅ **P1-5** Article 스키마 보강(image=사이트 OG · dateModified · publisher @id 참조 · mainEntityOfPage) + Breadcrumb — 블로그 HTML 렌더 실측 OK. **Rich Results Test는 배포 후 라이브 URL로 검증 예정(⬜)**
+- 🔄 **P1-6** IndexNow — 키 `public/b32c41acfa97f9f77d41045346aa1cfb.txt` + `scripts/indexnow-ping.mjs`(의존성 0, sitemap 전체 또는 URL 인자). **코드 완료, 활성화는 배포 후**(키 파일이 prod에서 200이어야 함. 신규 키 첫 핑 403 정상)**👤**
 
 ### P2 — 인덱싱 / 성능 / 후순위
 - ⬜ **P2-8** Lighthouse 모바일 베이스라인(랜딩/블로그)
@@ -140,6 +140,7 @@
 
 ## Changelog
 
+- **2026-07-07** — **P1 완료**(구조화 데이터 + GEO). 루트 layout에 Organization+WebSite @graph(P1-3). llms.txt 정적("Craft")→`app/llms.txt/route.ts` ISR 동적화, 마크다운 링크·블로그 자동 등재(P1-4). 블로그 Article 스키마 보강(image/dateModified/publisher@id/mainEntityOfPage)+Breadcrumb(P1-5). IndexNow 키+`indexnow-ping.mjs` 코드 완료(P1-6, 활성화는 배포 후). `next build` PASS·tsc 클린, 홈/블로그/llms.txt 렌더 실측 검증. 다음 = P2(Lighthouse 베이스라인·GSC/Bing sitemap 제출) + 배포 후 Rich Results Test·IndexNow 활성화.
 - **2026-07-07** — **P0 완료**(robots.ts + sitemap.ts 보강). robots: `*`+AI봇 8종 disallow 통일(`/app /onboarding /billing /api`+프리뷰4) · OAI-SearchBot/ChatGPT-User 추가. sitemap: 블로그 lastmod=frontmatter date + changeFrequency(allSlugs→allPosts). `next build` PASS·tsc 클린, `/robots.txt`·`/sitemap.xml` 렌더 실측 검증. 다음 = P1(Org/WebSite @graph · llms.txt 최신화 · IndexNow · Article 보강).
 - **2026-07-07** — **감사 정정 + 재수립.** 초판이 robots/sitemap/OG이미지를 "없음"으로 오기록(zsh multi-glob abort + 루트/frontend `app/` 중복으로 오판) → 파일별 `test -f` 재실측: **셋 다 존재**. 실제 상태 = 기술 SEO 뼈대 런치 때 상당 구축(robots·sitemap·OG·canonical·per-route metadata·랜딩/블로그 JSON-LD·GSC verification). 진짜 갭 = Org/WebSite @graph 부재 · llms.txt stale("Craft") · IndexNow 부재 · robots disallow 미흡(billing/api/preview) · Article 스키마 얕음. 보드를 P0(보강)~P3으로 재편.
 - **2026-07-07** — 플레이북 최초 생성(초판, 위에서 정정됨).
