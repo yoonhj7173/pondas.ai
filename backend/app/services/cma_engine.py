@@ -203,6 +203,8 @@ def run_dev_task_cma(db: Session, task: Task, agent: Agent, model: str, cfg, enq
         ts.transition(db, task, "done", result_markdown=res.reply, model_used=model,
                       tokens_in=res.tokens_in, tokens_out=res.tokens_out, est_cost_usd=cost)
         _collect_outputs(db, task, client, sid)
+        from app.services.versioning import snapshot_version
+        snapshot_version(db, task)  # 프로젝트 파일 상태 갱신 + 버전 커팅(D50, 격리).
         new_ids = _finalize_done(db, task, res.tokens_in, res.tokens_out, cost)
         _enqueue_children(new_ids, enqueue)
         return "done"
