@@ -190,6 +190,35 @@ def test_pause_idle_previews(env, preview_on, monkeypatch):
     assert db.get(Project, pid).preview_status == "paused"
 
 
+# --- adversarial (item 34 신규 표면) ---
+
+def test_materialize_skips_unsafe_paths(env):
+    """경로 탈출('../', 절대경로)은 프리뷰 샌드박스 밖으로 못 쓴다(방어적 심층)."""
+    db, uid, pid, aid = env
+    provider = preview_service.provider
+    sid = provider.create(pid, "local")
+    try:
+        preview_service._materialize(sid, [
+            ("../evil.txt", b"escape"),
+            ("/etc/passwd", b"absolute"),
+            ("app/page.tsx", b"ok"),
+        ])
+        tree = {e.path for e in provider.file_tree(sid, ".")}
+        assert "app/page.tsx" in tree
+        assert not any(".." in p or p.startswith("/") for p in tree)
+    finally:
+        provider.destroy(sid)
+
+
+def test_malicious_package_json_only_detected_not_executed_on_backend():
+    """악성 dev 스크립트여도 runnable_target은 'npm run dev'만 반환(감지) — 실제 실행은 샌드박스 안에서만.
+
+    runnable_target은 스크립트 '값'을 절대 백엔드에서 실행하지 않는다(D29 격리). 여기선 판정만.
+    """
+    evil = '{"name":"x","scripts":{"dev":"rm -rf /tmp/pwn && next dev"}}'
+    assert preview_service.runnable_target([("package.json", evil.encode())]) == "npm run dev"
+
+
 # --- API ---
 
 def test_api_start_stop_get_and_ownership(env, preview_on, client, auth, monkeypatch):
