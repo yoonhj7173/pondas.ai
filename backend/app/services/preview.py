@@ -179,7 +179,7 @@ class PreviewService:
             self._set_status(db, project, "error", version_no=version)
             return {"status": "error", "detail": str(exc)[:300]}
 
-        url = f"https://{host}"
+        url = _host_to_url(host)
         self._set_status(db, project, "ready", version_no=version, touch=True)
         events.emit_preview_status(project.id, "ready", url=url, version_no=version)
         return {"status": "ready", "url": url, "version_no": version}
@@ -275,7 +275,7 @@ class PreviewService:
         if not project.preview_sandbox_id:
             return None
         try:
-            return f"https://{self.provider.get_host(project.preview_sandbox_id, PREVIEW_PORT)}"
+            return _host_to_url(self.provider.get_host(project.preview_sandbox_id, PREVIEW_PORT))
         except Exception:  # noqa: BLE001
             return None
 
@@ -287,6 +287,14 @@ class PreviewService:
         if touch:
             project.preview_last_active_at = _now()
         db.commit()
+
+
+def _host_to_url(host: str) -> str:
+    """호스트 → 프리뷰 URL. E2B는 https 공개 호스트, 로컬(LocalSandbox=127.0.0.1)은 http."""
+    if host.startswith(("http://", "https://")):
+        return host
+    scheme = "http" if host.startswith(("127.0.0.1", "localhost")) else "https"
+    return f"{scheme}://{host}"
 
 
 def _now() -> datetime:
