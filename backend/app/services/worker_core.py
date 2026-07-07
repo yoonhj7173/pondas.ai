@@ -297,6 +297,8 @@ def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_cl
                   verification=outcome.verification, tokens_in=outcome.tokens_in,
                   tokens_out=outcome.tokens_out, est_cost_usd=cost)
     collect_outputs(db, task, workspace_service.provider, sandbox_id, since_mtime=start_mtime)
+    from app.services.versioning import snapshot_version
+    snapshot_version(db, task)  # 프로젝트 파일 상태 갱신 + 버전 커팅(D50, 격리).
     new_ids = _finalize_done(db, task, outcome.tokens_in, outcome.tokens_out, cost)
     workspace_service.pause_if_idle(db, project)
     _enqueue_children(new_ids, enqueue)
