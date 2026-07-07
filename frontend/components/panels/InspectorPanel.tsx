@@ -79,8 +79,8 @@ export function TeamPanel({ data, onClose, onAddAgent, onSelectAgent, onRemove }
  * 누가 부르나: PanelController가 sel.kind==="agent"일 때.
  * 연결: 버튼 동작(onStop/onProvideInput/onRemove) → PanelController → 백엔드 tasks.py/teams.py.
  */
-export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput, onViewOutputs }: {
-  data: AgentPanelData; onClose: () => void; onStop: () => void; onRemove: () => void; onProvideInput: (text: string) => void; onViewOutputs?: () => void;
+export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput, onViewOutputs, canPreview, onOpenTheater }: {
+  data: AgentPanelData; onClose: () => void; onStop: () => void; onRemove: () => void; onProvideInput: (text: string) => void; onViewOutputs?: () => void; canPreview?: boolean; onOpenTheater?: () => void;
 }) {
   const v = visualStatus(data.status);
   const headerTint = v === "needs-input" ? "#FBEFCB" : v === "failed" ? "#F8DAD3" : "#DCEEF8";
@@ -127,6 +127,18 @@ export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput, on
             <Markdown>{data.last_result_markdown}</Markdown>
           </div>
         </div>
+      )}
+
+      {canPreview && onOpenTheater && (
+        <button onClick={onOpenTheater} style={{ background: "var(--dark-hud)" }}
+          className="mt-4 flex w-full items-center gap-3 rounded-xl border-2 border-white p-3 text-left text-white shadow-card transition-transform hover:-translate-y-0.5">
+          <span className="grid h-9 w-9 flex-none place-items-center rounded-lg bg-white/15 text-lg">▶</span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-baloo text-sm font-extrabold">Live Preview</span>
+            <span className="block truncate text-[11px] text-white/60">See the running app · open theater</span>
+          </span>
+          <span className="flex-none text-white/50">→</span>
+        </button>
       )}
 
       {(data.status === "needs-input" || data.status === "blocked") && (

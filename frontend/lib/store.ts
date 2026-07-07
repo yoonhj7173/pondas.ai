@@ -20,6 +20,13 @@ interface AgentState {
   tokensOut: number;
 }
 
+// Live Preview 상태(Phase 2, D49) — 시어터가 여기서 iframe/버전칩을 파생.
+export interface PreviewState {
+  status: string; // none|disabled|starting|ready|error|paused
+  url: string | null;
+  versionNo: number | null;
+}
+
 interface StoreState {
   agents: Record<string, AgentState>;
   agentMeta: Record<string, { name: string; team: string }>;
@@ -28,6 +35,8 @@ interface StoreState {
   connected: boolean;
   usage: { tokensIn: number; tokensOut: number; cost: number };
   paywall: boolean; // 크레딧 부족으로 task가 막힘 → 결제 모달 자동 노출 신호(D46).
+  preview: PreviewState; // Live Preview 상태(D49)
+  theaterOpen: boolean;  // 시어터 오버레이 열림(D51)
 
   setSnapshot: (data: MapData) => void;
   applyStatus: (agentId: string, status: AgentStatus) => void;
@@ -35,6 +44,8 @@ interface StoreState {
   applyNotification: (agentId: string, type: string, message: string) => void;
   triggerPaywall: () => void;
   clearPaywall: () => void;
+  applyPreview: (status: string, url: string | null, versionNo: number | null) => void;
+  setTheater: (open: boolean) => void;
   markAllRead: () => void;
   setConnected: (c: boolean) => void;
 }
@@ -61,6 +72,8 @@ export const useStore = create<StoreState>((set) => ({
   connected: false,
   usage: { tokensIn: 0, tokensOut: 0, cost: 0 },
   paywall: false,
+  preview: { status: "none", url: null, versionNo: null },
+  theaterOpen: false,
 
   // /map 스냅샷으로 교체(초기 + 재연결 reconcile).
   setSnapshot: (data) =>
@@ -101,6 +114,17 @@ export const useStore = create<StoreState>((set) => ({
 
   triggerPaywall: () => set({ paywall: true }),
   clearPaywall: () => set({ paywall: false }),
+
+  // 프리뷰 상태 갱신(SSE preview_status / start·sync 응답). 과도기 상태는 직전 url/버전 유지.
+  applyPreview: (status, url, versionNo) =>
+    set((s) => ({
+      preview: {
+        status,
+        url: url ?? (status === "ready" ? s.preview.url : status === "paused" || status === "none" ? null : s.preview.url),
+        versionNo: versionNo ?? s.preview.versionNo,
+      },
+    })),
+  setTheater: (open) => set({ theaterOpen: open }),
   markAllRead: () => set({ unread: 0 }),
   setConnected: (c) => set({ connected: c }),
 }));
