@@ -206,11 +206,11 @@ def run_dev_task_cma(db: Session, task: Task, agent: Agent, model: str, cfg, enq
         from app.services.versioning import snapshot_version
         snapshot_version(db, task)  # 프로젝트 파일 상태 갱신 + 버전 커팅(D50, 격리).
         new_ids = _finalize_done(db, task, res.tokens_in, res.tokens_out, cost)
-        from app.models import Project
+        # 프리뷰 켜져 있으면 새 버전 반영(iteration, D51). project는 위(초반)에서 이미 로드됨 —
+        # 여기서 `from app.models import Project`를 다시 하면 Project가 함수-로컬이 되어 초반 156줄
+        # 참조가 UnboundLocalError로 터진다(전체 CMA dev task 크래시 버그였음). 로컬 import 금지.
         from app.services.preview import preview_service
-        project = db.get(Project, task.project_id)
-        if project is not None:
-            preview_service.refresh_if_active(db, project)  # 프리뷰 켜져 있으면 새 버전 반영(iteration, D51).
+        preview_service.refresh_if_active(db, project)
         _enqueue_children(new_ids, enqueue)
         return "done"
     finally:
