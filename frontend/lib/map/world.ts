@@ -90,7 +90,7 @@ export class PixiWorld {
       const offY = (h + 42 - bbox.h) / 2 - bbox.minY;
       team.agents.slice(0, slots.length).forEach((agent, i) => {
         const slot = slots[i];
-        const ws = createWorkstation({ facing: slot.facing, outfitIndex: i });
+        const ws = createWorkstation({ facing: slot.facing, outfitIndex: i, label: agent.name });
         ws.container.position.set(slot.x + offX - 53, slot.y + offY - 41);
         ws.container.eventMode = "static";
         ws.container.cursor = "pointer";

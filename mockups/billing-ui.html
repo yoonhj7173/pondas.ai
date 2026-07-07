@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pondas — Billing UI mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- pondas system fonts: Baloo 2 (display/buttons), Nunito (body) -->
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* pondas tokens (tailwind.config.ts / globals.css) */
+    --ground:#c6c9bc; --floor:#f2efe3; --floor-checker:#e2e4d0;
+    --ink:#2c2925; --ink-soft:#3a3631; --secondary:#5c574f; --muted:#8a857c; --muted-2:#a8a294;
+    --navy:#2e3a52; --dark-hud:rgba(36,46,66,.92);
+    --primary-from:#67d2f2; --primary-to:#3fb4dc; --primary-shadow:rgba(63,180,220,.4);
+    --confirm-from:#74d982; --confirm-to:#4dbb5c;
+    --amber:#f7b731; --amber-soft:#fce9b8;
+    --working:#4fc3e8; --done:#5fc96e; --failed:#e8503a; --idle:#a8a294;
+    --dev:#c8d6e4; --design:#eee7d6; --research:#c2dac6;
+    --modal-dim:rgba(40,46,40,.42);
+    --card:#fdfdfb;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font-nunito,'Nunito'),sans-serif;color:var(--ink);
+    background:var(--ground);overflow:hidden;height:100vh}
+  .baloo{font-family:'Baloo 2',sans-serif}
+
+  /* ---------- workspace (calm, muted — "world") ---------- */
+  .workspace{position:absolute;inset:0;
+    background:
+      linear-gradient(180deg,var(--floor) 0%, #ebe7d8 100%);
+    transition:filter .4s ease}
+  .ws-dim{filter:blur(3px) saturate(.9) brightness(.86)}
+  .topbar{position:absolute;top:0;left:0;right:0;height:60px;display:flex;align-items:center;
+    justify-content:space-between;padding:0 22px;border-bottom:1px solid #e0dccd;
+    background:rgba(242,239,227,.7);backdrop-filter:blur(6px)}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;letter-spacing:-.02em}
+  .brand .dot{width:26px;height:26px;border-radius:9px;background:linear-gradient(135deg,var(--primary-from),var(--primary-to))}
+  .topbar .ws-name{font-size:12.5px;color:var(--secondary);font-weight:700}
+  .grid{position:absolute;inset:60px 0 0 0;
+    background-image:linear-gradient(#e2e4d0 1px,transparent 1px),linear-gradient(90deg,#e2e4d0 1px,transparent 1px);
+    background-size:46px 46px;opacity:.55}
+  .desk{position:absolute;width:152px;border-radius:18px;background:#fffdf8;
+    border:1px solid #e6e1d2;box-shadow:0 14px 16px -10px rgba(60,65,50,.3);padding:13px 14px}
+  .desk .av{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;font-size:17px;margin-bottom:8px}
+  .desk h4{font-size:13.5px;font-weight:800;font-family:'Baloo 2'}
+  .desk p{font-size:11px;color:var(--muted);margin-top:1px}
+  .desk .chip{margin-top:9px;font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;gap:5px;
+    padding:3px 9px;border-radius:20px}
+  .chip.working{background:#dff4fb;color:#1f86a6}
+  .chip.idle{background:#ecebe5;color:#7d786f}
+  .pulse{width:6px;height:6px;border-radius:50%;background:var(--working);
+    animation:pulse 1.8s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(79,195,232,.5)}70%{box-shadow:0 0 0 7px rgba(79,195,232,0)}100%{box-shadow:0 0 0 0 rgba(79,195,232,0)}}
+
+  /* ---------- treasury HUD (dark candy tile) ---------- */
+  .hud{position:absolute;top:74px;right:22px;z-index:5;background:var(--dark-hud);color:#fff;
+    border-radius:16px;box-shadow:0 16px 30px -16px rgba(36,46,66,.55);
+    padding:13px 15px;width:208px;cursor:pointer;transition:transform .15s ease, box-shadow .15s}
+  .hud:hover{transform:translateY(-1px);box-shadow:0 20px 38px -16px rgba(36,46,66,.6)}
+  .hud .row{display:flex;align-items:center;justify-content:space-between}
+  .hud .bal{display:flex;align-items:center;gap:9px;font-weight:800;font-size:19px;letter-spacing:-.02em;font-family:'Baloo 2'}
+  .coin{width:21px;height:21px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fbdd8a,var(--amber));
+    border:1.5px solid #d9990f;display:grid;place-items:center;font-size:10px;color:#7a5410;font-weight:800;flex:none}
+  .hud .lbl-s{font-size:11px;color:#b9c2d4;margin-top:8px;font-weight:600}
+  .hud .add{width:27px;height:27px;border-radius:9px;border:2px solid rgba(255,255,255,.85);background:transparent;
+    font-size:16px;color:#fff;display:grid;place-items:center;font-weight:700}
+  .gauge{height:6px;border-radius:6px;background:rgba(255,255,255,.18);margin-top:9px;overflow:hidden}
+  .gauge>span{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#fbdd8a,var(--amber))}
+
+  /* ---------- modal (candy UI) ---------- */
+  .scrim{position:absolute;inset:0;z-index:10;display:grid;place-items:center;
+    background:var(--modal-dim);backdrop-filter:blur(2px)}
+  .modal{width:432px;max-width:92vw;background:var(--card);border-radius:24px;
+    box-shadow:0 30px 70px rgba(30,35,25,.4);border:1px solid rgba(0,0,0,.04);overflow:hidden;
+    animation:rise .32s cubic-bezier(.2,.8,.2,1)}
+  @keyframes rise{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+  .m-head{padding:21px 22px 17px;border-bottom:1px solid #ece8dc;position:relative}
+  .m-empty-banner{display:none;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:#b23b29;
+    background:#fbe7e3;border:1px solid #f1cabf;border-radius:11px;padding:9px 12px;margin-bottom:14px}
+  .m-title{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:700;color:var(--secondary)}
+  .m-bal{display:flex;align-items:baseline;gap:9px;margin-top:8px}
+  .m-bal b{font-size:32px;font-weight:800;letter-spacing:-.03em;font-family:'Baloo 2'}
+  .m-bal span{font-size:13px;color:var(--muted);font-weight:700}
+  .m-gauge{height:8px;border-radius:8px;background:#ece6d6;margin-top:15px;overflow:hidden}
+  .m-gauge>span{display:block;height:100%;background:linear-gradient(90deg,#fbdd8a,var(--amber));transition:width .5s}
+  .m-meta{font-size:11.5px;color:var(--muted);margin-top:10px;font-weight:600}
+  .close{position:absolute;top:17px;right:17px;width:30px;height:30px;border:none;background:#efeadd;border-radius:10px;
+    font-size:15px;color:var(--secondary);cursor:pointer}
+  .close:hover{background:#e7e0cf}
+
+  .m-body{padding:19px 22px 22px}
+  .lbl{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:12px}
+  .packs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .pack{position:relative;border:2px solid #e8e2d3;border-radius:16px;padding:15px 10px;text-align:center;
+    cursor:pointer;transition:border-color .15s, background .15s;background:#fffdf9}
+  .pack:hover{border-color:#cfe9f3}
+  .pack.sel{border-color:var(--primary-to);background:#eef9fd;box-shadow:0 0 0 3px rgba(63,180,220,.12)}
+  .pack .cr{font-weight:800;font-size:16.5px;letter-spacing:-.02em;font-family:'Baloo 2'}
+  .pack .pr{font-size:12.5px;color:var(--secondary);margin-top:3px;font-weight:700}
+  .ribbon{position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:800;
+    letter-spacing:.05em;background:var(--amber);color:#5b3d0c;padding:3px 9px;border-radius:20px;white-space:nowrap;
+    border:1.5px solid #fff}
+
+  .pay{margin-top:18px;border:1px solid #e8e2d3;border-radius:14px;padding:13px 14px;background:#fbfaf5}
+  .pay .field{display:flex;align-items:center;gap:10px;font-size:13px;color:#8a847a}
+  .pay .field .card-ic{width:30px;height:20px;border-radius:4px;background:linear-gradient(135deg,#cdd6df,#a9bccb)}
+  .pay .digits{letter-spacing:.18em;font-variant-numeric:tabular-nums}
+  .stripe-note{font-size:10.5px;color:#a39d92;margin-top:9px;display:flex;align-items:center;gap:5px;font-weight:600}
+
+  /* pondas pill button — radius 999, white 2.5px border, Baloo extrabold, colored shadow */
+  .cta{margin-top:17px;width:100%;border:2.5px solid #fff;border-radius:999px;padding:13px;
+    background:linear-gradient(135deg,var(--primary-from),var(--primary-to));color:#fff;
+    font-family:'Baloo 2';font-weight:800;font-size:15px;cursor:pointer;
+    box-shadow:0 8px 18px var(--primary-shadow);text-shadow:0 1px 1px rgba(0,0,0,.15)}
+  .cta:hover{filter:brightness(1.04)}
+  .upsell{margin-top:17px;padding-top:16px;border-top:1px solid #ece8dc;text-align:center;font-size:12.5px;color:var(--muted);font-weight:600}
+  .upsell a{color:var(--primary-to);font-weight:800;text-decoration:none}
+  .upsell a:hover{text-decoration:underline}
+
+  /* state toggle (mockup control) */
+  .toggle{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:6px;
+    background:#fff;border:1px solid #e6e1d2;border-radius:30px;padding:5px;box-shadow:0 10px 24px -14px rgba(0,0,0,.4)}
+  .toggle button{border:none;background:transparent;font-family:'Nunito';font-size:12.5px;font-weight:700;color:var(--muted);
+    padding:7px 16px;border-radius:24px;cursor:pointer}
+  .toggle button.on{background:var(--navy);color:#fff}
+  .toggle .tag{font-size:10.5px;color:#b3ada2;align-self:center;padding:0 8px;font-weight:700}
+
+  /* empty / paywall overrides */
+  body.empty .m-empty-banner{display:flex}
+  body.empty .m-bal b{color:var(--failed)}
+  body.empty .m-gauge>span{width:2% !important;background:var(--failed)}
+</style>
+</head>
+<body class="normal">
+
+  <!-- ===== workspace (calm) ===== -->
+  <div class="workspace ws-dim">
+    <div class="topbar">
+      <div class="brand"><span class="dot"></span> pondas</div>
+      <div class="ws-name">Acme Co · Development</div>
+    </div>
+    <div class="grid"></div>
+
+    <div class="desk" style="top:152px;left:120px">
+      <div class="av" style="background:var(--dev)">🧑‍💻</div>
+      <h4>SWE</h4><p>Implementing login</p>
+      <span class="chip working"><span class="pulse"></span> working</span>
+    </div>
+    <div class="desk" style="top:304px;left:332px">
+      <div class="av" style="background:var(--research)">🔍</div>
+      <h4>QA</h4><p>Waiting for handoff</p>
+      <span class="chip idle">idle</span>
+    </div>
+    <div class="desk" style="top:200px;left:566px">
+      <div class="av" style="background:var(--design)">🎨</div>
+      <h4>Designer</h4><p>Landing redesign</p>
+      <span class="chip working"><span class="pulse"></span> working</span>
+    </div>
+  </div>
+
+  <!-- ===== treasury HUD ===== -->
+  <div class="hud" onclick="openModal()">
+    <div class="row">
+      <div class="bal"><span class="coin">₵</span> <b id="hudBal">1,240</b></div>
+      <div class="add">+</div>
+    </div>
+    <div class="lbl-s" id="hudLbl">62% of monthly budget left</div>
+    <div class="gauge"><span id="hudGauge" style="width:62%"></span></div>
+  </div>
+
+  <!-- ===== modal ===== -->
+  <div class="scrim" id="scrim">
+    <div class="modal">
+      <div class="m-head">
+        <button class="close" onclick="closeModal()">✕</button>
+        <div class="m-empty-banner">🏦 Treasury is empty — your team paused 💤</div>
+        <div class="m-title"><span class="coin">₵</span> Treasury</div>
+        <div class="m-bal"><b id="modalBal">1,240</b><span>credits</span></div>
+        <div class="m-gauge"><span id="modalGauge" style="width:62%"></span></div>
+        <div class="m-meta" id="metaRefill">Monthly refill: 2,000 credits · resets in 7d</div>
+      </div>
+
+      <div class="m-body">
+        <div class="lbl" id="addLbl">Add credits</div>
+        <div class="packs">
+          <div class="pack" data-cr="500" data-pr="5" onclick="sel(this)">
+            <div class="cr">+500</div><div class="pr">$5</div>
+          </div>
+          <div class="pack sel" data-cr="1500" data-pr="13" onclick="sel(this)">
+            <div class="ribbon">BEST VALUE</div>
+            <div class="cr">+1,500</div><div class="pr">$13</div>
+          </div>
+          <div class="pack" data-cr="5000" data-pr="40" onclick="sel(this)">
+            <div class="cr">+5,000</div><div class="pr">$40</div>
+          </div>
+        </div>
+
+        <div class="pay">
+          <div class="field">
+            <div class="card-ic"></div>
+            <span class="digits">····&nbsp;····&nbsp;····&nbsp;</span>
+            <span class="digits" style="color:#2c2925;font-weight:700">4242</span>
+            <span style="margin-left:auto;color:#b3ada2">12/27 · ···</span>
+          </div>
+          <div class="stripe-note">🔒 Secured by Stripe — you never leave your workspace</div>
+        </div>
+
+        <button class="cta" id="payBtn">Pay $13 · get 1,500 credits</button>
+
+        <div class="upsell" id="upsell">
+          or get more every month → <a href="#">Upgrade plan</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== state toggle ===== -->
+  <div class="toggle">
+    <span class="tag">Preview</span>
+    <button class="on" id="btnNormal" onclick="setState('normal')">Normal</button>
+    <button id="btnEmpty" onclick="setState('empty')">Empty / paywall</button>
+  </div>
+
+<script>
+  function sel(el){
+    document.querySelectorAll('.pack').forEach(p=>p.classList.remove('sel'));
+    el.classList.add('sel');
+    const cr=(+el.dataset.cr).toLocaleString(), pr=el.dataset.pr;
+    document.getElementById('payBtn').textContent=`Pay $${pr} · get ${cr} credits`;
+  }
+  function openModal(){document.getElementById('scrim').style.display='grid';}
+  function closeModal(){document.getElementById('scrim').style.display='none';}
+
+  function setState(s){
+    document.body.className=s;
+    document.getElementById('btnNormal').classList.toggle('on',s==='normal');
+    document.getElementById('btnEmpty').classList.toggle('on',s==='empty');
+    const empty=s==='empty';
+    document.getElementById('hudBal').textContent=empty?'0':'1,240';
+    document.getElementById('hudLbl').textContent=empty?'0% of monthly budget left':'62% of monthly budget left';
+    document.getElementById('hudGauge').style.width=empty?'2%':'62%';
+    document.getElementById('hudGauge').style.background=empty?'var(--failed)':'';
+    document.getElementById('modalBal').textContent=empty?'0':'1,240';
+    document.getElementById('modalGauge').style.width=empty?'2%':'62%';
+    document.getElementById('metaRefill').textContent=empty?'Monthly refill in 7d':'Monthly refill: 2,000 credits · resets in 7d';
+    document.getElementById('addLbl').textContent=empty?'Top up to resume':'Add credits';
+    document.getElementById('upsell').style.display=empty?'none':'block';
+    openModal();
+  }
+</script>
+</body>
+</html>
