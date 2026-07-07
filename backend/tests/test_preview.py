@@ -95,8 +95,12 @@ def test_runnable_target_detection():
 def test_start_disabled_when_flag_off(env):
     db, uid, pid, aid = env
     _seed_files(db, uid, pid, aid, {"package.json": _PKG_RUNNABLE, "app/page.tsx": "x"})
-    # preview_on 픽스처 없음 = 플래그 OFF(기본).
-    assert preview_service.start(db, db.get(Project, pid))["status"] == "disabled"
+    # 프로덕션은 마이그레이션으로 preview_enabled ON(go-live) — 이 테스트만 명시적으로 OFF로 내렸다가 복원.
+    set_config(db, "preview_enabled", "false"); db.commit()
+    try:
+        assert preview_service.start(db, db.get(Project, pid))["status"] == "disabled"
+    finally:
+        set_config(db, "preview_enabled", "true"); db.commit()
 
 
 def test_start_none_when_no_runnable(env, preview_on):
