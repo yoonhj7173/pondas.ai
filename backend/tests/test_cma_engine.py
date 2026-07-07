@@ -3,12 +3,19 @@ from __future__ import annotations
 
 import os
 import types
+import uuid
 
 import pytest
 
+from app.db import SessionLocal
+from app.models import Agent, Output, Project, Task, Team, WorkspaceVersion
 from app.services import cma
+from app.services import cma_engine
+from app.services import task_service as ts
 from app.services.cma import SESSION_OUTPUT_DIR
 from app.services.cma_engine import _build_message
+from app.services.config_store import load_config
+from seed import seed
 
 
 def _task(**kw):
@@ -72,6 +79,74 @@ def test_terminal_terminated_and_running():
     assert cma._terminal([{"type": "session.status_terminated"}]) == ("terminated", None, [])
     assert cma._terminal([{"type": "session.status_running"}]) is None
     assert cma._terminal([]) is None
+
+
+# --- run_dev_task_cma 오케스트레이션(회귀: UnboundLocalError로 전 CMA task 크래시했던 버그) ---
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _seeded():
+    db = SessionLocal()
+    try:
+        seed(db)
+    finally:
+        db.close()
+
+
+@pytest.fixture
+def dev_env():
+    db = SessionLocal()
+    uid = f"cma_{uuid.uuid4().hex[:8]}"
+    proj = Project(user_id=uid, name="cma"); db.add(proj); db.flush()
+    team = Team(project_id=proj.id, template_key="development", name="Development"); db.add(team); db.flush()
+    agent = Agent(team_id=team.id, project_id=proj.id, name="SWE",
+                  role_instructions="build", model_tier="strong", slot=0)
+    db.add(agent); db.commit()
+    yield db, uid, proj.id, agent.id
+    db.delete(db.get(Project, proj.id)); db.commit()
+    db.close()
+
+
+def _mock_cma(monkeypatch, reply="Built the Next.js app."):
+    """CMA 리소스/클라이언트를 전부 가짜로 — run_dev_task_cma를 라이브 키 없이 done까지 태운다."""
+    fake_client = types.SimpleNamespace(
+        send_user_message=lambda sid, msg: None,
+        poll_until_idle=lambda sid, timeout_sec: types.SimpleNamespace(
+            status="idle", reply=reply, tokens_in=120, tokens_out=40, stop_reason="end_turn"),
+        close=lambda: None,
+    )
+    monkeypatch.setattr(cma_engine, "CMAClient", lambda: fake_client)
+    monkeypatch.setattr(cma_engine, "_ensure_environment", lambda db, cfg, c: "env")
+    monkeypatch.setattr(cma_engine, "_ensure_memory_store", lambda db, p, c: "store")
+    monkeypatch.setattr(cma_engine, "_ensure_agent", lambda db, a, m, c: None)
+    monkeypatch.setattr(cma_engine, "_ensure_session", lambda db, a, e, s, c: "sid")
+
+    def fake_collect(db, task, client, sid):
+        db.add(Output(project_id=task.project_id, agent_id=task.agent_id, task_id=task.id,
+                      path="app/page.tsx", mime="text/plain", size_bytes=3, content="app"))
+        db.commit()
+    monkeypatch.setattr(cma_engine, "_collect_outputs", fake_collect)
+
+
+def test_run_dev_task_cma_reaches_done(dev_env, monkeypatch):
+    """전체 CMA dev task를 크래시시켰던 UnboundLocalError('Project')를 잡는 회귀 테스트.
+
+    line 156 `db.get(Project, ...)`가 done 분기의 로컬 import로 shadow돼 터졌었다. 이 테스트는
+    run_dev_task_cma를 done까지 태워 그 경로(초반 Project 참조 + 완료 + 버전 스냅샷)를 검증한다.
+    """
+    db, uid, pid, aid = dev_env
+    agent = db.get(Agent, aid)
+    task = ts.create_task(db, user_id=uid, project_id=pid, agent=agent,
+                          instructions="build app", origin="chat")
+    task.status = "working"  # 이미 디스패치된 상태에서 실행.
+    db.commit()
+    cfg = load_config(db)
+    _mock_cma(monkeypatch)
+
+    result = cma_engine.run_dev_task_cma(db, task, agent, "claude-sonnet-5", cfg, lambda x: None)
+    assert result == "done"                                  # ← UnboundLocalError면 여기서 터짐.
+    assert db.get(Task, task.id).status == "done"
+    assert db.query(WorkspaceVersion).filter_by(project_id=pid).count() == 1  # 버전 스냅샷 커팅됨.
 
 
 # --- 라이브 스모크(키 필요, 토큰 비용) ---
