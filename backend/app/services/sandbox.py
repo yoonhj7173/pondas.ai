@@ -57,6 +57,7 @@ class SandboxProvider(Protocol):
     def read_file(self, sandbox_id: str, path: str) -> bytes: ...
     def write_file(self, sandbox_id: str, path: str, content: bytes) -> None: ...
     def file_tree(self, sandbox_id: str, path: str = ".") -> list[FileEntry]: ...
+    def get_host(self, sandbox_id: str, port: int) -> str: ...
 
 
 # 출력 수집 시 무시할 디렉터리(node_modules 등, D31/item 17).
@@ -113,6 +114,11 @@ class LocalSandboxProvider:
         target = self._dir(sandbox_id) / path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(content)
+
+    def get_host(self, sandbox_id: str, port: int) -> str:
+        # 로컬은 격리가 없으므로 호스트 포트를 그대로 노출(개발 프리뷰 전용).
+        self._dir(sandbox_id)
+        return f"127.0.0.1:{port}"
 
     def file_tree(self, sandbox_id: str, path: str = ".") -> list[FileEntry]:
         root = self._dir(sandbox_id).resolve()  # macOS /var→/private/var 심링크 정합.
@@ -211,6 +217,10 @@ class E2BSandboxProvider:
 
     def write_file(self, sandbox_id: str, path: str, content: bytes) -> None:
         self._h(sandbox_id).files.write(self._abs(path), content)
+
+    def get_host(self, sandbox_id: str, port: int) -> str:
+        # E2B가 포트를 public host로 노출 — `{port}-{sandbox_id}.e2b.app` 형태의 unguessable 호스트(D49).
+        return self._h(sandbox_id).get_host(port)
 
     def file_tree(self, sandbox_id: str, path: str = ".") -> list[FileEntry]:
         # find로 재귀 수집 — %y(type) %s(size) %T@(mtime) %p(path). ignore 디렉터리는 prune.

@@ -68,6 +68,16 @@ def emit_paywall(project_id, agent_id) -> None:
     _publish(project_id, {"type": "paywall", "agent_id": str(agent_id)})
 
 
+def emit_preview_status(project_id, status: str, *, url: str | None = None, version_no: int | None = None) -> None:
+    """Live Preview 상태 변경(Phase 2, D49) — 시어터가 iframe/버전칩을 갱신하도록 쏘는 신호."""
+    _publish(project_id, {
+        "type": "preview_status",
+        "status": status,
+        "url": url,
+        "version_no": version_no,
+    })
+
+
 # 종결/대기 상태 → 사용자에게 알릴 notification 매핑.
 _NOTIFY_STATUSES = {"done", "blocked", "needs-input", "failed"}
 

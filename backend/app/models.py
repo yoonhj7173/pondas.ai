@@ -43,6 +43,7 @@ from app.db import Base
 ENGINES = ("crew", "agent_sdk")
 TIERS = ("strong", "medium", "light")
 SANDBOX_STATUSES = ("none", "running", "paused", "error")
+PREVIEW_STATUSES = ("none", "starting", "ready", "error", "paused")
 EDGE_TYPES = ("handoff", "review_loop")
 TASK_STATUSES = ("idle", "queued", "working", "blocked", "needs-input", "done", "failed")
 TASK_ORIGINS = ("chat", "edge", "panel")
@@ -121,6 +122,11 @@ class Project(Base):
     )
     # CMA 프로젝트 공유 memory store(회사 기억) — Dev 엔진 파일럿(D45), lazy 생성.
     cma_memory_store_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Live Preview 샌드박스(Phase 2, D49) — 빌드 워크스페이스와 독립된 on-demand E2B.
+    preview_sandbox_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    preview_status: Mapped[str] = mapped_column(Text, nullable=False, server_default="none")
+    preview_version_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    preview_last_active_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = _updated_at()
 
@@ -131,6 +137,7 @@ class Project(Base):
     __table_args__ = (
         Index("ix_projects_user", "user_id"),
         _in_check("sandbox_status", SANDBOX_STATUSES, "ck_projects_sandbox_status"),
+        _in_check("preview_status", PREVIEW_STATUSES, "ck_projects_preview_status"),
     )
 
 

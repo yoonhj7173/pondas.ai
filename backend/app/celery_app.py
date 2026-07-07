@@ -43,6 +43,10 @@ celery_app.conf.update(
             "task": "app.celery_app.reap_stale",
             "schedule": 60.0,  # 매 60초 stale working task 회수.
         },
+        "pause-idle-previews": {
+            "task": "app.celery_app.pause_idle_previews",
+            "schedule": 120.0,  # 매 120초 idle 프리뷰 pause(과금 정지, D49).
+        },
     },
 )
 
@@ -72,6 +76,17 @@ def reap_stale() -> int:
     db = SessionLocal()
     try:
         return reap_stale_tasks(db)
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.celery_app.pause_idle_previews")
+def pause_idle_previews() -> int:
+    """idle 프리뷰 pause(과금 정지, D49) — 매 120초 beat."""
+    from app.services.preview import preview_service
+    db = SessionLocal()
+    try:
+        return preview_service.pause_idle_previews(db)
     finally:
         db.close()
 

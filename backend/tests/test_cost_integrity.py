@@ -29,6 +29,7 @@ def _cfg(pricing):
         concurrency_cap=3, daily_cost_cap_usd=10.0, goal_chain_budget=25,
         context_token_budget=100000, dev_task_timeout_min=30, sandbox_idle_pause_sec=120,
         dev_engine="cma", cma_environment_id="", billing_enabled=False,
+        preview_enabled=False, preview_idle_pause_sec=600,
         stripe_prices={}, tier_models={}, model_pricing=pricing,
     )
 

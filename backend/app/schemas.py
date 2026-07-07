@@ -117,6 +117,14 @@ class ProjectFilesOut(BaseModel):
     files: list[ProjectFileEntry]
 
 
+class PreviewOut(BaseModel):
+    """Live Preview 상태(Phase 2, D49). status: disabled|none|starting|ready|error|paused."""
+    status: str
+    url: str | None = None
+    version_no: int | None = None
+    detail: str | None = None  # error일 때 짧은 사유(시어터 안내용)
+
+
 # --- Map (GET /api/projects/{id}/map) ---
 
 
