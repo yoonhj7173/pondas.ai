@@ -265,7 +265,10 @@ def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_cl
         from app.services.orchestrator import LiteLLMClient
         dev_client = LiteLLMClient(db, model=model)
 
-    start_mtime = time.time()
+    # mtime 여유 2초 — 파일시스템 mtime이 초 단위로 truncate되면(일부 FS/타이밍) task 시작과
+    # 같은 초에 쓰인 파일이 since_mtime보다 작아져 수집에서 누락될 수 있다(간헐 flake). 살짝 과수집이
+    # 나더라도(직전 2초 내 파일) 영속 워크스페이스에선 무해하고, 누락보다 안전하다.
+    start_mtime = time.time() - 2.0
     outcome = dev_runner.run_dev_task(
         prompt, workspace_service.provider, sandbox_id,
         client=dev_client, role_instructions=agent.role_instructions,
