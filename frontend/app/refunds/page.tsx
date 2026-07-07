@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { LegalShell } from "@/components/legal/LegalShell";
 
-export const metadata: Metadata = { title: "Refund & Cancellation Policy — pondas", robots: { index: true } };
+export const metadata: Metadata = { title: "Refund & Cancellation Policy — pondas", robots: { index: true }, alternates: { canonical: "/refunds" } };
 
 export default function Refunds() {
   return (
