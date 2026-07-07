@@ -55,7 +55,15 @@ export function Theater({ projectId, getToken, onSend, onClose }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  // iteration(D51): 새 버전이 커팅되면(SSE preview_status version_no↑) 칩 목록을 다시 불러온다.
+  // iframe은 key=versionNo로 remount돼 변경이 바로 보인다(HMR 보강용 하드 리로드).
+  useEffect(() => {
+    if (preview.versionNo != null) loadVersions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview.versionNo]);
+
   const ready = preview.status === "ready" && preview.url;
+  const disabled = preview.status === "disabled";
 
   return (
     <div className="absolute inset-0 z-[60] flex flex-col gap-3 bg-[rgba(40,46,40,0.55)] p-5 backdrop-blur-sm md:p-6" role="dialog" aria-label="Live preview theater">
@@ -93,10 +101,16 @@ export function Theater({ projectId, getToken, onSend, onClose }: {
         </div>
         <div className="relative min-h-0 flex-1 bg-[#fbf6ee]">
           {ready ? (
-            <iframe src={preview.url!} title="app preview" className="h-full w-full border-0" sandbox="allow-scripts allow-same-origin allow-forms" />
+            <iframe key={preview.versionNo ?? "v"} src={preview.url!} title="app preview" className="h-full w-full border-0" sandbox="allow-scripts allow-same-origin allow-forms" />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-ink-soft">
-              {preview.status === "error" ? (
+              {disabled ? (
+                <>
+                  <div className="text-2xl">🔒</div>
+                  <div className="font-baloo text-lg font-extrabold">Live preview is coming soon</div>
+                  <p className="max-w-md text-sm text-muted">Preview isn&apos;t enabled on your workspace yet. Your files are safe — download them from Outputs anytime.</p>
+                </>
+              ) : preview.status === "error" ? (
                 <>
                   <div className="text-2xl">⚠️</div>
                   <div className="font-baloo text-lg font-extrabold">The app didn&apos;t start</div>
@@ -121,15 +135,25 @@ export function Theater({ projectId, getToken, onSend, onClose }: {
       </div>
 
       {/* 도킹된 오케스트레이터 챗 */}
-      <DockedChat onSend={onSend} disabled={starting} />
+      <DockedChat onSend={onSend} disabled={starting} versionNo={ready ? preview.versionNo : null} />
     </div>
   );
 }
 
-function DockedChat({ onSend, disabled }: { onSend?: (m: string) => Promise<string | void>; disabled?: boolean }) {
+function DockedChat({ onSend, disabled, versionNo }: { onSend?: (m: string) => Promise<string | void>; disabled?: boolean; versionNo?: number | null }) {
   const [msg, setMsg] = useState("");
   const [bubbles, setBubbles] = useState<{ role: "user" | "orchestrator"; text: string }[]>([]);
   const ref = useRef<HTMLInputElement>(null);
+  const seenVersion = useRef<number | null>(null);
+
+  // 프리뷰가 새 버전으로 갱신되면(iteration 완료) 시스템 확인 버블을 남긴다.
+  useEffect(() => {
+    if (versionNo == null) return;
+    if (seenVersion.current != null && versionNo > seenVersion.current) {
+      setBubbles((b) => [...b, { role: "orchestrator", text: `Applied — preview updated ✓ v${versionNo}` }]);
+    }
+    seenVersion.current = versionNo;
+  }, [versionNo]);
 
   async function send() {
     const m = msg.trim();

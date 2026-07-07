@@ -154,6 +154,24 @@ def test_stop_pauses(env, preview_on, monkeypatch):
     assert db.get(Project, pid).preview_status == "paused"
 
 
+def test_refresh_if_active_syncs_only_when_ready(env, preview_on, monkeypatch):
+    """iteration 훅(item 32) — 프리뷰 ready일 때만 sync 호출, 아니면 no-op."""
+    db, uid, pid, aid = env
+    _seed_files(db, uid, pid, aid, {"package.json": _PKG_RUNNABLE})
+    calls: list[str] = []
+    monkeypatch.setattr(preview_service, "sync", lambda db, p: calls.append(str(p.id)) or {"status": "ready"})
+
+    # 안 켜진 상태(none) → no-op.
+    preview_service.refresh_if_active(db, db.get(Project, pid))
+    assert calls == []
+
+    # ready로 만든 뒤 → sync 호출.
+    project = db.get(Project, pid)
+    project.preview_status = "ready"; db.commit()
+    preview_service.refresh_if_active(db, db.get(Project, pid))
+    assert calls == [str(pid)]
+
+
 def test_pause_idle_previews(env, preview_on, monkeypatch):
     db, uid, pid, aid = env
     _seed_files(db, uid, pid, aid, {"package.json": _PKG_RUNNABLE})

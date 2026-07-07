@@ -300,6 +300,8 @@ def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_cl
     from app.services.versioning import snapshot_version
     snapshot_version(db, task)  # 프로젝트 파일 상태 갱신 + 버전 커팅(D50, 격리).
     new_ids = _finalize_done(db, task, outcome.tokens_in, outcome.tokens_out, cost)
+    from app.services.preview import preview_service
+    preview_service.refresh_if_active(db, project)  # 프리뷰 켜져 있으면 새 버전 반영(iteration, D51).
     workspace_service.pause_if_idle(db, project)
     _enqueue_children(new_ids, enqueue)
     return "done"

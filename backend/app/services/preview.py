@@ -212,6 +212,20 @@ class PreviewService:
         events.emit_preview_status(project.id, "ready", url=url, version_no=version)
         return {"status": "ready", "url": url, "version_no": version}
 
+    def refresh_if_active(self, db: Session, project: Project) -> None:
+        """dev/design task 완료 후 훅(iteration, item 32) — 프리뷰가 켜져 있을 때만 새 버전을 sync한다.
+
+        유저가 시어터를 보고 있는(ready) 경우에만 재머티리얼라이즈 → HMR/새 버전 반영 + SSE로
+        시어터 iframe/칩 갱신. 안 켜져 있으면 no-op(안 본 프리뷰를 비용 태워 굳이 안 띄운다 — 다음
+        시어터 open이 최신 버전으로 시작). 격리: 실패해도 task 완료를 깨지 않는다.
+        """
+        if project.preview_status != "ready":
+            return
+        try:
+            self.sync(db, project)
+        except Exception:  # noqa: BLE001 — 격리.
+            log.warning("preview refresh failed", extra={"project_id": str(project.id)})
+
     def stop(self, db: Session, project: Project) -> dict:
         """프리뷰 pause(과금 정지). 파일시스템 보존 — 다음 start가 수초 내 resume."""
         if project.preview_sandbox_id and project.preview_status in ("ready", "starting"):
