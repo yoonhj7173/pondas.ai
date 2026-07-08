@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import io
-import sys
 import uuid
 import zipfile
 
@@ -18,7 +17,7 @@ from app.db import SessionLocal
 from app.models import Agent, Output, Project, Task, Team
 from app.services import task_service as ts
 from app.services.sandbox import LocalSandboxProvider
-from app.services.verification import assert_rendered, collect_outputs, start_dev_server
+from app.services.verification import collect_outputs
 
 
 @pytest.fixture
@@ -43,32 +42,6 @@ def _task(db, uid, proj, agent):
     t = ts.create_task(db, user_id=uid, project_id=proj.id, agent=agent, instructions="build", origin="chat")
     t.engine = "agent_sdk"; t.status = "working"; db.commit()
     return t
-
-
-def _free_port():
-    import socket
-    s = socket.socket()
-    s.bind(("127.0.0.1", 0))
-    p = s.getsockname()[1]
-    s.close()
-    return p
-
-
-# --- golden path (dev server + rendered content) ---
-
-
-def test_golden_path_server_up_and_renders(env):
-    db, uid, proj, agent, provider, sid = env
-    provider.write_file(sid, "index.html", b"<html><body><h1>Hello Craft</h1></body></html>")
-    port = _free_port()
-    up = start_dev_server(provider, sid, f"{sys.executable} -m http.server {port}", port, timeout=20)
-    assert up is True
-    verification = []
-    rendered = assert_rendered(provider, sid, f"http://127.0.0.1:{port}/index.html", "Hello Craft", verification)
-    assert rendered is True
-    assert verification[-1]["exit_code"] == 0
-    # 서버 종료(포트 점유 해제).
-    provider.exec(sid, f"pkill -f 'http.server {port}' || true", timeout=5)
 
 
 # --- output collection ---

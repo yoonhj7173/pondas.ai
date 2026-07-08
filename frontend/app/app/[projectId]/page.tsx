@@ -27,7 +27,7 @@ import TeamCardOffice from "@/components/map/TeamCardOffice";
  *   - openPanel/openOverlay: 패널(에이전트/팀)과 오버레이(보드/결과물/설정)를 상호배타로 토글.
  * 누가 부르나: Next.js 라우팅 — /app/{projectId} 접속 시.
  * 연결: 데이터 로드/전송 → frontend/lib/api.ts(→ 백엔드 projects.py/chat.py). 실시간 → frontend/lib/sse.ts.
- *   맵 렌더 → components/map/MapCanvas.tsx. 패널 → components/panels/PanelController.tsx.
+ *   맵 렌더 → components/map/TeamCardOffice.tsx. 패널 → components/panels/PanelController.tsx.
  */
 export default function ProjectMap({ params }: { params: { projectId: string } }) {
   const { getToken: clerkToken } = useAuth();
