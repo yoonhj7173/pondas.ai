@@ -7,7 +7,7 @@ import { useAuth } from "@clerk/nextjs";
 import clsx from "clsx";
 import dynamic from "next/dynamic";
 import { Overlay, PillButton } from "@/components/ui/primitives";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, API_BASE } from "@/lib/api";
 import { visualStatus, type AgentStatus } from "@/lib/tokens";
 
 // 결과 마크다운 렌더러 — lazy 로드(office 기본 청크 분리, Phase 2 D51).
@@ -94,7 +94,7 @@ export function OutputsOverlay({ projectId, getToken, onClose }: { projectId: st
             {groups?.length === 0 && <Empty>No outputs yet.</Empty>}
             {groups?.map((g) => (
               <div key={g.task_id} className="rounded-xl bg-white/40 p-3">
-                <div className="mb-1 flex items-center justify-between"><span className="font-baloo text-sm font-bold">{g.agent_name}</span><a href={`${process.env.NEXT_PUBLIC_API_URL}/api/tasks/${g.task_id}/outputs.zip`} className="text-xs font-bold text-primary-to">⇩ zip</a></div>
+                <div className="mb-1 flex items-center justify-between"><span className="font-baloo text-sm font-bold">{g.agent_name}</span><a href={`${API_BASE}/api/tasks/${g.task_id}/outputs.zip`} className="text-xs font-bold text-primary-to">⇩ zip</a></div>
                 {g.files.map((f) => (
                   <button key={f.id} onClick={() => setSel({ id: f.id, path: f.path })} className={clsx("flex w-full items-center justify-between rounded px-2 py-1 text-left font-mono text-xs hover:bg-white/60", sel?.id === f.id && "bg-white/70")}>
                     <span className="truncate">{f.path}</span><span className="text-muted">{f.size_bytes}b</span>

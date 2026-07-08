@@ -129,7 +129,9 @@ function AgentAvatar({
   agent: AgentNode; teamAv: string; status: AgentStatus; onSelect?: (id: string) => void;
 }) {
   const v = visualStatus(status);
-  const s = STATUS[(["working", "needs-input", "failed", "done", "idle"].includes(v) ? v : "idle") as SK];
+  // queued도 working 비주얼(cyan 링/↻)로 — 팀 pill(teamPill)이 queued→working과 일치시킨다(감사 P2).
+  const sk: SK = v === "queued" ? "working" : ((["working", "needs-input", "failed", "done"].includes(v) ? v : "idle") as SK);
+  const s = STATUS[sk];
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onSelect?.(agent.id); }}
