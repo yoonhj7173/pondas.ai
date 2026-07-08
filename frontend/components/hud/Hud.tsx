@@ -3,16 +3,19 @@
 // 맵 위 HUD 레이어(item 23) — 오케스트레이터 챗 · Activity 피드 · 벨/드로어 · 토스트 ·
 // 토큰 카운터 · 프로젝트 스위처 · 유틸 버튼. 전부 store에서 파생(D36).
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import clsx from "clsx";
 import { useStore, type FeedEvent } from "@/lib/store";
 import { STATUS_CHIP, visualStatus } from "@/lib/tokens";
+import { apiFetch, E2E } from "@/lib/api";
 
 export interface HudProps {
   projectName: string;
   onSend?: (msg: string) => Promise<string | void> | string | void;
   onFocusAgent?: (agentId: string) => void;
   onOpen?: (what: "settings" | "board" | "outputs" | "addTeam") => void;
-  onSwitch?: () => void;
+  currentProjectId?: string;
 }
 
 /**
@@ -30,7 +33,7 @@ export default function Hud(props: HudProps) {
     <>
       {/* 챗 포커스 시 월드 디밍. */}
       {chatFocused && <div className="pointer-events-none absolute inset-0 z-10 bg-[rgba(40,46,40,0.28)]" />}
-      <ProjectSwitcher name={props.projectName} onSwitch={props.onSwitch} />
+      <ProjectSwitcher name={props.projectName} currentProjectId={props.currentProjectId} />
       <ActivityFeedAndBell onFocusAgent={props.onFocusAgent} />
       <ToastStack onFocusAgent={props.onFocusAgent} />
       <UtilityStack onOpen={props.onOpen} />
@@ -40,12 +43,132 @@ export default function Hud(props: HudProps) {
   );
 }
 
-// --- 프로젝트 스위처(top-left) ---
-function ProjectSwitcher({ name, onSwitch }: { name: string; onSwitch?: () => void }) {
+// --- 프로젝트 스위처(top-left) — 목록/전환/생성/삭제 드롭다운 ---
+function ProjectSwitcher({ name, currentProjectId }: { name: string; currentProjectId?: string }) {
+  const router = useRouter();
+  const { getToken: clerkToken } = useAuth();
+  const getToken = async () => (E2E ? "e2e" : await clerkToken());
+
+  const [open, setOpen] = useState(false);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [confirmId, setConfirmId] = useState<string | null>(null); // 삭제 확인 중인 행
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // 열 때마다 목록 새로고침(생성/삭제 후 최신 반영).
+  useEffect(() => {
+    if (!open) { setConfirmId(null); return; }
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const token = await getToken();
+        const rows = await apiFetch<{ id: string; name: string }[]>("/api/projects", { token });
+        if (alive) setProjects(rows);
+      } catch {
+        if (alive) setProjects([]);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // 바깥 클릭/ESC로 닫기.
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+
+  function goTo(id: string) {
+    setOpen(false);
+    if (id !== currentProjectId) router.push(`/app/${id}`);
+  }
+
+  async function del(id: string) {
+    try {
+      const token = await getToken();
+      await apiFetch(`/api/projects/${id}`, { method: "DELETE", token });
+    } catch { /* 이미 없거나 권한 문제 — 목록에서만 제거 */ }
+    const rest = projects.filter((p) => p.id !== id);
+    setProjects(rest);
+    setConfirmId(null);
+    // 현재 보고 있는 프로젝트를 지웠으면 → 다른 프로젝트 or 온보딩으로.
+    if (id === currentProjectId) router.push(rest.length ? `/app/${rest[0].id}` : "/onboarding");
+  }
+
   return (
-    <button onClick={onSwitch} className="btn-pill btn-primary absolute left-5 top-5 z-20 max-w-[200px] text-sm">
-      <span className="truncate">{name}</span> ▾
-    </button>
+    <div ref={wrapRef} className="absolute left-5 top-5 z-30">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="btn-pill btn-primary max-w-[220px] text-sm"
+        title="Switch, create, or delete projects"
+      >
+        <span className="truncate">{name}</span> <span className="opacity-80">▾</span>
+      </button>
+
+      {open && (
+        <div className="mt-2 w-[264px] overflow-hidden rounded-tile border border-[#e6e7dd] bg-white/97 shadow-card backdrop-blur">
+          <div className="border-b border-[#eeefe7] px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-[#a9a89c]">
+            Your projects
+          </div>
+          <div className="max-h-[320px] overflow-y-auto py-1">
+            {loading ? (
+              <div className="px-3 py-2.5 text-sm text-[#8f8c7e]">Loading…</div>
+            ) : projects.length === 0 ? (
+              <div className="px-3 py-2.5 text-sm text-[#8f8c7e]">No projects yet</div>
+            ) : (
+              projects.map((p) => {
+                const current = p.id === currentProjectId;
+                return (
+                  <div key={p.id} className="group flex items-center">
+                    {confirmId === p.id ? (
+                      <div className="flex w-full items-center justify-between gap-2 px-3 py-2 text-sm">
+                        <span className="truncate text-[#c0341f]">Delete “{p.name}”?</span>
+                        <span className="flex flex-none gap-2">
+                          <button onClick={() => del(p.id)} className="font-extrabold text-[#e8503a] hover:underline">Delete</button>
+                          <button onClick={() => setConfirmId(null)} className="text-[#8f8c7e] hover:underline">Cancel</button>
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => goTo(p.id)}
+                          className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-sm hover:bg-black/5"
+                        >
+                          <span className={clsx("truncate", current ? "font-extrabold text-[#2c2925]" : "text-[#55514a]")}>{p.name}</span>
+                          {current && <span className="flex-none text-[#4dbb5c]">✓</span>}
+                        </button>
+                        <button
+                          onClick={() => setConfirmId(p.id)}
+                          title="Delete project"
+                          className="flex-none px-2.5 py-2 text-[#b7b6ab] opacity-0 transition group-hover:opacity-100 hover:text-[#e8503a]"
+                        >
+                          🗑
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <button
+            onClick={() => { setOpen(false); router.push("/onboarding"); }}
+            className="flex w-full items-center gap-2 border-t border-[#eeefe7] px-3 py-2.5 text-sm font-extrabold text-[#2f9fc7] hover:bg-black/5"
+          >
+            <span className="text-base leading-none">＋</span> New project
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

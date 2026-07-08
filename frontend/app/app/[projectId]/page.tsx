@@ -117,6 +117,7 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
       />
       <Hud
         projectName={data.project.name}
+        currentProjectId={data.project.id}
         onSend={sendChat}
         onFocusAgent={(id) => openPanel({ kind: "agent", id })}
         onOpen={(w) => {
