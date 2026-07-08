@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.crews.base import _coerce_output, detect_needs_input
-from app.crews.factory import build_agent_crew
+from app.crews.factory import TextLLM
 from app.models import Agent, AgentMemory, Output, Task
 from app.services import events
 from app.services import task_service as ts
@@ -31,18 +31,6 @@ from app.services.prompt import assemble_prompt
 from app.services.slack_alerts import send_slack_alert
 
 log = logging.getLogger("app.worker")
-
-
-def _tokens(crew, prompt: str, output: str) -> tuple[int, int]:
-    """crew.usage_metrics에서 토큰을, 없으면 길이 휴리스틱(≈4 chars/token)으로."""
-    um = getattr(crew, "usage_metrics", None)
-    pin = int(getattr(um, "prompt_tokens", 0) or 0)
-    pout = int(getattr(um, "completion_tokens", 0) or 0)
-    if pin == 0:
-        pin = max(1, len(prompt) // 4)
-    if pout == 0:
-        pout = max(1, len(output) // 4)
-    return pin, pout
 
 
 def _append_memory(db: Session, agent_id, output: str) -> None:
@@ -188,15 +176,12 @@ def process_task(db: Session, task_id: uuid.UUID, *, llm=None, dev_client=None, 
             return run_dev_task_cma(db, task, agent, model, cfg, enqueue)
         return _run_dev_task(db, task, agent, model, cfg, dev_client, enqueue)
 
-    # crew 경로.
+    # 텍스트 경로(기획/리서치 등 글쓰기팀) — litellm 1회 호출(과거 CrewAI).
     prompt = assemble_prompt(db, task, context_token_budget=cfg.context_token_budget)
-    if llm is None:
-        from crewai.llm import LLM
-        llm = LLM(model=model)
+    client = llm or TextLLM(model)
 
     try:
-        crew = build_agent_crew(llm, agent.role_instructions, prompt)
-        raw = crew.kickoff(inputs={"prompt": prompt})
+        raw, tokens_in, tokens_out = client.complete(agent.role_instructions, prompt)
         output = _coerce_output(raw)
     except Exception as exc:  # noqa: BLE001 — 워커 경계.
         _refund_if_billing(db, task, agent, cfg)  # 시스템 실패(크래시) → 환불
@@ -207,7 +192,6 @@ def process_task(db: Session, task_id: uuid.UUID, *, llm=None, dev_client=None, 
         events.emit_status(task)
         return "failed"
 
-    tokens_in, tokens_out = _tokens(crew, prompt, output)
     question = detect_needs_input(output)
     if question is not None:
         cost = cost_usd(cfg, model, tokens_in, tokens_out)

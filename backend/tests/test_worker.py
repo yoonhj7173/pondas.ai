@@ -91,7 +91,7 @@ def test_crew_exception_fails(env):
     tid = _queued(db, uid, pid, aid)
 
     class BoomLLM(ScriptedLLM):
-        def call(self, messages, *a, **k):
+        def complete(self, *a, **k):
             raise RuntimeError("llm boom")
 
     assert worker_core.process_task(db, tid, llm=BoomLLM(["x"])) == "failed"
