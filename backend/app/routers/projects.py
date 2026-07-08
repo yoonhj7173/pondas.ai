@@ -62,6 +62,63 @@ _ROOM_COL_W = 480
 _ROOM_ROW_H = 420
 
 
+# 팀 카드 상태 pill 우선순위 — 주의 필요한 상태부터.
+_ATTENTION = ("needs-input", "blocked")
+
+
+def _team_card(db: Session, agent_ids: list) -> tuple[str, str | None]:
+    """팀 카드용 상태 pill + 1줄 요약(영어) — 팀의 최근 task/goal에서 파생(추가 LLM 호출 없음).
+
+    규칙(우선순위): needs-input(질문) > failed(에러) > working(진행 중 goal) > done(완료 goal) > idle.
+    요약 소스: needs-input→awaiting_prompt / failed→error_summary / working·done·idle→goal 제목.
+    누가 부르나: _build_map(팀 카드). goal 제목은 오케스트레이터가 이미 짧게 생성 → 재활용.
+    """
+    from app.models import Goal, Task
+
+    if not agent_ids:
+        return "idle", None
+
+    rows = (
+        db.query(Task, Goal.title)
+        .outerjoin(Goal, Task.goal_id == Goal.id)
+        .filter(Task.agent_id.in_(agent_ids))
+        .order_by(Task.created_at.desc())
+        .limit(30)
+        .all()
+    )
+    if not rows:
+        return "idle", None
+
+    def first(pred):
+        return next(((t, g) for t, g in rows if pred(t)), None)
+
+    needs = first(lambda t: t.status in _ATTENTION)
+    fail = first(lambda t: t.status == "failed")
+    work = first(lambda t: t.status in ("working", "queued"))
+    latest_task, latest_goal = rows[0]
+
+    if needs:
+        t, _ = needs
+        return "needs-input", _clip(t.awaiting_prompt) or "Waiting for your input"
+    if fail:
+        t, _ = fail
+        return "failed", _clip(t.error_summary) or "Something went wrong — take a look"
+    if work:
+        _, g = work
+        return "working", (_clip(g) + "…") if g else "Working on your request…"
+    if latest_task.status == "done":
+        return "done", _clip(latest_goal) or "Task complete"
+    return "idle", _clip(latest_goal)
+
+
+def _clip(s: str | None, n: int = 90) -> str | None:
+    """요약 1줄 — 앞뒤 공백 정리 + n자 초과 시 말줄임(카드에선 다시 줄바꿈되지만 폭주 방지)."""
+    if not s:
+        return None
+    s = " ".join(s.split())
+    return s if len(s) <= n else s[: n - 1].rstrip() + "…"
+
+
 def _build_map(db: Session, project: Project) -> MapOut:
     """맵 데이터 만들기 — 사무실 화면을 그리는 데 필요한 모든 것을 한 덩어리로 묶어 내보낸다.
 
@@ -95,6 +152,7 @@ def _build_map(db: Session, project: Project) -> MapOut:
             )
             for a in sorted(team.agents, key=lambda x: x.slot)
         ]
+        t_status, t_summary = _team_card(db, [a.id for a in team.agents])
         team_outs.append(
             TeamMapOut(
                 id=team.id,
@@ -104,6 +162,8 @@ def _build_map(db: Session, project: Project) -> MapOut:
                 room_x=team.room_x,
                 room_y=team.room_y,
                 agents=agent_outs,
+                status=t_status,
+                summary=t_summary,
             )
         )
 
