@@ -3,7 +3,6 @@
 // 프로젝트 오피스 맵 — 실 /map 엔드포인트 연결. HUD/패널은 item 23-25에서 얹는다.
 import { useEffect, useState } from "react";
 import { useAuth, UserButton } from "@clerk/nextjs";
-import dynamic from "next/dynamic";
 import { apiFetch, E2E } from "@/lib/api";
 import { useStore } from "@/lib/store";
 import { connectSSE } from "@/lib/sse";
@@ -13,8 +12,7 @@ import { PanelController, type Selection } from "@/components/panels/PanelContro
 import { BoardOverlay, OutputsOverlay, SettingsOverlay, type OverlayKind } from "@/components/overlays/Overlays";
 import { TreasuryTile, BillingModal } from "@/components/billing/Treasury";
 import { Theater } from "@/components/preview/Theater";
-
-const MapCanvas = dynamic(() => import("@/components/map/MapCanvas"), { ssr: false });
+import TeamCardOffice from "@/components/map/TeamCardOffice";
 
 /**
  * ProjectMap — 제품의 메인 화면. 사무실 맵 + HUD(채팅·벨) + 패널/오버레이를 한 화면에 조립한다.
@@ -73,11 +71,6 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.projectId]);
 
-  async function persistRoom(teamId: string, x: number, y: number) {
-    const token = await getToken();
-    await apiFetch(`/api/teams/${teamId}`, { method: "PATCH", token, body: JSON.stringify({ room_x: x, room_y: y }) }).catch(() => {});
-  }
-
   // 패널/모달 ↔ 오버레이 상호배타 — 하나 열면 다른 건 닫힌다.
   function openPanel(s: Selection) { setOverlay(null); setSel(s); }
   function openOverlay(o: OverlayKind) { setSel({ kind: "none" }); setOverlay(o); }
@@ -117,14 +110,10 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
 
   return (
     <div className="relative h-screen w-screen overflow-hidden">
-      <MapCanvas
+      <TeamCardOffice
         data={data}
-        callbacks={{
-          onRoomMoved: persistRoom,
-          onSelectAgent: (id) => openPanel({ kind: "agent", id }),
-          onSelectTeam: (id) => openPanel({ kind: "team", id }),
-          onDeselect: closeAll,
-        }}
+        onSelectAgent={(id) => openPanel({ kind: "agent", id })}
+        onSelectTeam={(id) => openPanel({ kind: "team", id })}
       />
       <Hud
         projectName={data.project.name}
