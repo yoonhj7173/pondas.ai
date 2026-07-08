@@ -1,7 +1,7 @@
 "use client";
 
 // 인스펙터 사이드 패널(item 24, D15/Flow 4) — 글래스 372px. 팀/에이전트 패널.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import dynamic from "next/dynamic";
 import { GlassPanel, PillButton, StatusChip } from "@/components/ui/primitives";
@@ -141,6 +141,13 @@ export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput, on
         </button>
       )}
 
+      {working && data.active_started_at && (
+        <div className="mt-4 flex items-center gap-2 rounded-xl border-2 border-status-working/40 bg-status-working/10 p-3 text-sm text-status-working">
+          <span className="inline-block h-2 w-2 flex-none animate-pulse rounded-full bg-status-working" />
+          <span className="font-bold">{data.status === "queued" ? "Queued" : "Working"} · <Elapsed since={data.active_started_at} /></span>
+        </div>
+      )}
+
       {(data.status === "needs-input" || data.status === "blocked") && (
         <div className="mt-4 rounded-xl border-2 border-status-needs-input/40 bg-status-needs-input/10 p-3">
           <Label>Provide human input</Label>
@@ -183,4 +190,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 function Label({ children }: { children: React.ReactNode }) {
   return <div className="font-mono text-[10px] uppercase tracking-wider text-muted">{children}</div>;
+}
+
+// 진행 중 경과시간 — 매초 갱신(작업이 도는지/멈췄는지 감각을 준다).
+function Elapsed({ since }: { since: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const secs = Math.max(0, Math.floor((now - new Date(since).getTime()) / 1000));
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+  const label = h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
+  return <span className="tabular-nums">{label}</span>;
 }
