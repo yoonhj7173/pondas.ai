@@ -143,6 +143,25 @@ def test_reaper_fails_stale_working(env):
     assert row.status == "failed" and "reaped" in row.error_summary.lower()
 
 
+def test_reaper_reenqueues_stuck_queued(env, monkeypatch):
+    """유실/데드락된 queued task를 재큐잉하되 status는 그대로 두고 fail시키지 않는다(#1 Redis 유실 완화)."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import update
+
+    db, uid, pid, aid = env
+    sent: list = []
+    monkeypatch.setattr("app.celery_app.enqueue_task", lambda tid: sent.append(tid))
+    tid = _queued(db, uid, pid, aid)  # status=queued
+    old = datetime.now(timezone.utc) - timedelta(minutes=10)
+    db.execute(update(Task).where(Task.id == tid).values(updated_at=old))
+    db.commit()
+
+    assert worker_core._recover_stuck_queued(db) >= 1
+    assert tid in sent                                   # 재큐잉됨
+    assert db.get(Task, tid).status == "queued"          # fail 아님 — 그대로 대기
+
+
 def test_celery_run_task_wrapper(env):
     # Celery 래퍼(자체 세션)를 LLM 없이 검증 — paused 프로젝트 → not_dispatched.
     db, uid, pid, aid = env

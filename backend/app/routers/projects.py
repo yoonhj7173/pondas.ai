@@ -19,7 +19,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.auth import TenantScope, require_user, tenant_scope
 from app.db import get_db
@@ -140,6 +140,7 @@ def _build_map(db: Session, project: Project) -> MapOut:
 
     teams = (
         db.query(Team)
+        .options(selectinload(Team.agents))  # 팀별 agents lazy-load N+1 제거(감사 P2).
         .filter(Team.project_id == project.id)
         .order_by(Team.created_at)
         .all()
