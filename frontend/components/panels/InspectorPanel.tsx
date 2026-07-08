@@ -79,8 +79,8 @@ export function TeamPanel({ data, onClose, onAddAgent, onSelectAgent, onRemove }
  * 누가 부르나: PanelController가 sel.kind==="agent"일 때.
  * 연결: 버튼 동작(onStop/onProvideInput/onRemove) → PanelController → 백엔드 tasks.py/teams.py.
  */
-export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput, onRetry, onViewOutputs, canPreview, onOpenTheater }: {
-  data: AgentPanelData; onClose: () => void; onStop: () => void; onRemove: () => void; onProvideInput: (text: string) => void; onRetry: () => void; onViewOutputs?: () => void; canPreview?: boolean; onOpenTheater?: () => void;
+export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput, onRetry, onViewOutputs, canPreview, onOpenTheater, busy }: {
+  data: AgentPanelData; onClose: () => void; onStop: () => void; onRemove: () => void; onProvideInput: (text: string) => void; onRetry: () => void; onViewOutputs?: () => void; canPreview?: boolean; onOpenTheater?: () => void; busy?: boolean;
 }) {
   const v = visualStatus(data.status);
   const headerTint = v === "needs-input" ? "#FBEFCB" : v === "failed" ? "#F8DAD3" : "#DCEEF8";
@@ -153,7 +153,7 @@ export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput, on
           <Label>Provide human input</Label>
           {data.awaiting_prompt && <p className="mt-1 text-sm font-bold text-ink-soft">{data.awaiting_prompt}</p>}
           <textarea value={input} onChange={(e) => setInput(e.target.value)} className="mt-1 w-full rounded-lg border border-white bg-white/70 p-2 text-sm outline-none" rows={2} placeholder="Answer the agent's question…" />
-          <PillButton variant="confirm" className="mt-2 w-full" onClick={() => onProvideInput(input)}>Send &amp; resume</PillButton>
+          <PillButton variant="confirm" className="mt-2 w-full" disabled={busy || !input.trim()} onClick={() => onProvideInput(input)}>Send &amp; resume</PillButton>
         </div>
       )}
       {data.status === "failed" && (
@@ -162,9 +162,9 @@ export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput, on
 
       <div className="mt-5 flex flex-col gap-2">
         {data.status === "failed" && data.failed_task_id && (
-          <PillButton variant="confirm" onClick={onRetry}>↻ Retry task</PillButton>
+          <PillButton variant="confirm" onClick={onRetry} disabled={busy}>↻ Retry task</PillButton>
         )}
-        {working && <PillButton variant="danger" onClick={onStop}>■ Stop task</PillButton>}
+        {working && <PillButton variant="danger" onClick={onStop} disabled={busy}>■ Stop task</PillButton>}
         {working ? (
           <span className="rounded-pill border-2 border-dashed border-muted-2 py-2 text-center text-sm text-muted">Stop the task before removing</span>
         ) : (

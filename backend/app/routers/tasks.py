@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import TenantScope, tenant_scope
 from app.db import get_db
+from app.ratelimit import rate_limit
 from app.models import Project, Task
 from app.schemas import NonBlankStr
 from app.services import events
@@ -61,7 +62,11 @@ def stop_task(
     events.emit_status(task)
 
 
-@router.post("/tasks/{task_id}/continue", status_code=204)
+@router.post(
+    "/tasks/{task_id}/continue",
+    status_code=204,
+    dependencies=[Depends(rate_limit("20/minute", "task_continue"))],  # LLM 실행 트리거 → chat과 동급 제한.
+)
 def continue_task(
     task_id: uuid.UUID,
     body: ContinueIn,
@@ -85,7 +90,11 @@ def continue_task(
     enqueue_task(task.id)
 
 
-@router.post("/tasks/{task_id}/retry", status_code=204)
+@router.post(
+    "/tasks/{task_id}/retry",
+    status_code=204,
+    dependencies=[Depends(rate_limit("20/minute", "task_retry"))],  # 새 task 생성 + LLM 트리거 → 제한 필수.
+)
 def retry_task(
     task_id: uuid.UUID,
     scope: TenantScope = Depends(tenant_scope),

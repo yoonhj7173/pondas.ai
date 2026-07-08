@@ -83,11 +83,14 @@ def _post(
     task_id=None,
     stripe_ref: str | None = None,
     note: str | None = None,
+    guard_min: int | None = None,
 ) -> int:
     """잔액 변동 1건 적용 — 원장 1줄 기록 + balance 캐시 갱신. 새 잔액 반환.
 
     모든 크레딧 변동의 단일 통로. balance_after를 원장에 박아 감사 가능하게 한다.
     stripe_ref가 이미 적립됐으면(웹훅 중복) 스킵하고 현재 잔액 반환(멱등).
+    guard_min이 주어지면(차감 시 캡 ON) balance>=guard_min일 때만 원자적으로 차감하고, 조건
+        미달(0행)이면 InsufficientCreditsError — 캡 체크와 차감이 한 문장이라 TOCTOU가 없다(감사 P0).
     """
     if delta > 0 and stripe_ref and _already_posted(db, stripe_ref):
         return get_or_create_account(db, user_id).balance
@@ -96,11 +99,13 @@ def _post(
     db.flush()
     # 잔액은 read-modify-write 대신 원자적 UPDATE로 더한다 — 동시 변동(워커 차감 + 웹훅 충전 등)에서
     # lost-update/캡 우회를 막는다(감사 P0). DB가 행 단위로 직렬화한다.
-    db.execute(
-        update(CreditAccount)
-        .where(CreditAccount.user_id == user_id)
-        .values(balance=CreditAccount.balance + delta)
-    )
+    stmt = update(CreditAccount).where(CreditAccount.user_id == user_id)
+    if guard_min is not None:
+        stmt = stmt.where(CreditAccount.balance >= guard_min)  # 캡 가드: 부족하면 0행 → 미차감.
+    res = db.execute(stmt.values(balance=CreditAccount.balance + delta))
+    if guard_min is not None and res.rowcount == 0:
+        db.refresh(acct, attribute_names=["balance"])
+        raise InsufficientCreditsError(-delta, acct.balance)
     db.refresh(acct, attribute_names=["balance"])  # 갱신된 잔액을 ORM 객체에 반영.
     db.add(
         CreditLedger(
@@ -133,9 +138,10 @@ def charge_task(db: Session, user_id: str, task_id, model_tier: str | None) -> i
     """
     cost = credit_cost(model_tier)
     acct = get_or_create_account(db, user_id)
-    if acct.spending_cap_enabled and acct.balance < cost:
-        raise InsufficientCreditsError(cost, acct.balance)
-    return _post(db, user_id, -cost, "task_charge", task_id=task_id)
+    # 캡 ON이면 원자적 조건부 차감(balance>=cost일 때만) — 캡 체크와 차감을 한 문장으로 묶어
+    # 동시 디스패치 TOCTOU(캡 우회/음수 잔액)를 막는다(감사 P0). 락 없이 DB가 행 단위 직렬화.
+    guard = cost if acct.spending_cap_enabled else None
+    return _post(db, user_id, -cost, "task_charge", task_id=task_id, guard_min=guard)
 
 
 def refund_task(db: Session, user_id: str, task_id, credits: int) -> int:

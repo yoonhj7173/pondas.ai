@@ -33,6 +33,14 @@ export function PanelController({ projectId, getToken, mapData, sel, setSel, onC
   const [templates, setTemplates] = useState<TeamTemplate[]>([]);
   const [confirm, setConfirm] = useState<null | { title: string; body: string; run: () => void }>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false); // 액션 진행 중 — 더블클릭(이중 디스패치/이중과금) 차단.
+
+  // 진행 중이면 무시하고, 끝날 때까지 busy를 잡아 버튼을 비활성화한다. call()이 이미 에러를 표면화.
+  async function guard(fn: () => Promise<void>) {
+    if (busy) return;
+    setBusy(true);
+    try { await fn(); } catch { /* call()이 err 배너로 이미 표시 */ } finally { setBusy(false); }
+  }
 
   useEffect(() => {
     (async () => {
@@ -79,11 +87,11 @@ export function PanelController({ projectId, getToken, mapData, sel, setSel, onC
     const canPreview = agentTeam?.engine === "agent_sdk" && (agent.last_output_count ?? 0) > 0;
     return (
       <>
-        <AgentPanel data={agent} onClose={close} onViewOutputs={onOpenOutputs}
+        <AgentPanel data={agent} onClose={close} onViewOutputs={onOpenOutputs} busy={busy}
           canPreview={canPreview} onOpenTheater={onOpenTheater}
-          onStop={async () => { if (agent.current_task_id) { await call(`/api/tasks/${agent.current_task_id}/stop`, "POST"); setSel({ kind: "agent", id: agent.id }); } }}
-          onProvideInput={async (text) => { if (agent.current_task_id) { await call(`/api/tasks/${agent.current_task_id}/continue`, "POST", { input: text }); setSel({ kind: "agent", id: agent.id }); } }}
-          onRetry={async () => { if (agent.failed_task_id) { await call(`/api/tasks/${agent.failed_task_id}/retry`, "POST"); setSel({ kind: "agent", id: agent.id }); } }}
+          onStop={() => guard(async () => { if (agent.current_task_id) { await call(`/api/tasks/${agent.current_task_id}/stop`, "POST"); setSel({ kind: "agent", id: agent.id }); } })}
+          onProvideInput={(text) => guard(async () => { if (agent.current_task_id) { await call(`/api/tasks/${agent.current_task_id}/continue`, "POST", { input: text }); setSel({ kind: "agent", id: agent.id }); } })}
+          onRetry={() => guard(async () => { if (agent.failed_task_id) { await call(`/api/tasks/${agent.failed_task_id}/retry`, "POST"); setSel({ kind: "agent", id: agent.id }); } })}
           onRemove={() => setConfirm({ title: "Remove agent?", body: `${agent.name} will be removed.`, run: async () => { await call(`/api/agents/${agent.id}`, "DELETE"); close(); } })} />
         {confirmEl()}
         {errBanner}

@@ -275,15 +275,21 @@ function TokenCounter() {
 function OrchestratorChat({ focused, setFocused, onSend }: { focused: boolean; setFocused: (f: boolean) => void; onSend?: HudProps["onSend"] }) {
   const [msg, setMsg] = useState("");
   const [bubbles, setBubbles] = useState<{ role: "user" | "orchestrator"; text: string }[]>([]);
+  const [sending, setSending] = useState(false); // 디스패치 중 — Enter/클릭 연타로 중복 디스패치 차단.
   const ref = useRef<HTMLInputElement>(null);
 
   async function send() {
     const m = msg.trim();
-    if (!m) return;
+    if (!m || sending) return;
+    setSending(true);
     setBubbles((b) => [...b, { role: "user", text: m }]);
     setMsg("");
-    const reply = await onSend?.(m);
-    if (typeof reply === "string" && reply) setBubbles((b) => [...b, { role: "orchestrator", text: reply }]);
+    try {
+      const reply = await onSend?.(m);
+      if (typeof reply === "string" && reply) setBubbles((b) => [...b, { role: "orchestrator", text: reply }]);
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -311,7 +317,7 @@ function OrchestratorChat({ focused, setFocused, onSend }: { focused: boolean; s
           placeholder="Tell your team what to do…"
           className="flex-1 bg-transparent px-3 py-2 font-nunito text-sm outline-none"
         />
-        <button onMouseDown={(e) => e.preventDefault()} onClick={send} className="btn-pill btn-primary !px-4 !py-2 text-sm">Send</button>
+        <button onMouseDown={(e) => e.preventDefault()} onClick={send} disabled={sending} className="btn-pill btn-primary !px-4 !py-2 text-sm disabled:opacity-60">Send</button>
       </div>
     </div>
   );
