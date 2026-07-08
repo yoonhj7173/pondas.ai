@@ -256,6 +256,7 @@ class AgentPanelOut(BaseModel):
     tokens_total: int
     # 현재 활성 task(있으면) — Stop/Provide-input 동작에 필요(D16/D22).
     current_task_id: uuid.UUID | None = None
+    active_started_at: datetime | None = None  # 진행 중 경과시간 표시용(활성 task 생성 시각)
     awaiting_prompt: str | None = None
     error_summary: str | None = None
     # 실패한 최신 task(있으면) — 패널의 Retry 대상.

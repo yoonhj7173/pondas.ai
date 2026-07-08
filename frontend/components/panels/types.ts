@@ -14,6 +14,7 @@ export interface AgentPanelData {
   id: string; team_id: string; name: string; role_instructions: string; model_tier: string;
   status: AgentStatus; tokens_total: number;
   current_task_id: string | null; awaiting_prompt: string | null; error_summary: string | null;
+  active_started_at: string | null; // 진행 중 경과시간 표시용
   failed_task_id: string | null; // 실패한 최신 task → Retry 대상
   // 최근 결과 인-플로우(Phase 2, D51)
   last_result_markdown: string | null; last_task_id: string | null; last_output_count: number;

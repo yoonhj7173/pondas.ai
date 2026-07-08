@@ -334,6 +334,7 @@ def _agent_panel(db: Session, agent: Agent) -> AgentPanelOut:
         status=status_by_agent.get(agent.id, "idle"),
         tokens_total=int(latest.tokens_in + latest.tokens_out) if latest else 0,
         current_task_id=active.id if active else None,
+        active_started_at=active.created_at if active else None,
         awaiting_prompt=active.awaiting_prompt if active else None,
         error_summary=latest.error_summary if latest and latest.status == "failed" else None,
         failed_task_id=latest.id if latest and latest.status == "failed" else None,
