@@ -65,12 +65,16 @@ export default function TeamCardOffice({
     (liveAgents[a.id]?.status as AgentStatus) ?? a.status;
 
   return (
-    <div className="flex h-full w-full justify-center overflow-y-auto px-5 pb-8 pt-6 max-[1100px]:pt-24">
-      <div className="grid w-full max-w-[720px] grid-cols-1 content-start gap-5 sm:grid-cols-2">
-        {data.teams.map((team) => (
-          <TeamCard key={team.id} team={team} liveStatus={liveStatus}
-            onSelectTeam={onSelectTeam} onSelectAgent={onSelectAgent} />
-        ))}
+    // 세로 중앙정렬(콘텐츠 짧으면 가운데, 많으면 스크롤) + 상하 여백으로 HUD 밴드(상단 스위처/Activity,
+    // 하단 챗바) 겹침 회피. min-h-full + items-center = "맞으면 중앙, 넘치면 스크롤"의 정석.
+    <div className="h-full w-full overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center px-5 pb-28 pt-20">
+        <div className="grid w-full max-w-[720px] grid-cols-1 gap-5 sm:grid-cols-2">
+          {data.teams.map((team) => (
+            <TeamCard key={team.id} team={team} liveStatus={liveStatus}
+              onSelectTeam={onSelectTeam} onSelectAgent={onSelectAgent} />
+          ))}
+        </div>
       </div>
     </div>
   );
