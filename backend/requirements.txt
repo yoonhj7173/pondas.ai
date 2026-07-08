@@ -28,6 +28,9 @@ e2b==2.28.2
 # --- Security: rate limiting ---
 slowapi==0.1.9
 
+# --- Auth: Clerk JWT verification (RS256 via JWKS) — was transitive via crewai ---
+PyJWT[crypto]==2.13.0
+
 # --- Billing: Stripe (D46) ---
 stripe>=11.0,<13
 
