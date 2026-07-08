@@ -321,28 +321,52 @@ def reap_stale_tasks(db: Session, older_than_sec: int = 600) -> int:
     if n:
         db.commit()
 
-    # queued인데 30분 넘게 디스패치 안 된 task = 게이트 데드락/유실 신호 → 임계 통과 시 1회 알림
-    # (auto-fail 안 함; queued는 정당하게 대기 중일 수 있음). 직전 reap 주기에 막 넘은 것만 골라 스팸 방지.
-    _alert_stuck_queued(db)
+    # queued 유실/데드락 복구 — 브로커 재시작(비영속 Redis)/게이트 데드락으로 멈춘 대기 task 재큐잉.
+    _recover_stuck_queued(db)
     return n
 
 
-def _alert_stuck_queued(db: Session, stuck_sec: int = 1800) -> None:
-    """30분 넘게 queued에 갇힌 task를 임계 통과 시점에 한 번 Slack 알림(감사 P1 — 침묵 블라인드스팟)."""
+def _recover_stuck_queued(db: Session, stuck_sec: int = 180) -> int:
+    """queued에 갇힌 task 복구 — 유실/데드락된 대기 task를 다시 큐에 올린다(감사 P1).
+
+    무슨 일을 하나: status=queued인데 stuck_sec(기본 3분) 넘게 디스패치 안 된 task를 재큐잉한다.
+        비영속 Redis가 재시작하면 브로커의 대기 메시지가 증발 → task는 DB엔 queued인데 아무도 안
+        집는다(유실 벡터). 동시성 게이트로 대기하던 형제 task도 마찬가지로 멈출 수 있다. process_task는
+        status 가드로 멱등이라, 혹시 브로커에 아직 남아있어도 중복 큐잉은 무해하다.
+    누가 부르나: reap_stale(주기 beat, 60초). 반환: 재큐잉한 개수.
+    한계: 정당하게 게이트된(일시정지 등) task도 매 주기 재큐잉→게이트 재확인(저비용). 30분 넘게도 안
+        풀리면 진짜 데드락 신호 → 임계 크로싱 시 1회 Slack 알림.
+    """
     from datetime import timedelta
+
+    from app.celery_app import enqueue_task
 
     now = datetime.now(timezone.utc)
     stuck = (
         db.query(Task)
+        .filter(Task.status == "queued", Task.updated_at < now - timedelta(seconds=stuck_sec))
+        .limit(200)
+        .all()
+    )
+    for t in stuck:
+        enqueue_task(t.id)  # 멱등 재큐잉(유실/데드락 복구).
+
+    # 30분 넘게도 안 풀린 것 = 진짜 데드락 → 임계 크로싱 시 1회 알림(스팸 방지). 비교는 SQL에서
+    # (updated_at은 tz-naive 컬럼이라 파이썬에서 aware now와 직접 비교하면 TypeError).
+    hard = (
+        db.query(Task)
         .filter(
             Task.status == "queued",
-            Task.updated_at < now - timedelta(seconds=stuck_sec),
-            Task.updated_at >= now - timedelta(seconds=stuck_sec + 90),  # 직전 1주기에 막 넘은 것만.
+            Task.updated_at < now - timedelta(seconds=1800),
+            Task.updated_at >= now - timedelta(seconds=1890),
         )
         .all()
     )
-    if not stuck:
-        return
-    ids = ", ".join(str(t.id) for t in stuck[:10])
-    log.warning("stuck queued tasks (>%ds, never dispatched): %s", stuck_sec, ids)
-    send_slack_alert(f"stuck tasks · {len(stuck)} queued >30m (never dispatched)", f"task ids: {ids}")
+    if hard:
+        ids = ", ".join(str(t.id) for t in hard[:10])
+        log.warning("stuck queued tasks (>1800s, re-enqueued): %s", ids)
+        send_slack_alert(
+            f"stuck tasks · {len(hard)} queued >30m (re-enqueued, still stuck)",
+            f"task ids: {ids}",
+        )
+    return len(stuck)
