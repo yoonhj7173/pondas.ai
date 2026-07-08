@@ -183,6 +183,33 @@ def test_stop_dev_task_via_api(client, auth, env):
     assert row.status == "failed" and row.stopped is True
 
 
+def test_retry_failed_task_spawns_new_queued_task(client, auth, env):
+    db, uid, pid, swe, qa, pm = env
+    a = db.get(Agent, swe)
+    t = ts.create_task(db, user_id=uid, project_id=pid, agent=a, instructions="build the widget", origin="chat")
+    t.status = "failed"; t.error_summary = "boom"; db.commit()
+    resp = client.post(f"/api/tasks/{t.id}/retry", headers=auth(uid))
+    assert resp.status_code == 204
+    db.expire_all()
+    assert db.get(Task, t.id).status == "failed"  # 실패 이력 보존
+    fresh = (
+        db.query(Task)
+        .filter(Task.agent_id == a.id, Task.status == "queued", Task.instructions == "build the widget")
+        .order_by(Task.created_at.desc())
+        .first()
+    )
+    assert fresh is not None and fresh.id != t.id  # 같은 지시로 새 큐 작업
+
+
+def test_retry_rejects_non_failed_task(client, auth, env):
+    db, uid, pid, swe, qa, pm = env
+    a = db.get(Agent, qa)
+    t = ts.create_task(db, user_id=uid, project_id=pid, agent=a, instructions="x", origin="chat")
+    db.commit()  # queued
+    resp = client.post(f"/api/tasks/{t.id}/retry", headers=auth(uid))
+    assert resp.status_code == 409
+
+
 # --- pause blocks dev dispatch ---
 
 

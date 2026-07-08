@@ -83,6 +83,7 @@ export function PanelController({ projectId, getToken, mapData, sel, setSel, onC
           canPreview={canPreview} onOpenTheater={onOpenTheater}
           onStop={async () => { if (agent.current_task_id) { await call(`/api/tasks/${agent.current_task_id}/stop`, "POST"); setSel({ kind: "agent", id: agent.id }); } }}
           onProvideInput={async (text) => { if (agent.current_task_id) { await call(`/api/tasks/${agent.current_task_id}/continue`, "POST", { input: text }); setSel({ kind: "agent", id: agent.id }); } }}
+          onRetry={async () => { if (agent.failed_task_id) { await call(`/api/tasks/${agent.failed_task_id}/retry`, "POST"); setSel({ kind: "agent", id: agent.id }); } }}
           onRemove={() => setConfirm({ title: "Remove agent?", body: `${agent.name} will be removed.`, run: async () => { await call(`/api/agents/${agent.id}`, "DELETE"); close(); } })} />
         {confirmEl()}
         {errBanner}
