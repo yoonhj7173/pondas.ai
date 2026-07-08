@@ -78,6 +78,33 @@ def test_seed_is_idempotent():
         db.close()
 
 
+def test_seed_preserves_live_tuned_caps():
+    """유저가 UI에서 튜닝한 cost/concurrency cap을 재-seed(배포)가 덮어쓰지 않는다(D32, 감사 P2).
+
+    config 테이블은 전 테스트 공유 → 다른 테스트(test_gate_concurrency_cap은 cap=3 가정)를 깨지
+    않도록 끝나면 원래 값으로 복원한다.
+    """
+    db = SessionLocal()
+    try:
+        seed(db)
+        orig_cost = db.query(Config).filter_by(key="daily_cost_cap_usd").one().value
+        orig_conc = db.query(Config).filter_by(key="concurrency_cap").one().value
+        try:
+            db.query(Config).filter_by(key="daily_cost_cap_usd").one().value = "77"
+            db.query(Config).filter_by(key="concurrency_cap").one().value = "5"
+            db.commit()
+            seed(db)  # 배포 = 재-seed → 라이브 값 보존.
+            assert db.query(Config).filter_by(key="daily_cost_cap_usd").one().value == "77"
+            assert db.query(Config).filter_by(key="concurrency_cap").one().value == "5"
+            assert db.query(Config).filter_by(key="model_pricing").one().value == json.dumps(MODEL_PRICING)
+        finally:  # 공유 config 원복(다른 테스트 오염 방지).
+            db.query(Config).filter_by(key="daily_cost_cap_usd").one().value = orig_cost
+            db.query(Config).filter_by(key="concurrency_cap").one().value = orig_conc
+            db.commit()
+    finally:
+        db.close()
+
+
 def test_templates_engine_and_starters():
     db = SessionLocal()
     try:

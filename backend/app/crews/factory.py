@@ -33,12 +33,17 @@ class TextLLM:
     def complete(self, system: str, prompt: str) -> tuple[str, int, int]:
         from litellm import completion
 
+        # system(역할지침)에 cache_control — 같은 에이전트가 여러 task를 돌리면 지침 프리픽스를
+        # 캐시 히트(D26/D32, 5분 TTL). max_tokens로 출력 비용 상한(런어웨이 방지).
         resp = completion(
             model=self.model,
             messages=[
-                {"role": "system", "content": system},
+                {"role": "system", "content": [
+                    {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}},
+                ]},
                 {"role": "user", "content": prompt},
             ],
+            max_tokens=settings.text_agent_max_tokens,
             timeout=settings.llm_request_timeout_sec,
             num_retries=settings.llm_num_retries,
         )
