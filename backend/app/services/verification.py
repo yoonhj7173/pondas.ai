@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 import mimetypes
-import time
 
 from sqlalchemy.orm import Session
 
@@ -25,64 +24,13 @@ from app.services.sandbox import IGNORE_DIRS, SandboxProvider
 log = logging.getLogger("app.verification")
 
 # QA 역할 프롬프트 보강(D31): 빌드 성공이 아니라 실행해서 확인됐을 때만 APPROVED.
+# NOTE: 아직 프롬프트 빌더에 배선 안 됨(미사용) — D31 QA 동작검증 배선 시 사용 예정.
 QA_ADDENDUM = (
     "\n\n# Verification rule\n"
     "Start the app and exercise the real behavior before approving. A passing build is not "
     "enough. Emit APPROVED only when you have run it and confirmed it works as expected; "
     "otherwise return specific, reproducible feedback."
 )
-
-
-def start_dev_server(provider: SandboxProvider, sandbox_id: str, cmd: str, port: int,
-                     *, health_path: str = "/", timeout: int = 30) -> bool:
-    """개발 서버 띄우기 — 만든 앱을 샌드박스에서 실제로 실행하고, 포트가 응답할 때까지 기다린다.
-
-    무슨 일을 하나: 'npm run dev' 같은 명령을 백그라운드로 띄우고, 해당 포트가 응답(< 500)할 때까지
-        폴링한다. "빌드 통과가 아니라 진짜 떠야 성공"이라는 검증 철학의 출발점.
-    누가 부르나: 동작 검증이 필요한 개발/디자인 흐름(QA·디자이너 역할). 연결: 렌더 확인 → assert_rendered, screenshot.
-    """
-    # 백그라운드 기동(셸이 즉시 반환). 로그는 파일로.
-    provider.exec(sandbox_id, f"nohup {cmd} > .devserver.log 2>&1 &", timeout=10)
-    deadline = time.time() + timeout
-    probe = (
-        "python3 -c \"import sys,urllib.request as u; "
-        f"sys.exit(0 if u.urlopen('http://127.0.0.1:{port}{health_path}', timeout=2).status<500 else 1)\""
-    )
-    while time.time() < deadline:
-        try:
-            res = provider.exec(sandbox_id, probe, timeout=5)
-            if res.exit_code == 0:
-                return True
-        except Exception:  # noqa: BLE001
-            pass
-        time.sleep(0.5)
-    return False
-
-
-def assert_rendered(provider: SandboxProvider, sandbox_id: str, url: str, expect: str,
-                    verification: list | None = None) -> bool:
-    """실행 중인 앱에서 URL을 가져와 expect가 렌더 내용에 있는지 확인(동작 검증)."""
-    fetch = (
-        "python3 -c \"import urllib.request as u; "
-        f"print(u.urlopen('{url}', timeout=5).read().decode('utf-8','replace'))\""
-    )
-    res = provider.exec(sandbox_id, fetch, timeout=15)
-    ok = expect in res.stdout
-    if verification is not None:
-        verification.append({"cmd": f"GET {url}", "exit_code": 0 if ok else 1,
-                             "summary": f"expected '{expect}' {'found' if ok else 'NOT found'}"})
-    return ok
-
-
-def screenshot(provider: SandboxProvider, sandbox_id: str, url: str, out_path: str,
-               *, timeout: int = 60) -> bool:
-    """Playwright headless 스크린샷 → out_path(PNG). E2B 런타임(node+playwright) 필요(D42)."""
-    cmd = f"npx --yes playwright screenshot --wait-for-timeout=1000 {url} {out_path}"
-    try:
-        res = provider.exec(sandbox_id, cmd, timeout=timeout)
-        return res.exit_code == 0
-    except Exception:  # noqa: BLE001
-        return False
 
 
 # --- 출력 수집 ---

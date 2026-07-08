@@ -1,5 +1,4 @@
-// 디자인 토큰의 TS 표현 — Pixi(월드)와 React(HUD)가 공유(D36).
-// Tailwind는 클래스용, 여기는 Pixi/런타임 계산용 raw 값.
+// 디자인 토큰의 TS 표현 — HUD/카드 오피스가 공유하는 raw 값(Tailwind는 클래스, 여기는 런타임 계산용).
 
 export type AgentStatus =
   | "idle"
@@ -9,28 +8,6 @@ export type AgentStatus =
   | "needs-input"
   | "done"
   | "failed";
-
-// 모니터 글로우 색(Workstation 스펙). blocked는 needs-input과 동일(D36).
-export const STATUS_GLOW: Record<AgentStatus, string | null> = {
-  idle: null,
-  queued: "rgba(247,183,49,0.3)",
-  working: "rgba(79,195,232,0.55)",
-  blocked: "rgba(247,183,49,0.55)",
-  "needs-input": "rgba(247,183,49,0.55)",
-  done: "rgba(95,201,110,0.55)",
-  failed: "rgba(232,80,58,0.55)",
-};
-
-// 머리 위 배지(없으면 null). 영속 배지: "!"(needs-input/blocked), "×"(failed).
-export const STATUS_BADGE: Record<AgentStatus, { glyph: string; color: string } | null> = {
-  idle: null,
-  queued: null,
-  working: null,
-  blocked: { glyph: "!", color: "#F7B731" },
-  "needs-input": { glyph: "!", color: "#F7B731" },
-  done: { glyph: "✓", color: "#5FC96E" },
-  failed: { glyph: "×", color: "#E8503A" },
-};
 
 // 상태 chip 페어(bg/fg) — README §Colors.
 export const STATUS_CHIP: Record<string, { bg: string; fg: string }> = {
