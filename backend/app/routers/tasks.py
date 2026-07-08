@@ -50,6 +50,9 @@ def stop_task(
     연결: 멈춤 로직 본체 → stop (backend/app/services/task_service.py).
     """
     task = _load_owned_task(db, scope, task_id)
+    # 행 잠금 + 최신 상태 재조회 — 워커가 방금 done으로 커밋한 task를 Stop이 failed로 덮어쓰는
+    # 레이스를 막는다(감사 P1). 락 획득 시점에 이미 종료면 ts.stop이 그대로 둔다(멱등).
+    db.refresh(task, with_for_update=True)
     project = db.get(Project, task.project_id)
 
     def kill_hook(t: Task) -> None:
