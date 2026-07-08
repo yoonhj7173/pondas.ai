@@ -2,6 +2,8 @@
 
 // 오버레이(item 25) — Board · Settings · Outputs. HUD 유틸 버튼이 연다.
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import clsx from "clsx";
 import dynamic from "next/dynamic";
 import { Overlay, PillButton } from "@/components/ui/primitives";
@@ -129,11 +131,29 @@ export function SettingsOverlay({ projectId, getToken, projectName, paused, onCl
   const [cost, setCost] = useState(10);
   const [conc, setConc] = useState(3);
   const [isPaused, setIsPaused] = useState(paused);
+  const [danger, setDanger] = useState<null | "project" | "account">(null);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const router = useRouter();
+  const { signOut } = useAuth();
 
   async function togglePause() {
     const next = !isPaused; setIsPaused(next);
     await apiFetch(`/api/projects/${projectId}/${next ? "pause" : "resume"}`, { method: "POST", token: await getToken() }).catch(() => {});
     onChanged();
+  }
+
+  async function deleteProject() {
+    setBusy(true);
+    await apiFetch(`/api/projects/${projectId}`, { method: "DELETE", token: await getToken() }).catch(() => {});
+    router.push("/app"); // /app 인덱스가 다른 프로젝트 or 온보딩으로 보냄
+  }
+
+  async function deleteAccount() {
+    setBusy(true);
+    await apiFetch(`/api/account`, { method: "DELETE", token: await getToken() }).catch(() => {});
+    try { await signOut?.(); } catch { /* Clerk 유저 이미 삭제됨 */ }
+    router.push("/");
   }
 
   return (
@@ -162,9 +182,36 @@ export function SettingsOverlay({ projectId, getToken, projectName, paused, onCl
             {tab === "project" && (
               <div className="space-y-4">
                 <div><Lbl>Project name</Lbl><input defaultValue={projectName} className="mt-1 w-full max-w-sm rounded-pill border-2 border-white bg-white/70 px-4 py-2 outline-none" /></div>
-                <div className="rounded-xl border-2 border-status-failed/40 bg-status-failed/10 p-4">
+                <div className="space-y-3 rounded-xl border-2 border-status-failed/40 bg-status-failed/10 p-4">
                   <div className="font-baloo font-bold text-status-failed">Danger zone</div>
-                  <PillButton variant="danger" className="mt-2">Delete project</PillButton>
+
+                  {/* 프로젝트 삭제 */}
+                  {danger === "project" ? (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-status-failed">Delete “{projectName}” and everything in it?</span>
+                      <PillButton variant="danger" onClick={deleteProject} disabled={busy}>{busy ? "Deleting…" : "Delete"}</PillButton>
+                      <button className="text-secondary hover:underline" onClick={() => setDanger(null)}>Cancel</button>
+                    </div>
+                  ) : (
+                    <PillButton variant="danger" onClick={() => { setDanger("project"); setTyped(""); }}>Delete project</PillButton>
+                  )}
+
+                  <div className="border-t border-status-failed/20 pt-3">
+                    <div className="text-xs text-secondary">Delete your account — all projects, remaining credits, and sign-in. This cannot be undone.</div>
+                    {danger === "account" ? (
+                      <div className="mt-2 space-y-2">
+                        <div className="text-sm text-status-failed">Type <b>DELETE</b> to confirm permanent account deletion:</div>
+                        <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="DELETE"
+                          className="w-40 rounded-pill border-2 border-status-failed/40 bg-white/70 px-3 py-1.5 text-sm outline-none" />
+                        <div className="flex items-center gap-2">
+                          <PillButton variant="danger" onClick={deleteAccount} disabled={busy || typed !== "DELETE"}>{busy ? "Deleting…" : "Delete my account"}</PillButton>
+                          <button className="text-secondary hover:underline" onClick={() => { setDanger(null); setTyped(""); }}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button className="mt-2 text-sm font-bold text-status-failed hover:underline" onClick={() => setDanger("account")}>Delete account</button>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
