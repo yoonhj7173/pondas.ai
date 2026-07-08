@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     # LLM 호출 타임아웃/재시도 — 프로바이더 행이 워커를 영구 점유하지 않게(prod 감사 P0).
     llm_request_timeout_sec: float = Field(default=120.0, alias="LLM_REQUEST_TIMEOUT_SEC")
     llm_num_retries: int = Field(default=1, alias="LLM_NUM_RETRIES")
+    # 텍스트 에이전트 출력 상한 — 비용 런어웨이 방지(문서류엔 충분). 필요 시 env로 조정.
+    text_agent_max_tokens: int = Field(default=4096, alias="TEXT_AGENT_MAX_TOKENS")
 
     # --- Auth ---
     clerk_secret_key: str = Field(default="", alias="CLERK_SECRET_KEY")

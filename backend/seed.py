@@ -57,11 +57,18 @@ def _upsert_team_template(db: Session, spec: dict) -> None:
         at.default_max_iterations = out_max_iter
 
 
+# 유저가 설정 UI에서 튜닝하는 키(D32: config가 authoritative, 배포 없이 조정) — seed가 매 배포마다
+# env 기본값으로 덮어쓰면 라이브 튜닝이 리셋된다. 이미 있으면 보존하고, 없을 때만 초기값을 심는다.
+_PRESERVE_IF_SET = frozenset({"daily_cost_cap_usd", "concurrency_cap"})
+
+
 def _upsert_config(db: Session, key: str, value: str) -> None:
     row = db.query(Config).filter_by(key=key).one_or_none()
     if row is None:
-        row = Config(key=key)
-        db.add(row)
+        db.add(Config(key=key, value=value))
+        return
+    if key in _PRESERVE_IF_SET:
+        return  # 라이브 튜닝 값 보존.
     row.value = value
 
 
