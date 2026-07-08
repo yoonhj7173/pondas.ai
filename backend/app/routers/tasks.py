@@ -83,3 +83,42 @@ def continue_task(
     events.emit_status(task)
     from app.celery_app import enqueue_task
     enqueue_task(task.id)
+
+
+@router.post("/tasks/{task_id}/retry", status_code=204)
+def retry_task(
+    task_id: uuid.UUID,
+    scope: TenantScope = Depends(tenant_scope),
+    db: Session = Depends(get_db),
+) -> None:
+    """다시 시도 버튼 — 실패한 작업을 같은 지시로 새 작업 1건을 만들어 다시 큐에 올린다.
+
+    무슨 일을 하나: 실패(failed) task는 종료 상태라 되살리지 않고, 같은 에이전트·지시·목표로
+        '새 작업'을 만들어 재실행한다(실패 이력은 그대로 보존). 크레딧/일시정지 등 실행 가능 여부는
+        기존 dispatch 검사(worker)가 그대로 판단한다.
+    누가 부르나: 에이전트 패널의 'Retry' 버튼 — frontend/components/panels/PanelController.tsx.
+    연결: 작업 생성 → create_task, 처리 → process_task (worker_core.py).
+    """
+    from app.models import Agent
+
+    task = _load_owned_task(db, scope, task_id)
+    if task.status != "failed":
+        raise HTTPException(status_code=409, detail="only failed tasks can be retried")
+    agent = db.get(Agent, task.agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    new = ts.create_task(
+        db,
+        user_id=task.user_id,
+        project_id=task.project_id,
+        agent=agent,
+        instructions=task.instructions,
+        origin=task.origin,
+        goal_id=task.goal_id,
+        input_payload=task.input_payload,
+    )
+    db.commit()
+    events.emit_status(new)
+    from app.celery_app import enqueue_task
+    enqueue_task(new.id)

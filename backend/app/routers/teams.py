@@ -336,6 +336,7 @@ def _agent_panel(db: Session, agent: Agent) -> AgentPanelOut:
         current_task_id=active.id if active else None,
         awaiting_prompt=active.awaiting_prompt if active else None,
         error_summary=latest.error_summary if latest and latest.status == "failed" else None,
+        failed_task_id=latest.id if latest and latest.status == "failed" else None,
         last_result_markdown=result_task.result_markdown if result_task else None,
         last_task_id=result_task.id if result_task else None,
         last_output_count=last_output_count,
