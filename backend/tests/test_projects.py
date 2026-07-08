@@ -132,6 +132,33 @@ def test_team_card_status_and_summary(client, auth, made):
     assert des2["status"] == "idle" and des2["summary"] is None  # task 없음
 
 
+def test_team_card_not_shadowed_by_old_failure(client, auth, made):
+    """과거 실패가 최근 성공을 가리지 않는다 — 에이전트의 최신 task가 done이면 카드도 done."""
+    from app.models import Agent, Goal
+    from app.services import task_service as ts
+
+    resp = _create(client, auth, "user_shadow", template_keys=["planning"])
+    pid = uuid.UUID(resp.json()["id"]); made.append(pid)
+    m = client.get(f"/api/projects/{pid}/map", headers=auth("user_shadow")).json()
+    aid = uuid.UUID(m["teams"][0]["agents"][0]["id"])
+
+    db = SessionLocal()
+    try:
+        agent = db.get(Agent, aid)
+        t1 = ts.create_task(db, user_id="user_shadow", project_id=pid, agent=agent,
+                            instructions="x", origin="chat")
+        t1.status = "failed"; t1.error_summary = "OPENAI_API_KEY is required"; db.commit()
+        g = Goal(project_id=pid, title="Taglines drafted"); db.add(g); db.flush()
+        t2 = ts.create_task(db, user_id="user_shadow", project_id=pid, agent=agent,
+                            instructions="y", origin="chat")
+        t2.status = "done"; t2.goal_id = g.id; db.commit()  # 더 최근 = 최신 task
+    finally:
+        db.close()
+
+    team = client.get(f"/api/projects/{pid}/map", headers=auth("user_shadow")).json()["teams"][0]
+    assert team["status"] == "done" and team["summary"] == "Taglines drafted"  # 실패가 안 가림
+
+
 def test_create_persists_real_rows(client, auth, made):
     resp = _create(client, auth, "user_rows", template_keys=["research"])
     pid = uuid.UUID(resp.json()["id"])
