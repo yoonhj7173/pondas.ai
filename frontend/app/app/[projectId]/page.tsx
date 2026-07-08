@@ -71,6 +71,25 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.projectId]);
 
+  // 팀 카드 요약 실시간 갱신 — 아바타/pill은 store로 즉시 바뀌지만, 카드 요약 텍스트는 맵 스냅샷이라
+  // task 상태가 바뀌면(working/done/failed/needs-input) 맵을 디바운스 리페치해 요약도 최신화한다.
+  // 상태 해시로 트리거 → 토큰 tick(usage) 같은 잦은 이벤트엔 반응하지 않음.
+  useEffect(() => {
+    const hash = (agents: Record<string, { status: string }>) =>
+      Object.keys(agents).map((id) => id + agents[id].status).sort().join("|");
+    let prev = hash(useStore.getState().agents);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const unsub = useStore.subscribe((s) => {
+      const h = hash(s.agents);
+      if (h === prev) return;
+      prev = h;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { loadMap().catch(() => {}); }, 900);
+    });
+    return () => { unsub(); if (timer) clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.projectId]);
+
   // 패널/모달 ↔ 오버레이 상호배타 — 하나 열면 다른 건 닫힌다.
   function openPanel(s: Selection) { setOverlay(null); setSel(s); }
   function openOverlay(o: OverlayKind) { setSel({ kind: "none" }); setOverlay(o); }

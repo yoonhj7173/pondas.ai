@@ -65,7 +65,7 @@ export default function TeamCardOffice({
     (liveAgents[a.id]?.status as AgentStatus) ?? a.status;
 
   return (
-    <div className="flex h-full w-full justify-center overflow-y-auto px-5 pb-8 pt-6">
+    <div className="flex h-full w-full justify-center overflow-y-auto px-5 pb-8 pt-6 max-[1100px]:pt-24">
       <div className="grid w-full max-w-[720px] grid-cols-1 content-start gap-5 sm:grid-cols-2">
         {data.teams.map((team) => (
           <TeamCard key={team.id} team={team} liveStatus={liveStatus}
