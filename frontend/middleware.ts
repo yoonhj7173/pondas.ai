@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 const isApp = createRouteMatcher(["/app(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (process.env.NEXT_PUBLIC_E2E === "1") return;
+  if (process.env.NEXT_PUBLIC_E2E === "1" && process.env.NODE_ENV !== "production") return; // dev 빌드에서만 게이트 우회.
   if (isApp(req)) {
     const { userId } = await auth();
     if (!userId) return NextResponse.redirect(new URL("/onboarding", req.url));

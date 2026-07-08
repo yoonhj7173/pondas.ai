@@ -134,6 +134,7 @@ export function SettingsOverlay({ projectId, getToken, projectName, paused, onCl
   const [danger, setDanger] = useState<null | "project" | "account">(null);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
+  const [dangerErr, setDangerErr] = useState<string | null>(null);
   const router = useRouter();
   const { signOut } = useAuth();
 
@@ -143,15 +144,30 @@ export function SettingsOverlay({ projectId, getToken, projectName, paused, onCl
     onChanged();
   }
 
+  // 삭제는 성공했을 때만 이동/로그아웃 — 실패 시 데이터가 남았는데 유저를 내보내면 안 됨(거짓 성공 금지).
   async function deleteProject() {
-    setBusy(true);
-    await apiFetch(`/api/projects/${projectId}`, { method: "DELETE", token: await getToken() }).catch(() => {});
+    if (busy) return;
+    setBusy(true); setDangerErr(null);
+    try {
+      await apiFetch(`/api/projects/${projectId}`, { method: "DELETE", token: await getToken() });
+    } catch (e) {
+      setBusy(false);
+      setDangerErr(e instanceof Error ? e.message : "Couldn't delete the project — try again");
+      return;
+    }
     router.push("/app"); // /app 인덱스가 다른 프로젝트 or 온보딩으로 보냄
   }
 
   async function deleteAccount() {
-    setBusy(true);
-    await apiFetch(`/api/account`, { method: "DELETE", token: await getToken() }).catch(() => {});
+    if (busy) return;
+    setBusy(true); setDangerErr(null);
+    try {
+      await apiFetch(`/api/account`, { method: "DELETE", token: await getToken() });
+    } catch (e) {
+      setBusy(false);
+      setDangerErr(e instanceof Error ? e.message : "Couldn't delete your account — try again");
+      return;  // 실패 → 로그아웃/이동 안 함(계정 남았는데 잠기는 것 방지).
+    }
     try { await signOut?.(); } catch { /* Clerk 유저 이미 삭제됨 */ }
     router.push("/");
   }
@@ -212,6 +228,8 @@ export function SettingsOverlay({ projectId, getToken, projectName, paused, onCl
                       <button className="mt-2 text-sm font-bold text-status-failed hover:underline" onClick={() => setDanger("account")}>Delete account</button>
                     )}
                   </div>
+
+                  {dangerErr && <div className="rounded-lg bg-status-failed/15 px-3 py-2 text-xs font-bold text-status-failed">{dangerErr}</div>}
                 </div>
               </div>
             )}
