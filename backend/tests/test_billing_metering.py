@@ -86,7 +86,7 @@ def test_system_failure_refunds(env, billing_on):
     cs.grant_signup(db, uid, 1000); db.commit()
 
     class BoomLLM(ScriptedLLM):
-        def call(self, messages, *a, **k):
+        def complete(self, *a, **k):
             raise RuntimeError("llm boom")
 
     tid = _queued(db, uid, pid, aid)
