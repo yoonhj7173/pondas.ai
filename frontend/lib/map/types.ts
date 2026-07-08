@@ -17,6 +17,8 @@ export interface TeamRoom {
   room_x: number;
   room_y: number;
   agents: AgentNode[];
+  status?: string;          // 팀 카드 pill: idle|working|needs-input|failed|done
+  summary?: string | null;  // 최근 활동 1줄 요약(영어)
 }
 
 export interface EdgeLink {
