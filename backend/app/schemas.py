@@ -8,10 +8,22 @@ projects / map 계약을 담는다. teams/agents/edges 관리(item 7), tasks/boa
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, PlainSerializer
+
+
+def _utc_iso(dt: datetime) -> str:
+    """naive UTC datetime을 Z-suffix ISO로 직렬화 — DB 컬럼이 tz-naive(UTC 저장)라 그냥 내보내면
+    JS `new Date()`가 로컬시간으로 오해한다(KST면 +9h). UTC임을 명시해 프론트 경과시간 오표시 방지."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+# API로 내보내는 datetime은 전부 이 타입으로 — UTC(Z) 직렬화 보장.
+UtcDatetime = Annotated[datetime, PlainSerializer(_utc_iso, return_type=str)]
 
 
 def _reject_unsafe_chars(v: object) -> object:
@@ -104,7 +116,7 @@ class WorkspaceVersionOut(BaseModel):
     task_id: uuid.UUID | None
     agent_id: uuid.UUID | None = None  # 그 버전을 만든 task의 에이전트(조인으로 채움)
     file_count: int = 0
-    created_at: datetime
+    created_at: UtcDatetime
 
 
 class ProjectFileEntry(BaseModel):
@@ -256,7 +268,7 @@ class AgentPanelOut(BaseModel):
     tokens_total: int
     # 현재 활성 task(있으면) — Stop/Provide-input 동작에 필요(D16/D22).
     current_task_id: uuid.UUID | None = None
-    active_started_at: datetime | None = None  # 진행 중 경과시간 표시용(활성 task 생성 시각)
+    active_started_at: UtcDatetime | None = None  # 진행 중 경과시간 표시용(활성 task 생성 시각)
     awaiting_prompt: str | None = None
     error_summary: str | None = None
     # 실패한 최신 task(있으면) — 패널의 Retry 대상.
