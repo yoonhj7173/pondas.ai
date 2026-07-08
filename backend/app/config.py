@@ -54,6 +54,15 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.app_env.lower() in ("production", "prod")
 
+    @property
+    def allow_e2e_bypass(self) -> bool:
+        """E2E 인증 우회 최종 게이트 — 우회 플래그 + '알려진 개발 환경'일 때만 허용(fail-safe).
+
+        APP_ENV가 미설정/오타/staging 등 dev 화이트리스트에 없으면 우회를 거부한다 → 프로덕션에
+        E2E_AUTH_BYPASS가 새어들어가도(APP_ENV까지 정확히 dev로 안 맞춘 이상) 인증이 안 뚫린다.
+        """
+        return self.e2e_auth_bypass and self.app_env.lower() in ("dev", "development", "test", "e2e", "local")
+
     # --- Infra ---
     database_url: str = Field(
         default="postgresql://cursorpm:cursorpm@localhost:5432/cursorpm",

@@ -92,11 +92,18 @@ function ProjectSwitcher({ name, currentProjectId }: { name: string; currentProj
     if (id !== currentProjectId) router.push(`/app/${id}`);
   }
 
+  const [delErr, setDelErr] = useState<string | null>(null);
+
   async function del(id: string) {
+    setDelErr(null);
     try {
       const token = await getToken();
       await apiFetch(`/api/projects/${id}`, { method: "DELETE", token });
-    } catch { /* 이미 없거나 권한 문제 — 목록에서만 제거 */ }
+    } catch (e) {
+      // 삭제 실패 → 목록/이동 그대로 두고 에러 표시(거짓 성공 금지). 유저가 재시도 가능.
+      setDelErr(e instanceof Error ? e.message : "Couldn't delete — try again");
+      return;
+    }
     const rest = projects.filter((p) => p.id !== id);
     setProjects(rest);
     setConfirmId(null);
@@ -130,12 +137,15 @@ function ProjectSwitcher({ name, currentProjectId }: { name: string; currentProj
                 return (
                   <div key={p.id} className="group flex items-center">
                     {confirmId === p.id ? (
-                      <div className="flex w-full items-center justify-between gap-2 px-3 py-2 text-sm">
-                        <span className="truncate text-[#c0341f]">Delete “{p.name}”?</span>
-                        <span className="flex flex-none gap-2">
-                          <button onClick={() => del(p.id)} className="font-extrabold text-[#e8503a] hover:underline">Delete</button>
-                          <button onClick={() => setConfirmId(null)} className="text-[#8f8c7e] hover:underline">Cancel</button>
-                        </span>
+                      <div className="w-full px-3 py-2 text-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate text-[#c0341f]">Delete “{p.name}”?</span>
+                          <span className="flex flex-none gap-2">
+                            <button onClick={() => del(p.id)} className="font-extrabold text-[#e8503a] hover:underline">Delete</button>
+                            <button onClick={() => { setConfirmId(null); setDelErr(null); }} className="text-[#8f8c7e] hover:underline">Cancel</button>
+                          </span>
+                        </div>
+                        {delErr && <div className="mt-1 text-[11px] text-[#c0341f]">{delErr}</div>}
                       </div>
                     ) : (
                       <>

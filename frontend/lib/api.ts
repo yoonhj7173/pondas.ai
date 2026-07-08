@@ -2,7 +2,9 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 // E2E 모드(dev 전용) — Clerk 사인인 우회. 백엔드도 E2E_AUTH_BYPASS로 매칭.
-export const E2E = process.env.NEXT_PUBLIC_E2E === "1";
+// E2E 우회는 개발 빌드에서만 — prod 빌드(NODE_ENV=production)에선 강제로 off(NEXT_PUBLIC_E2E가
+// 실수로 켜져도 프로덕션 UI에서 로그아웃 숨김/토큰 우회가 새지 않도록 fail-safe).
+export const E2E = process.env.NEXT_PUBLIC_E2E === "1" && process.env.NODE_ENV !== "production";
 
 /**
  * apiFetch — 백엔드 호출 공통 창구. 프론트의 모든 API 요청이 이 함수 하나를 거친다.

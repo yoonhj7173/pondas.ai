@@ -207,7 +207,7 @@ def require_user(
     # E2E 우회(개발/테스트 전용, 기본 off) — 풀스택 브라우저 E2E에서 실 Clerk 세션 없이
     # 앱 와이어링을 검증하기 위함. settings.e2e_auth_bypass가 켜질 때만 활성(프로덕션 금지).
     # 인증 로직 자체는 test_auth.py(실 JWT 검증)로 별도 검증됨.
-    if settings.e2e_auth_bypass:
+    if settings.allow_e2e_bypass:  # 우회는 '알려진 개발 환경'에서만(fail-safe, config.allow_e2e_bypass).
         return settings.e2e_user_id
 
     raw = _extract_bearer(authorization, token)
