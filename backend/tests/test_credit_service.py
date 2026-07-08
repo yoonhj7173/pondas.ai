@@ -11,7 +11,7 @@ import uuid
 import pytest
 
 from app.db import SessionLocal
-from app.models import CreditLedger
+from app.models import CreditAccount, CreditLedger
 from app.services import credit_service as cs
 
 
@@ -99,6 +99,16 @@ def test_charge_atomic_guard_exact_balance_and_no_partial_debit(db):
     with pytest.raises(cs.InsufficientCreditsError):
         cs.charge_task(db, uid, None, "medium")        # 0 < cost → 차단
     assert cs.balance(db, uid) == 0                    # 부분 차감 없음(음수 방지)
+
+
+def test_refund_skips_deleted_account(db):
+    """계정삭제된 유저의 task 환불 → 지갑 부활 안 함(감사 P1)."""
+    uid = _uid()
+    assert cs.refund_task(db, uid, None, 30) == 0     # 계정 없음 → no-op
+    assert db.get(CreditAccount, uid) is None          # 부활되지 않음
+    # 계정이 있으면 정상 환불(회귀).
+    cs.grant_signup(db, uid, 0)
+    assert cs.refund_task(db, uid, None, 30) == 30
 
 
 def test_cap_off_allows_overage(db):

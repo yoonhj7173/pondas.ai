@@ -145,7 +145,13 @@ def charge_task(db: Session, user_id: str, task_id, model_tier: str | None) -> i
 
 
 def refund_task(db: Session, user_id: str, task_id, credits: int) -> int:
-    """시스템 실패(우리 잘못) 환불 — 차감분을 크레딧으로 되돌림(D46 B-4). 현금 환불 아님."""
+    """시스템 실패(우리 잘못) 환불 — 차감분을 크레딧으로 되돌림(D46 B-4). 현금 환불 아님.
+
+    계정이 이미 삭제됐으면(유저가 계정삭제 중 그 유저의 task가 실행 중이던 경우) 환불을 스킵한다 —
+    get_or_create가 지갑을 되살려 GDPR-불완전 + 삭제된 task 참조 원장 FK 위반을 만드는 걸 막는다(감사 P1).
+    """
+    if db.get(CreditAccount, user_id) is None:
+        return 0
     return _post(db, user_id, credits, "refund_system_failure", task_id=task_id)
 
 
