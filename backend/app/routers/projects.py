@@ -70,20 +70,28 @@ def _team_card(db: Session, agent_ids: list) -> tuple[str, str | None]:
     """팀 카드용 상태 pill + 1줄 요약(영어) — 팀의 최근 task/goal에서 파생(추가 LLM 호출 없음).
 
     규칙(우선순위): needs-input(질문) > failed(에러) > working(진행 중 goal) > done(완료 goal) > idle.
+    각 에이전트의 '가장 최근' task만 본다 — 과거 실패가 최근 성공을 계속 가리지 않도록(pill과 일치).
     요약 소스: needs-input→awaiting_prompt / failed→error_summary / working·done·idle→goal 제목.
     누가 부르나: _build_map(팀 카드). goal 제목은 오케스트레이터가 이미 짧게 생성 → 재활용.
     """
+    from sqlalchemy import func
+
     from app.models import Goal, Task
 
     if not agent_ids:
         return "idle", None
 
+    # 에이전트별 최신 task 시각(agent_status_map과 같은 '현재 상태' 관점).
+    mx = (
+        db.query(Task.agent_id, func.max(Task.created_at).label("mx"))
+        .filter(Task.agent_id.in_(agent_ids))
+        .group_by(Task.agent_id)
+        .subquery()
+    )
     rows = (
         db.query(Task, Goal.title)
         .outerjoin(Goal, Task.goal_id == Goal.id)
-        .filter(Task.agent_id.in_(agent_ids))
-        .order_by(Task.created_at.desc())
-        .limit(30)
+        .join(mx, (Task.agent_id == mx.c.agent_id) & (Task.created_at == mx.c.mx))
         .all()
     )
     if not rows:
@@ -95,7 +103,7 @@ def _team_card(db: Session, agent_ids: list) -> tuple[str, str | None]:
     needs = first(lambda t: t.status in _ATTENTION)
     fail = first(lambda t: t.status == "failed")
     work = first(lambda t: t.status in ("working", "queued"))
-    latest_task, latest_goal = rows[0]
+    latest_task, latest_goal = max(rows, key=lambda r: r[0].created_at)
 
     if needs:
         t, _ = needs
