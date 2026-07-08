@@ -90,6 +90,17 @@ def test_spending_cap_blocks_when_insufficient(db):
     assert cs.balance(db, uid) == 5                    # 변동 없음(차단)
 
 
+def test_charge_atomic_guard_exact_balance_and_no_partial_debit(db):
+    """캡 가드 원자적 차감(TOCTOU 수정, 감사 P0) — 딱 맞으면 0까지 차감, 부족하면 미차감."""
+    uid = _uid()
+    cost = cs.credit_cost("medium")
+    cs.grant_signup(db, uid, cost)                     # 정확히 1회분
+    assert cs.charge_task(db, uid, None, "medium") == 0  # 딱 맞게 차감 → 0
+    with pytest.raises(cs.InsufficientCreditsError):
+        cs.charge_task(db, uid, None, "medium")        # 0 < cost → 차단
+    assert cs.balance(db, uid) == 0                    # 부분 차감 없음(음수 방지)
+
+
 def test_cap_off_allows_overage(db):
     uid = _uid()
     acct = cs.get_or_create_account(db, uid)
