@@ -28,6 +28,7 @@ from app.config import settings
 from app.logging_config import configure_logging, get_logger
 from app.ratelimit import limiter  # 프록시 뒤 실 IP + Redis 저장소(ABUSE-BUG-3)
 from app.routers import (
+    account,
     auth_demo,
     billing,
     chat,
@@ -168,6 +169,8 @@ def create_app() -> FastAPI:
     app.include_router(system.router)
     # 인증 보호 라우터(/api/me, /api/whoami). require_user 의존성으로 Clerk JWT 강제.
     app.include_router(auth_demo.router)
+    # 계정 삭제(GDPR) — DELETE /api/account.
+    app.include_router(account.router)
     # Projects API + 템플릿 클로닝 + 맵(item 6).
     app.include_router(projects.router)
     # Team/Agent 관리(item 7).
