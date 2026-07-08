@@ -94,6 +94,44 @@ def test_create_clones_one_starter_per_team_no_edges(client, auth, made):
     assert (planning["room_x"], planning["room_y"]) != (dev["room_x"], dev["room_y"])
 
 
+def test_team_card_status_and_summary(client, auth, made):
+    """팀 카드 pill + 1줄 요약(영어) — needs-input(질문) / done(goal 제목) / idle(task 없음)."""
+    from app.models import Agent, Goal
+    from app.services import task_service as ts
+
+    resp = _create(client, auth, "user_card", template_keys=["research", "development", "design"])
+    pid = uuid.UUID(resp.json()["id"]); made.append(pid)
+    m = client.get(f"/api/projects/{pid}/map", headers=auth("user_card")).json()
+    res = next(t for t in m["teams"] if t["template_key"] == "research")
+    dev = next(t for t in m["teams"] if t["template_key"] == "development")
+    des = next(t for t in m["teams"] if t["template_key"] == "design")
+
+    db = SessionLocal()
+    try:
+        # Research → needs-input(질문)
+        res_agent = db.get(Agent, uuid.UUID(res["agents"][0]["id"]))
+        t1 = ts.create_task(db, user_id="user_card", project_id=pid, agent=res_agent,
+                            instructions="research", origin="chat")
+        t1.status = "needs-input"; t1.awaiting_prompt = "Which region should I focus on first?"
+        # Development → done(goal 제목)
+        g = Goal(project_id=pid, title="Bean There landing page"); db.add(g); db.flush()
+        dev_agent = db.get(Agent, uuid.UUID(dev["agents"][0]["id"]))
+        t2 = ts.create_task(db, user_id="user_card", project_id=pid, agent=dev_agent,
+                            instructions="build", origin="chat")
+        t2.status = "done"; t2.goal_id = g.id
+        db.commit()
+    finally:
+        db.close()
+
+    m2 = client.get(f"/api/projects/{pid}/map", headers=auth("user_card")).json()
+    res2 = next(t for t in m2["teams"] if t["template_key"] == "research")
+    dev2 = next(t for t in m2["teams"] if t["template_key"] == "development")
+    des2 = next(t for t in m2["teams"] if t["template_key"] == "design")
+    assert res2["status"] == "needs-input" and res2["summary"] == "Which region should I focus on first?"
+    assert dev2["status"] == "done" and dev2["summary"] == "Bean There landing page"
+    assert des2["status"] == "idle" and des2["summary"] is None  # task 없음
+
+
 def test_create_persists_real_rows(client, auth, made):
     resp = _create(client, auth, "user_rows", template_keys=["research"])
     pid = uuid.UUID(resp.json()["id"])

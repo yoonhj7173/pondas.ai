@@ -148,6 +148,9 @@ class TeamMapOut(BaseModel):
     room_x: int
     room_y: int
     agents: list[AgentMapOut]
+    # 카드 오피스(팀 카드)용 — 팀 상태 pill + 최근 활동 1줄 요약(영어, task/goal 파생).
+    status: str = "idle"            # idle|working|needs-input|failed|done
+    summary: str | None = None
 
 
 class EdgeMapOut(BaseModel):
