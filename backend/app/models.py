@@ -327,6 +327,21 @@ class Goal(Base):
     __table_args__ = (Index("ix_goals_project", "project_id"),)
 
 
+class Note(Base):
+    """유저 메모 — Board 밑 Notes 메뉴. 프로젝트별 자유 텍스트 노트(마크다운: 넘버링/불릿만 상정)."""
+
+    __tablename__ = "notes"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    project_id: Mapped[uuid.UUID] = _fk_uuid("projects.id")
+    title: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    body: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = _updated_at()
+
+    __table_args__ = (Index("ix_notes_project", "project_id"),)
+
+
 class Task(Base):
     """단일 권위 상태(source of truth). 7상태(§8). engine은 생성 시 비정규화(D43).
 

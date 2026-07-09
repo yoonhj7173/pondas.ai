@@ -14,8 +14,9 @@ export interface HudProps {
   projectName: string;
   onSend?: (msg: string) => Promise<string | void> | string | void;
   onFocusAgent?: (agentId: string) => void;
-  onOpen?: (what: "settings" | "board" | "outputs" | "addTeam") => void;
+  onOpen?: (what: "settings" | "board" | "outputs" | "notes" | "addTeam") => void;
   currentProjectId?: string;
+  treasurySlot?: React.ReactNode; // 크레딧 타일 — 우하단 토큰 카운터 옆에 나란히 배치(위치는 HUD가 잡음).
 }
 
 /**
@@ -37,7 +38,12 @@ export default function Hud(props: HudProps) {
       <ActivityFeedAndBell onFocusAgent={props.onFocusAgent} />
       <ToastStack onFocusAgent={props.onFocusAgent} />
       <UtilityStack onOpen={props.onOpen} />
-      <TokenCounter />
+      {/* 우하단: 크레딧 타일 + 토큰 카운터를 세로로 그룹핑(2-2). 가로 배치는 가운데 챗바와 겹쳐 세로 스택.
+          토큰이 위(팝오버가 위로 열려 빈 공간 사용), 크레딧이 아래. */}
+      <div className="absolute bottom-5 right-5 z-20 flex flex-col items-end gap-2">
+        <TokenCounter projectId={props.currentProjectId} />
+        {props.treasurySlot}
+      </div>
       <OrchestratorChat focused={chatFocused} setFocused={setChatFocused} onSend={props.onSend} />
     </>
   );
@@ -171,7 +177,7 @@ function ProjectSwitcher({ name, currentProjectId }: { name: string; currentProj
             )}
           </div>
           <button
-            onClick={() => { setOpen(false); router.push("/onboarding"); }}
+            onClick={() => { setOpen(false); router.push("/onboarding?new=1"); }}
             className="flex w-full items-center gap-2 border-t border-[#eeefe7] px-3 py-2.5 text-sm font-extrabold text-[#2f9fc7] hover:bg-black/5"
           >
             <span className="text-base leading-none">＋</span> New project
@@ -189,6 +195,20 @@ function ActivityFeedAndBell({ onFocusAgent }: { onFocusAgent?: (id: string) => 
   const connected = useStore((s) => s.connected);
   const markAllRead = useStore((s) => s.markAllRead);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stick = useRef(true); // 사용자가 위로 스크롤하지 않았으면 최신으로 자동 스크롤 유지.
+
+  // 채팅창식: 최신이 맨 아래(store는 최신-우선이라 역순으로 렌더). 새 이벤트/확장 시 하단으로 자동 스크롤.
+  const rows = [...events.slice(0, 30)].reverse();
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el && stick.current) el.scrollTop = el.scrollHeight;
+  }, [events, expanded]);
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24; // 바닥 근처면 계속 붙어서 스크롤.
+  };
 
   return (
     <div className="absolute right-5 top-5 z-20 flex items-start gap-2">
@@ -202,11 +222,14 @@ function ActivityFeedAndBell({ onFocusAgent }: { onFocusAgent?: (id: string) => 
       <div className="w-[296px] rounded-tile bg-[rgba(36,46,66,0.92)] p-3 text-white">
         <div className="mb-2 flex items-center justify-between">
           <span className="font-baloo text-sm font-bold">Activity</span>
-          <span className="flex items-center gap-1 font-mono text-[10px]"><span className={clsx("h-1.5 w-1.5 rounded-full", connected ? "bg-status-done" : "bg-muted")} />LIVE</span>
+          <span className="flex items-center gap-2">
+            <span className="flex items-center gap-1 font-mono text-[10px]"><span className={clsx("h-1.5 w-1.5 rounded-full", connected ? "bg-status-done" : "bg-muted")} />LIVE</span>
+            <button onClick={() => setExpanded((e) => !e)} title={expanded ? "Collapse" : "Expand"} className="text-[13px] leading-none opacity-70 hover:opacity-100">{expanded ? "⤡" : "⤢"}</button>
+          </span>
         </div>
-        <div className="max-h-[40vh] overflow-y-auto">
+        <div ref={scrollRef} onScroll={onScroll} className={clsx("overflow-y-auto transition-[max-height] duration-200", expanded ? "max-h-[60vh]" : "max-h-[40vh]")}>
           {events.length === 0 && <div className="py-2 text-xs opacity-40">No activity yet</div>}
-          {events.slice(0, 30).map((e) => (
+          {rows.map((e) => (
             <FeedRow key={e.id} e={e} onClick={() => onFocusAgent?.(e.agentId)} />
           ))}
         </div>
@@ -248,11 +271,12 @@ function ToastStack({ onFocusAgent }: { onFocusAgent?: (id: string) => void }) {
 }
 
 // --- 유틸 버튼(bottom-left) ---
-function UtilityStack({ onOpen }: { onOpen?: (w: "settings" | "board" | "outputs" | "addTeam") => void }) {
+function UtilityStack({ onOpen }: { onOpen?: (w: "settings" | "board" | "outputs" | "notes" | "addTeam") => void }) {
   return (
     <div className="absolute bottom-5 left-5 z-20 flex flex-col gap-2">
       <Util onClick={() => onOpen?.("settings")}>⚙ Settings</Util>
       <Util onClick={() => onOpen?.("board")}>▦ Board</Util>
+      <Util onClick={() => onOpen?.("notes")}>📝 Notes</Util>
       <Util onClick={() => onOpen?.("outputs")}>📄 Outputs</Util>
       <Util variant="confirm" onClick={() => onOpen?.("addTeam")}>+ Team</Util>
     </div>
@@ -262,14 +286,79 @@ function Util({ children, onClick, variant = "primary" }: { children: React.Reac
   return <button onClick={onClick} className={clsx("btn-pill text-[13px]", variant === "confirm" ? "btn-confirm" : "btn-primary")}>{children}</button>;
 }
 
-// --- 토큰 카운터(bottom-right) ---
-function TokenCounter() {
-  const usage = useStore((s) => s.usage);
+// --- 토큰 카운터(bottom-right) + 상세 팝오버 ---
+interface UsageBucket { id: string; name: string; tokens_in: number; tokens_out: number; cost_usd: number }
+interface UsageData {
+  total_tokens_in: number; total_tokens_out: number; total_cost_usd: number;
+  today_tokens_in: number; today_tokens_out: number;
+  by_team: UsageBucket[]; by_agent: UsageBucket[];
+}
+
+function TokenCounter({ projectId }: { projectId?: string }) {
+  const usage = useStore((s) => s.usage); // 세션 누적(SSE tick) — 버튼의 라이브 숫자.
   const total = usage.tokensIn + usage.tokensOut;
+  const { getToken: clerkToken } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<UsageData | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // 팝오버 열 때마다 서버 usage를 새로고침(권위 있는 집계 — today/total/by-team).
+  useEffect(() => {
+    if (!open || !projectId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const token = E2E ? "e2e" : await clerkToken();
+        const u = await apiFetch<UsageData>(`/api/projects/${projectId}/usage`, { token });
+        if (alive) setData(u);
+      } catch { /* 조용히 무시 — 버튼은 세션 숫자로 계속 동작 */ }
+    })();
+    return () => { alive = false; };
+  }, [open, projectId, clerkToken]);
+
+  // 바깥 클릭/ESC로 닫기.
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+
+  const today = data ? data.today_tokens_in + data.today_tokens_out : null;
+  const projTotal = data ? data.total_tokens_in + data.total_tokens_out : null;
+  const teams = data ? [...data.by_team].sort((a, b) => (b.tokens_in + b.tokens_out) - (a.tokens_in + a.tokens_out)) : [];
+
   return (
-    <div className="absolute bottom-5 right-5 z-20 rounded-tile bg-[rgba(36,46,66,0.92)] px-4 py-2 text-white">
-      <div className="font-baloo text-sm font-bold">🪙 {total.toLocaleString()}</div>
-      <div className="font-mono text-[10px] opacity-70">TOKENS TODAY</div>
+    <div ref={wrapRef} className="relative">
+      {open && (
+        <div className="absolute bottom-full right-0 mb-2 w-64 rounded-tile border border-white/10 bg-[rgba(36,46,66,0.97)] p-3 text-white shadow-card">
+          <div className="mb-2 font-baloo text-sm font-bold">Token usage</div>
+          <TokRow label="Today" value={today} />
+          <TokRow label="Total (this project)" value={projTotal} />
+          <div className="mb-1 mt-2 font-mono text-[10px] uppercase tracking-wide opacity-50">By team</div>
+          {teams.length === 0 && <div className="py-0.5 text-xs opacity-40">{data ? "No usage yet" : "Loading…"}</div>}
+          {teams.map((t) => <TokRow key={t.id} label={t.name} value={t.tokens_in + t.tokens_out} small />)}
+        </div>
+      )}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title="Token usage details"
+        className="flex items-center gap-2 rounded-tile border border-white/10 bg-[rgba(36,46,66,0.92)] px-4 py-2.5 text-white hover:bg-[rgba(36,46,66,1)]"
+      >
+        <span className="font-baloo text-base font-bold">🪙 {total.toLocaleString()}</span>
+        <span className="font-mono text-[10px] opacity-60">tokens {open ? "▾" : "▴"}</span>
+      </button>
+    </div>
+  );
+}
+
+function TokRow({ label, value, small }: { label: string; value: number | null; small?: boolean }) {
+  return (
+    <div className={clsx("flex items-center justify-between gap-2 py-0.5", small ? "text-[11px]" : "text-xs")}>
+      <span className="truncate opacity-70">{label}</span>
+      <span className="shrink-0 font-mono font-bold">{value == null ? "—" : value.toLocaleString()}</span>
     </div>
   );
 }

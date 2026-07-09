@@ -56,6 +56,26 @@ SafeStr = Annotated[str, BeforeValidator(_reject_unsafe_chars)]
 NonBlankStr = Annotated[str, BeforeValidator(_reject_unsafe_chars), AfterValidator(_reject_blank)]
 
 
+def _reject_name_unsafe(v: object) -> object:
+    """짧은 단일 라인 이름 필드(에이전트명 등) 전용 검증 — 자유 텍스트보다 엄격.
+
+    제어문자(개행/탭 포함)와 꺾쇠(`<`,`>`)를 입력 경계에서 거부한다. 이름은 한 줄 라벨이라
+    개행이 필요 없고, 꺾쇠 제거로 저장형 XSS 벡터를 소스에서 차단(렌더러도 안전하지만 심층 방어).
+    null/surrogate는 _reject_unsafe_chars가 이미 처리.
+    """
+    _reject_unsafe_chars(v)
+    if isinstance(v, str):
+        if any(ord(c) < 0x20 or ord(c) == 0x7F for c in v):
+            raise ValueError("must not contain control characters")
+        if "<" in v or ">" in v:
+            raise ValueError('must not contain "<" or ">"')
+    return v
+
+
+# 사람 이름/에이전트명 등 짧은 라벨용 — 깨진 바이트 + 제어문자 + 꺾쇠 + 공백만 거부.
+SafeName = Annotated[str, BeforeValidator(_reject_name_unsafe), AfterValidator(_reject_blank)]
+
+
 # --- Templates (GET /api/templates) — 역할 카탈로그(D41) ---
 
 
@@ -64,6 +84,8 @@ class RoleTemplateOut(BaseModel):
 
     role_key: str
     display_name: str
+    # 저작된 기본 역할 스펙(카탈로그). 모달이 프리필해 보여줌 — 유저는 이 위에 지시문을 덧붙이거나 편집.
+    role_instructions: str
     default_tier: str
     is_starter: bool
     default_output_type: str | None
@@ -206,14 +228,14 @@ class AgentOutputIn(BaseModel):
 class AgentCreate(BaseModel):
     # role_key는 모달이 프리필에 쓰는 힌트(서버는 최종 name/role/tier/output을 신뢰).
     role_key: str | None = None
-    name: NonBlankStr = Field(min_length=1, max_length=200)
+    name: SafeName = Field(min_length=1, max_length=20)
     role_instructions: NonBlankStr = Field(min_length=1, max_length=20000)
     model_tier: str
     output: AgentOutputIn | None = None
 
 
 class AgentPatch(BaseModel):
-    name: NonBlankStr | None = Field(default=None, min_length=1, max_length=200)
+    name: SafeName | None = Field(default=None, min_length=1, max_length=20)
     role_instructions: NonBlankStr | None = Field(default=None, min_length=1, max_length=20000)
     model_tier: str | None = None
 
@@ -327,7 +349,30 @@ class MemoryOut(BaseModel):
 
 
 class MemoryPut(BaseModel):
-    content_md: str
+    # 빈 문자열 허용(메모 비우기). 깨진 바이트 거부 + 상한(자유 텍스트와 동일한 20k).
+    content_md: SafeStr = Field(max_length=20000)
+
+
+# --- Notes (Board 밑 Notes 메뉴, issue 4) — 텍스트 전용(마크다운 넘버링/불릿) ---
+
+
+class NoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    title: str
+    body: str
+    updated_at: UtcDatetime
+
+
+class NoteCreate(BaseModel):
+    title: SafeStr = Field(default="", max_length=200)
+    body: SafeStr = Field(default="", max_length=20000)
+
+
+class NoteUpdate(BaseModel):
+    title: SafeStr = Field(default="", max_length=200)
+    body: SafeStr = Field(default="", max_length=20000)
 
 
 # --- Notifications / Board / Usage (item 12) ---
@@ -374,5 +419,8 @@ class UsageOut(BaseModel):
     total_tokens_in: int
     total_tokens_out: int
     total_cost_usd: float
+    # 오늘(UTC 자정 이후) 생성된 task 합 — HUD 토큰 팝오버의 "Tokens today".
+    today_tokens_in: int
+    today_tokens_out: int
     by_team: list[UsageBucketOut]
     by_agent: list[UsageBucketOut]

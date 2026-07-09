@@ -23,13 +23,13 @@ const AGENT: AgentPanelData = {
   outgoing: { id: "e1", to_agent_id: "a1", to_agent_name: "SWE", type: "review_loop", max_iterations: 5 }, incoming: [],
 };
 const ROLES: RoleTemplate[] = [
-  { role_key: "swe", display_name: "Software Engineer", default_tier: "strong", is_starter: true, default_output_type: null, default_output_target_role_key: null, default_max_iterations: null },
-  { role_key: "qa", display_name: "QA Engineer", default_tier: "medium", is_starter: false, default_output_type: "review_loop", default_output_target_role_key: "swe", default_max_iterations: 5 },
-  { role_key: "architect", display_name: "Architect", default_tier: "strong", is_starter: false, default_output_type: "handoff", default_output_target_role_key: "swe", default_max_iterations: null },
-  { role_key: "devops", display_name: "DevOps", default_tier: "medium", is_starter: false, default_output_type: null, default_output_target_role_key: null, default_max_iterations: null },
+  { role_key: "swe", display_name: "Software Engineer", role_instructions: "You implement working software from a spec.", default_tier: "strong", is_starter: true, default_output_type: null, default_output_target_role_key: null, default_max_iterations: null },
+  { role_key: "qa", display_name: "QA Engineer", role_instructions: "You verify the build against acceptance criteria.", default_tier: "medium", is_starter: false, default_output_type: "review_loop", default_output_target_role_key: "swe", default_max_iterations: 5 },
+  { role_key: "architect", display_name: "Architect", role_instructions: "You turn a PRD into a technical design and plan.", default_tier: "strong", is_starter: false, default_output_type: "handoff", default_output_target_role_key: "swe", default_max_iterations: null },
+  { role_key: "devops", display_name: "DevOps", role_instructions: "You prepare and run deployments.", default_tier: "medium", is_starter: false, default_output_type: null, default_output_target_role_key: null, default_max_iterations: null },
 ];
 const TEMPLATES: TeamTemplate[] = [
-  { key: "planning", name: "Product Planning", description: "PRDs and specs.", engine: "crew", roles: [] },
+  { key: "planning", name: "Product Management", description: "PRDs and specs.", engine: "crew", roles: [] },
   { key: "research", name: "Research", description: "Markets, competitors, users.", engine: "crew", roles: [] },
   { key: "design", name: "Design", description: "UI code + screenshots.", engine: "agent_sdk", roles: [] },
   { key: "development", name: "Development", description: "Build + verify software.", engine: "agent_sdk", roles: [] },

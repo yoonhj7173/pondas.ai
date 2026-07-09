@@ -22,10 +22,12 @@ export async function apiFetch<T>(
   opts: RequestInit & { token?: string | null } = {},
 ): Promise<T> {
   const { token, headers, ...rest } = opts;
+  // FormData(파일 업로드)면 Content-Type을 브라우저가 boundary와 함께 자동 설정하도록 비운다.
+  const isForm = typeof FormData !== "undefined" && rest.body instanceof FormData;
   const res = await fetch(`${BASE}${path}`, {
     ...rest,
     headers: {
-      "Content-Type": "application/json",
+      ...(isForm ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
@@ -50,7 +52,7 @@ export async function apiFetch<T>(
 
 // P0 팀 템플릿(GET /templates와 일치, D44 — Data 제외). 정적 폴백.
 export const TEAM_TEMPLATES = [
-  { key: "planning", name: "Product Planning", description: "Defines what to build and why — PRDs and specs.", starter: "PM" },
+  { key: "planning", name: "Product Management", description: "Defines what to build and why — PRDs and specs.", starter: "PM" },
   { key: "research", name: "Research", description: "Investigates markets, competitors, user needs.", starter: "Researcher" },
   { key: "design", name: "Design", description: "Designs and builds the UI — code + screenshots.", starter: "Product Designer" },
   { key: "development", name: "Development", description: "Implements, verifies, and reviews working software.", starter: "Software Engineer" },

@@ -2,7 +2,7 @@
 
 **The single source of truth for testing pondas** (E2E + QA unified). Run this whole plan before a launch-grade deploy, and add a case here for **every** feature or bug fix so the process stays the same each time. Cover **happy + unhappy paths**. Tick `[x]` on pass; note failures inline.
 
-**Last updated:** 2026-07-08 — initial runbook (built after the post-launch UX sprint; PRs #57–64).
+**Last updated:** 2026-07-09 — (1) auth/routing/session (QA-ONB-02/05/06, QA-BILL-03). (2) agent validation + custom roles (QA-AGENT-02/11): 20-char name cap + control/angle-bracket rejection, real base-spec prefill, custom-role option, memory PUT hardening. (3) add-teams multi-select (QA-TEAM-02). (4) Activity feed expand + chat-style autoscroll (QA-OFFICE-08); token-usage popover with today/total/by-team + `/usage` today aggregation (QA-OFFICE-09). (5) Settings context/memory + rename wiring (QA-SET-02/02b/05), onboarding context upload (QA-ONB-07), upload hardening — magic bytes/filename/PDF cap (QA-SEC-06). Removed user-facing cost/concurrency guardrail steppers (credits are the real cap); Pause moved to the Project tab, Guardrails tab dropped (QA-SET-01). (6) Workspace polish (QA-OFFICE-01/10): Product Planning→Product Management (catalog + fallback + data migration), agent-name 2-line wrap, roomier cards, credits tile relocated bottom-right (no "+"), ₵ centered. (7) Notes feature — per-project text notes under Board with markdown list preview (QA-NOTE-01/02/03).
 
 ---
 
@@ -43,20 +43,26 @@ Any failure blocks the merge:
 
 ## 1. Onboarding (Flow 0)
 
-- [ ] **QA-ONB-01 — New user → office** — logged-out `/onboarding` (or landing "Start building"): Google sign-in → display name → project name → **team multi-select** (4 cards: Planning / Research / Design / Development, rosters shown) → optional context dropzone → "Enter the office →". Lands on `/app/{id}` with **exactly the selected teams**, one starter agent each.
-- [ ] **QA-ONB-02 — Returning user skips** — an onboarded user hitting `/onboarding` / bare `/app` is routed to their latest project (`/app` index redirect, #58), not re-onboarded.
+- [ ] **QA-ONB-01 — New user → office** — logged-out `/onboarding` (or landing "Start building"): Google sign-in → display name → project name → **team multi-select** (4 cards: Planning / Research / Design / Development, rosters shown) → optional **context file picker** (see QA-ONB-07) → "Enter the office →". Lands on `/app/{id}` with **exactly the selected teams**, one starter agent each.
+- [ ] **QA-ONB-02 — Returning user skips + last-project restore** — an onboarded user hitting bare `/app` **or** `/onboarding` (without `?new=1`) is routed to the **last project they had open** (localStorage `pondas:last_project`, validated against the live list; falls back to newest if stale/deleted), not re-onboarded and **not** a duplicate new project. Reopening the browser and revisiting returns to the same workspace.
 - [ ] **QA-ONB-03 — Signup grants 500 credits** — a fresh account's Treasury shows **500** (D52). (Was 240 pre-#33.)
 - [ ] **QA-ONB-04 — Bad input rejected** — blank/whitespace project name → 422 (not a blank project). Null byte / lone surrogate in name → 422, not 500 (input-sanitization guard).
+- [ ] **QA-ONB-05 — Signed-in root → workspace** — an authenticated user visiting `/` is redirected by middleware to `/app` (→ last project). Logged-out visitors and crawlers still get the marketing landing (SEO preserved). The switcher's "＋ New project" goes to `/onboarding?new=1`, which **always** shows the wizard (creating an additional project is intentional there).
+- [ ] **QA-ONB-06 — Tab titles** — product surfaces set a real `document.title` (client pages can't export metadata): workspace = `{project name} · pondas.ai`, `/onboarding` = `Get started · pondas.ai`, `/billing/return` = `Payment complete · pondas.ai`. Marketing/legal pages keep their existing SSG titles.
+- [ ] **QA-ONB-07 — Onboarding context upload** — step 4 is a **real file picker** (click-to-choose, `.txt/.md/.markdown/.pdf`, multi): chosen files list with per-file Remove. On "Enter the office", the project is created **then** each file is uploaded to `POST /projects/{new id}/context` (best-effort — a per-file failure doesn't block entering the office; context is optional). Same backend + security as Settings upload (QA-SEC-06).
 
 ## 2. Office / orient (Flow 1) + status pipeline
 
-- [ ] **QA-OFFICE-01 — Card office renders** — `/app/{id}` shows white **team cards**: team emoji + name + status pill + one-line summary + emoji-avatar crew (role→emoji, model tier under each). Scrollable; 5-agent teams wrap to rows. (React cards, not Pixi — #55.)
+- [ ] **QA-OFFICE-01 — Card office renders** — `/app/{id}` shows white **team cards**: team emoji + name + status pill + one-line summary + emoji-avatar crew (role→emoji, model tier under each). Agent names **wrap to 2 lines** (no ellipsis truncation); cards have a comfortable min-height. The planning team reads **"Product Management"** (renamed from "Product Planning"; `template_key` stays `planning`). Scrollable; 5-agent teams wrap to rows. (React cards, not Pixi — #55.)
+- [ ] **QA-OFFICE-10 — Credits + tokens grouped bottom-right** — the credits tile (₵ balance, no "+" button — the tile itself is the top-up entry point) moved from top-right to the **bottom-right, stacked with the token counter** (token counter on top, credits below), decluttering the top-right (bell + Activity only). Clicking the credits tile opens the billing modal; the ₵ glyph is vertically centered. Neither tile overlaps the center chat bar. _(Stacked vertically rather than side-by-side because the chat bar is wide.)_
 - [ ] **QA-OFFICE-02 — Workspace vertically centered** — with few cards the grid is **centered** in the viewport (not pinned to the top); with many it scrolls. No card underlaps the top-right Activity panel or top-left switcher at ≥1280px.
 - [ ] **QA-OFFICE-03 — Live status pipeline** — one dispatched task updates the avatar ring/dot + team pill + Activity feed **identically and live** (SSE → store). `blocked` renders as `needs-input`. Reconnect re-fetches `/map` + `/usage`.
 - [ ] **QA-OFFICE-04 — Team pill = current state** — pill reflects each agent's **latest** task (needs-input > failed > working > done > idle); an old resolved failure does NOT keep the card red (#64). Pill and summary agree.
 - [ ] **QA-OFFICE-05 — Summary live-refresh** — after a task goes done, the card summary updates (to the goal title / "Task complete") **without a page reload** (#62, ~900ms debounce).
 - [ ] **QA-OFFICE-06 — Click → panel** — clicking a team opens the TeamPanel; clicking an agent opens the AgentPanel; both without a full reload.
 - [ ] **QA-OFFICE-07 — Empty team** — a team with 0 agents shows "No agents yet — hire your first"; a project with no tasks shows "No tasks yet — give the team something to do".
+- [ ] **QA-OFFICE-08 — Activity feed expand + chat-style autoscroll** — the top-right Activity panel renders events **chronologically (newest at the bottom)** and **auto-scrolls to the bottom** as new events arrive; if the user scrolls **up** to read history, autoscroll **pauses** (a new event doesn't yank them down) and resumes once they scroll back near the bottom. An **expand toggle** (⤢/⤡) in the header grows the scroll area from `max-h-40vh` (default) to `max-h-60vh` and back.
+- [ ] **QA-OFFICE-09 — Token usage popover** — the bottom-right token button (🪙 live session count; enlarged, clearly visible) opens an **inline dropdown popover above the button** (not a modal) on click: **Today**, **Total (this project)**, and a **By team** breakdown, fetched from `GET /projects/{id}/usage` (refetched on each open). Outside-click / ESC closes it. Empty project → "No usage yet".
 
 ## 3. Project switcher (Flow 9)  _(#57)_
 
@@ -76,12 +82,13 @@ Any failure blocks the merge:
 ## 5. Teams (Flow 3)
 
 - [ ] **QA-TEAM-01 — Team panel** — initial avatar, inline rename, AGENTS/TOKENS tiles, agent rows → agent panel, +Add agent / Rename / Remove.
-- [ ] **QA-TEAM-02 — Add team** — +Team → 4 template cards (in-office ones dimmed) → adds the team with its starter agent.
+- [ ] **QA-TEAM-02 — Add teams (multi-select)** — +Team → "Add teams" modal → template cards (in-office ones dimmed/disabled). **Toggle multiple** — selected cards show ✓; CTA reflects the count ("Build 1 room" / "Build 3 rooms", disabled at 0). Confirm creates **each** selected team (sequential `POST /teams`, one per card) with its starter agent; office shows all new rooms. If one create fails mid-batch, the banner shows and already-created rooms persist (no rollback).
 
 ## 6. Agents (Flow 4)
 
 - [ ] **QA-AGENT-01 — Agent panel** — status-tinted header, role inline-edit, tier chip, single connection chip, TOKENS/STATUS tiles.
-- [ ] **QA-AGENT-02 — Add agent (role catalog)** — AddAgentModal: role-catalog picker prefills name/role/tier/output (all editable); TierPicker (Strong·Medium·Light); OUTPUT segment (Handoff·Loop·Final + target). Hire persists with tier + single output.
+- [ ] **QA-AGENT-02 — Add agent (role catalog + custom)** — AddAgentModal: picking a pre-defined role prefills name/tier and the **real authored base spec** into the Role-instructions box (not a placeholder) with a notice "Prefilled with the {role} base spec — edit or add your own"; a **"+ Custom role"** pill clears to a blank slate (define name + instructions yourself). TierPicker (Strong·Medium·Light); OUTPUT segment (Handoff·Loop·Final + target). Hire persists with tier + single output (agent uses exactly what's in the instructions box).
+- [ ] **QA-AGENT-11 — Agent name validation** — name input is capped at **20 chars** (visible `n/20` counter, `maxLength` enforced). Server rejects (422, not 500) names that are >20 chars, blank/whitespace-only, contain control chars (newline/tab), or contain `<`/`>` (stored-XSS vector killed at the source). Same rules on rename (`AgentPatch`). Agent memory PUT (`content_md`) is byte-safe (null/surrogate → 422) and capped at 20 000 chars; empty is allowed (clear).
 - [ ] **QA-AGENT-03 — Desks full at 5** — 6th hire blocked ("desks are full" banner).
 - [ ] **QA-AGENT-04 — Elapsed timer** — a working/queued task shows a live "**Working · 2m 14s**" that ticks each second (#60).
 - [ ] **QA-AGENT-05 — Result in-flow** — on done, the panel renders the result **markdown inline** (no extra click) + a files link. Raw HTML is neutralized (XSS-safe renderer, no `rehype-raw`).
@@ -120,10 +127,18 @@ Any failure blocks the merge:
 
 - [ ] **QA-BOARD-01 — Goals mirror dispatch** — a dispatched goal appears as a checklist with status icons; in-progress/failed rows deep-link (focus the agent).
 
+## 11b. Notes (issue 4)
+
+- [ ] **QA-NOTE-01 — Notes CRUD** — HUD utility "📝 Notes" (under Board) opens the Notes overlay: "+ New note" creates + selects a blank note; the master list (left) shows note titles ("Untitled" when blank, newest-first). Editing the title + body and **Save** (`PATCH /notes/{id}`) persists and the list title updates; **Delete** (`DELETE`) removes it and returns to the empty state. Reopening the overlay (or reloading) shows the saved notes (`GET /projects/{id}/notes`).
+- [ ] **QA-NOTE-02 — Text-only with lists renders** — the body is a plain textarea (markdown source); a **Preview** pane renders it via the XSS-safe `Markdown` component (remark-gfm, no rehype-raw): `- ` → bullet list, `1. ` → numbered list. Raw HTML / `<script>` is inert (stored-XSS dead, same renderer as QA-AGENT-05/QA-SEC-04). Title ≤ 200, body ≤ 20 000; null byte/surrogate → 422.
+- [ ] **QA-NOTE-03 — Tenant isolation** — another user's notes list/patch/delete → **404** (owner-scoped, `_load_owned_note`).
+
 ## 12. Settings (Flow 8)
 
-- [ ] **QA-SET-01 — Guardrails persist** — daily cost cap ($10–100) + concurrency (1–5) steppers + **Pause project** toggle persist and take effect (pause blocks dispatch from UI + chat).
-- [ ] **QA-SET-02 — Context / memory** — context dropzone + list; per-agent memory cards view/edit/clear (persist).
+- [ ] **QA-SET-01 — Pause project (Project tab)** — the user-facing **daily cost cap** + **concurrency** steppers are **removed** (credits are already the real spend ceiling; those caps are global operational config, not per-user). The **Pause project** toggle — the one genuine per-project control — now lives at the top of the **Project** tab, persists, and blocks dispatch from UI + chat. Settings tabs are now **Context / Memory / Project** (no Guardrails tab).
+- [ ] **QA-SET-02 — Context files (upload/list/delete)** — Settings → Context: "+ Upload files" (txt/md/pdf ≤ 10 MB, multi) uploads via `POST /projects/{id}/context`, the list shows filename + mime + size, "Remove" deletes (`DELETE /context/{id}`). Uploaded text is injected into agent prompts. Same backend path as onboarding (QA-ONB-07) → same security (QA-SEC-06).
+- [ ] **QA-SET-02b — Agent memory (view/edit/clear)** — Settings → Memory: each agent (from `/map`) expands to a markdown scratchpad editor; **Save** (`PUT /agents/{id}/memory`, ≤ 20 k, byte-safe) and **Clear** (`DELETE`) persist. Empty agent shows the empty placeholder.
+- [ ] **QA-SET-05 — Project rename persists** — Settings → Project → edit name → **Save** (`PATCH /projects/{id}`) persists; Save is disabled when unchanged or blank; the switcher/tab title reflect the new name. _(Was a dead `defaultValue` input before.)_
 - [ ] **QA-SET-03 — Delete project (danger zone)** — Settings → Project → "Delete project" → inline confirm → deletes + routes to `/app` (redirects onward). _(Was a dead button before #63.)_
 - [ ] **QA-SET-04 — Delete account (GDPR, #63)** — "Delete account" → **type `DELETE` to confirm** (button disabled until exactly "DELETE") → `DELETE /api/account` wipes projects (+sandboxes)/wallet/ledger/profile/notifications, cancels any Stripe sub, deletes the Clerk user → signOut → home. **DESTRUCTIVE — only on a throwaway account.** Own-data scoped (can't touch another user).
 
@@ -131,7 +146,7 @@ Any failure blocks the merge:
 
 - [ ] **QA-BILL-01 — Treasury tile** — bottom-right shows the credit balance + tokens-today; "+" opens the top-up modal.
 - [ ] **QA-BILL-02 — Charge on dispatch** — a dispatched task deducts its tier cost (light 10 / medium 30 / strong 300); a system failure (crash/sandbox) **refunds** (net zero).
-- [ ] **QA-BILL-03 — Top-up (embedded checkout)** — top-up modal → Stripe **embedded** checkout (no redirect to checkout.stripe.com) → pay (staging card on a test deployment) → balance updates via webhook.
+- [ ] **QA-BILL-03 — Top-up (embedded checkout)** — top-up modal → Stripe **embedded** checkout (no redirect to checkout.stripe.com) → pay (staging card on a test deployment) → balance updates via webhook. After payment, `/billing/return` shows the confirmation then **auto-returns to `/app`** (last project) within ~2.5s; the "워크스페이스로" button also points to `/app` (never the marketing landing `/`).
 - [ ] **QA-BILL-04 — Paywall** — insufficient credits → task blocked (`insufficient_credits`) + SSE `paywall` auto-opens the billing modal (D46).
 - [ ] **QA-BILL-05 — Customer portal (cancel)** — a "Manage billing / cancel" path opens the Stripe Customer Portal (CA ARL — click-to-cancel).
 - [ ] **QA-BILL-06 — Webhook idempotency** — a duplicated Stripe event does not double-credit (`credit_ledger.stripe_ref` unique index; IntegrityError treated as already-processed).
@@ -152,6 +167,7 @@ Any failure blocks the merge:
 - [ ] **QA-SEC-03 — Rate limiting** — abusive request rate is throttled (slowapi; keyed by real client IP via XFF, Redis-backed).
 - [ ] **QA-SEC-04 — Stored-XSS dead** — a task result / agent field containing `<script>` renders inert (react-markdown without `rehype-raw`); the ADVERSARIAL_TEST_RESULTS.md corpus stays dead.
 - [ ] **QA-SEC-05 — LLM request timeout** — a hung provider call is killed by `llm_request_timeout` + `num_retries` (doesn't pin a Celery worker forever).
+- [ ] **QA-SEC-06 — Context upload hardening** — the context upload path (onboarding + Settings) enforces: 10 MB cap (413); extension allowlist txt/md/pdf (400); **magic-byte checks** — a `.pdf` without the `%PDF` header → 400, a `.txt` containing null bytes (binary-in-disguise) → 400; **filename sanitization** — path components stripped (`../../etc/passwd.txt` stored as `passwd.txt`), control chars removed, length-capped; PDF parsing capped at 100 pages (parse-DoS guard). Covered by `tests/test_files.py`.
 - [ ] **QA-EDGE-01 — Insufficient credits mid-flow** — see QA-BILL-04.
 - [ ] **QA-EDGE-02 — Stop mid-execution** — see QA-AGENT-06; suppresses propagation, no orphan.
 - [ ] **QA-EDGE-03 — Task loss on Redis restart** — a queued (not yet picked) task survives a broker restart (Redis AOF on — infra; plus the queued-task reaper re-enqueues stragglers). _(See Known issues if AOF not yet on.)_

@@ -165,7 +165,7 @@ You prepare deployment; you never run it. Never put real secrets in any file."""
 TEAM_TEMPLATES: list[dict] = [
     {
         "key": "planning",
-        "name": "Product Planning",
+        "name": "Product Management",
         "description": "Defines what to build and why — PRDs and functional specs.",
         "engine": "crew",
         "roles": [

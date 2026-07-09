@@ -8,13 +8,14 @@ import { useStore } from "@/lib/store";
 import type { AgentStatus } from "@/lib/tokens";
 import Hud from "@/components/hud/Hud";
 import TeamCardOffice from "@/components/map/TeamCardOffice";
+import { TreasuryTile } from "@/components/billing/Treasury";
 
 const MOCK: MapData = {
   project: { id: "preview", name: "Acme Studio", paused: false },
   paused: false,
   teams: [
     {
-      id: "t0", name: "Product Planning", template_key: "planning", engine: "crew",
+      id: "t0", name: "Product Management", template_key: "planning", engine: "crew",
       room_x: 0, room_y: 0, status: "idle", summary: "PRD v1 handed off to the team",
       agents: [
         { id: "p1", name: "Product Manager", model_tier: "strong", slot: 0, status: "idle" },
@@ -57,7 +58,8 @@ export default function MapPreview() {
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       <TeamCardOffice data={MOCK} onSelectAgent={() => {}} onSelectTeam={() => {}} />
-      <Hud projectName="Acme Studio" onSend={() => "On it — Research is investigating; Planning will pick up the output."} />
+      <Hud projectName="Acme Studio" onSend={() => "On it — Research is investigating; Planning will pick up the output."}
+        treasurySlot={<TreasuryTile getToken={async () => null} onOpen={() => {}} />} />
       <div className="absolute left-1/2 top-4 z-40 flex -translate-x-1/2 gap-1 rounded-tile bg-white/80 p-2 text-sm">
         <Btn onClick={() => sim("a1", "working")}>RES working</Btn>
         <Btn onClick={() => sim("d1", "needs-input")}>DES needs-input</Btn>

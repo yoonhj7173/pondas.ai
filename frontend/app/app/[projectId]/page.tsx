@@ -4,12 +4,13 @@
 import { useEffect, useState } from "react";
 import { useAuth, UserButton } from "@clerk/nextjs";
 import { apiFetch, E2E } from "@/lib/api";
+import { setLastProject } from "@/lib/lastProject";
 import { useStore } from "@/lib/store";
 import { connectSSE } from "@/lib/sse";
 import type { MapData } from "@/lib/map/types";
 import Hud from "@/components/hud/Hud";
 import { PanelController, type Selection } from "@/components/panels/PanelController";
-import { BoardOverlay, OutputsOverlay, SettingsOverlay, type OverlayKind } from "@/components/overlays/Overlays";
+import { BoardOverlay, OutputsOverlay, SettingsOverlay, NotesOverlay, type OverlayKind } from "@/components/overlays/Overlays";
 import { TreasuryTile, BillingModal } from "@/components/billing/Treasury";
 import { Theater } from "@/components/preview/Theater";
 import TeamCardOffice from "@/components/map/TeamCardOffice";
@@ -59,6 +60,7 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
   }
 
   useEffect(() => {
+    setLastProject(params.projectId); // 다음 방문 시 이 프로젝트로 복귀하도록 기억.
     let disconnect: (() => void) | null = null;
     (async () => {
       try {
@@ -72,6 +74,11 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
     return () => disconnect?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.projectId]);
+
+  // 브라우저 탭 타이틀을 프로젝트명으로(클라이언트 컴포넌트라 metadata 불가 → document.title 직접 설정).
+  useEffect(() => {
+    document.title = data?.project?.name ? `${data.project.name} · pondas.ai` : "Workspace · pondas.ai";
+  }, [data?.project?.name]);
 
   // 팀 카드 요약 실시간 갱신 — 아바타/pill은 store로 즉시 바뀌지만, 카드 요약 텍스트는 맵 스냅샷이라
   // task 상태가 바뀌면(working/done/failed/needs-input) 맵을 디바운스 리페치해 요약도 최신화한다.
@@ -145,6 +152,7 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
           if (w === "addTeam") openPanel({ kind: "addTeam" });
           else openOverlay(w);
         }}
+        treasurySlot={<TreasuryTile getToken={getToken} onOpen={() => { setBillingPaywall(false); setBillingOpen(true); }} />}
       />
       {!E2E && (
         // 계정 메뉴(아바타 → 로그아웃). 좌하단 고정.
@@ -152,13 +160,13 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
           <UserButton afterSignOutUrl="/" />
         </div>
       )}
-      {/* Treasury HUD 타일 + 충전 모달(빌링 D46). */}
-      <TreasuryTile getToken={getToken} onOpen={() => { setBillingPaywall(false); setBillingOpen(true); }} />
+      {/* 충전 모달(빌링 D46) — 크레딧 타일은 HUD 우하단 treasurySlot으로 렌더. */}
       {billingOpen && <BillingModal getToken={getToken} paywall={billingPaywall} onClose={() => { setBillingOpen(false); setBillingPaywall(false); }} />}
       <PanelController projectId={params.projectId} getToken={getToken} mapData={data} sel={sel} setSel={setSel} onChanged={loadMap} onOpenOutputs={() => openOverlay("outputs")} onOpenTheater={() => useStore.getState().setTheater(true)} />
       {theaterOpen && <Theater projectId={params.projectId} getToken={getToken} onSend={sendChat} onClose={() => useStore.getState().setTheater(false)} />}
       {overlay === "board" && <BoardOverlay projectId={params.projectId} getToken={getToken} onClose={() => setOverlay(null)} onFocus={(id) => { setOverlay(null); setSel({ kind: "agent", id }); }} />}
       {overlay === "outputs" && <OutputsOverlay projectId={params.projectId} getToken={getToken} onClose={() => setOverlay(null)} />}
+      {overlay === "notes" && <NotesOverlay projectId={params.projectId} getToken={getToken} onClose={() => setOverlay(null)} />}
       {overlay === "settings" && <SettingsOverlay projectId={params.projectId} getToken={getToken} projectName={data.project.name} paused={data.paused} onClose={() => setOverlay(null)} onChanged={loadMap} />}
     </div>
   );

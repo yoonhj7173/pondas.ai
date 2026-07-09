@@ -1,7 +1,7 @@
 "use client";
 
 // 오버레이(item 25) — Board · Settings · Outputs. HUD 유틸 버튼이 연다.
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import clsx from "clsx";
@@ -14,7 +14,7 @@ import { visualStatus, type AgentStatus } from "@/lib/tokens";
 const Markdown = dynamic(() => import("@/components/ui/Markdown"), { ssr: false });
 const MARKDOWN_EXTS = /\.(md|markdown|mdx)$/i;
 
-export type OverlayKind = "board" | "settings" | "outputs" | null;
+export type OverlayKind = "board" | "settings" | "outputs" | "notes" | null;
 
 const STATUS_ICON: Record<string, { glyph: string; cls: string }> = {
   done: { glyph: "✓", cls: "bg-status-done text-white" },
@@ -127,9 +127,7 @@ export function OutputsOverlay({ projectId, getToken, onClose }: { projectId: st
  * 누가 부르나: HUD 유틸의 'Settings' 버튼. 연결: 일시정지 → backend/app/routers/projects.py의 pause/resume.
  */
 export function SettingsOverlay({ projectId, getToken, projectName, paused, onClose, onChanged }: { projectId: string; getToken: () => Promise<string | null>; projectName: string; paused: boolean; onClose: () => void; onChanged: () => void }) {
-  const [tab, setTab] = useState<"context" | "memory" | "guardrails" | "project">("guardrails");
-  const [cost, setCost] = useState(10);
-  const [conc, setConc] = useState(3);
+  const [tab, setTab] = useState<"context" | "memory" | "project">("context");
   const [isPaused, setIsPaused] = useState(paused);
   const [danger, setDanger] = useState<null | "project" | "account">(null);
   const [typed, setTyped] = useState("");
@@ -178,26 +176,21 @@ export function SettingsOverlay({ projectId, getToken, projectName, paused, onCl
         <div className="flex flex-1 min-h-0">
           <div className="w-48 shrink-0 space-y-1 border-r border-white/40 bg-white/30 p-4">
             <div className="mb-3 font-baloo text-lg font-extrabold">Settings</div>
-            {(["context", "memory", "guardrails", "project"] as const).map((t) => (
+            {(["context", "memory", "project"] as const).map((t) => (
               <button key={t} onClick={() => setTab(t)} className={clsx("block w-full rounded-lg px-3 py-2 text-left text-sm font-bold capitalize", tab === t ? "bg-primary-to text-white" : "text-secondary hover:bg-white/40")}>{t}</button>
             ))}
           </div>
           <div className="flex-1 overflow-y-auto p-6">
-            {tab === "guardrails" && (
-              <div className="space-y-6">
-                <Stepper label="Daily cost cap" value={`$${cost}`} onDec={() => setCost((c) => Math.max(10, c - 10))} onInc={() => setCost((c) => Math.min(100, c + 10))} />
-                <Stepper label="Concurrency cap" value={String(conc)} onDec={() => setConc((c) => Math.max(1, c - 1))} onInc={() => setConc((c) => Math.min(5, c + 1))} />
+            {tab === "context" && <ContextManager projectId={projectId} getToken={getToken} />}
+            {tab === "memory" && <MemoryManager projectId={projectId} getToken={getToken} />}
+            {tab === "project" && (
+              <div className="space-y-4">
+                <ProjectRename projectId={projectId} projectName={projectName} getToken={getToken} onChanged={onChanged} />
+                {/* 프로젝트 일시정지 — 유일하게 남은 실제 프로젝트 컨트롤(cost/concurrency 캡은 크레딧이 이미 상한이라 제거). */}
                 <div className="flex items-center justify-between rounded-xl border-2 border-status-failed/40 bg-status-failed/10 px-4 py-3">
                   <div><div className="font-baloo font-bold text-status-failed">Pause project</div><div className="text-xs text-secondary">Halts all dispatching including edge auto-fires.</div></div>
                   <button onClick={togglePause} className={clsx("h-7 w-12 rounded-full p-0.5 transition", isPaused ? "bg-status-failed" : "bg-muted-2")}><span className={clsx("block h-6 w-6 rounded-full bg-white transition", isPaused && "translate-x-5")} /></button>
                 </div>
-              </div>
-            )}
-            {tab === "context" && <Empty>Upload project context files (txt/md/pdf).</Empty>}
-            {tab === "memory" && <Empty>Per-agent memory scratchpads — view / edit / clear.</Empty>}
-            {tab === "project" && (
-              <div className="space-y-4">
-                <div><Lbl>Project name</Lbl><input defaultValue={projectName} className="mt-1 w-full max-w-sm rounded-pill border-2 border-white bg-white/70 px-4 py-2 outline-none" /></div>
                 <div className="space-y-3 rounded-xl border-2 border-status-failed/40 bg-status-failed/10 p-4">
                   <div className="font-baloo font-bold text-status-failed">Danger zone</div>
 
@@ -243,18 +236,268 @@ export function SettingsOverlay({ projectId, getToken, projectName, paused, onCl
   );
 }
 
-function Stepper({ label, value, onDec, onInc }: { label: string; value: string; onDec: () => void; onInc: () => void }) {
+// --- Settings: 프로젝트 이름 변경(백엔드 PATCH /projects/{id} 배선) ---
+function ProjectRename({ projectId, projectName, getToken, onChanged }: { projectId: string; projectName: string; getToken: () => Promise<string | null>; onChanged: () => void }) {
+  const [name, setName] = useState(projectName);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const dirty = name.trim() !== projectName && name.trim().length > 0;
+
+  async function save() {
+    if (!dirty || busy) return;
+    setBusy(true); setErr(null); setSaved(false);
+    try {
+      await apiFetch(`/api/projects/${projectId}`, { method: "PATCH", token: await getToken(), body: JSON.stringify({ name: name.trim() }) });
+      setSaved(true); onChanged();
+    } catch (e) { setErr(e instanceof Error ? e.message : "Couldn't save the name"); }
+    finally { setBusy(false); }
+  }
+
   return (
     <div>
-      <Lbl>{label}</Lbl>
-      <div className="mt-1 flex items-center gap-3">
-        <button onClick={onDec} className="h-9 w-9 rounded-full bg-white/70 text-lg font-bold">−</button>
-        <span className="w-16 text-center font-baloo text-lg font-extrabold">{value}</span>
-        <button onClick={onInc} className="h-9 w-9 rounded-full bg-white/70 text-lg font-bold">+</button>
+      <Lbl>Project name</Lbl>
+      <div className="mt-1 flex items-center gap-2">
+        <input value={name} maxLength={200} onChange={(e) => { setName(e.target.value); setSaved(false); }}
+          className="w-full max-w-sm rounded-pill border-2 border-white bg-white/70 px-4 py-2 outline-none" />
+        <PillButton variant="confirm" disabled={!dirty || busy} onClick={save}>{busy ? "Saving…" : "Save"}</PillButton>
+        {saved && <span className="text-xs font-bold text-status-done">Saved ✓</span>}
+      </div>
+      {err && <div className="mt-1 text-xs font-bold text-status-failed">{err}</div>}
+    </div>
+  );
+}
+
+// --- Settings: 프로젝트 컨텍스트 파일(업로드/목록/삭제). 온보딩과 같은 백엔드 경로(보안 동일). ---
+interface ContextFileRow { id: string; filename: string; mime: string; size_bytes: number }
+function ContextManager({ projectId, getToken }: { projectId: string; getToken: () => Promise<string | null> }) {
+  const [files, setFiles] = useState<ContextFileRow[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
+    try { setFiles(await apiFetch<ContextFileRow[]>(`/api/projects/${projectId}/context`, { token: await getToken() })); }
+    catch { setFiles([]); }
+  }, [projectId, getToken]);
+  useEffect(() => { load(); }, [load]);
+
+  async function upload(list: FileList | null) {
+    if (!list?.length) return;
+    setBusy(true); setErr(null);
+    try {
+      for (const f of Array.from(list)) {
+        const fd = new FormData(); fd.append("file", f);
+        await apiFetch(`/api/projects/${projectId}/context`, { method: "POST", token: await getToken(), body: fd });
+      }
+      await load();
+    } catch (e) { setErr(e instanceof Error ? e.message : "Upload failed"); }
+    finally { setBusy(false); if (inputRef.current) inputRef.current.value = ""; }
+  }
+
+  async function del(id: string) {
+    setErr(null);
+    try { await apiFetch(`/api/context/${id}`, { method: "DELETE", token: await getToken() }); await load(); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't remove the file"); }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Lbl>Project context</Lbl>
+        <p className="mt-1 text-xs text-secondary">Files (txt, md, pdf · ≤ 10 MB) your agents can read — the extracted text is injected into their prompts.</p>
+      </div>
+      <div>
+        <input ref={inputRef} type="file" accept=".txt,.md,.markdown,.pdf" multiple className="hidden" onChange={(e) => upload(e.target.files)} />
+        <PillButton variant="primary" disabled={busy} onClick={() => inputRef.current?.click()}>{busy ? "Uploading…" : "+ Upload files"}</PillButton>
+      </div>
+      {err && <div className="rounded-lg bg-status-failed/15 px-3 py-2 text-xs font-bold text-status-failed">{err}</div>}
+      <div className="space-y-2">
+        {files === null && <div className="text-sm text-secondary">Loading…</div>}
+        {files?.length === 0 && <Empty>No context files yet.</Empty>}
+        {files?.map((f) => (
+          <div key={f.id} className="flex items-center justify-between rounded-xl border-2 border-white bg-white/60 px-4 py-2">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-bold">{f.filename}</div>
+              <div className="font-mono text-[10px] text-muted">{f.mime} · {(f.size_bytes / 1024).toFixed(1)} KB</div>
+            </div>
+            <button onClick={() => del(f.id)} className="shrink-0 text-sm font-bold text-status-failed hover:underline">Remove</button>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
+
+// --- Settings: 에이전트별 메모리(보기/수정/비우기). 목록은 /map에서 에이전트를 가져온다. ---
+function MemoryManager({ projectId, getToken }: { projectId: string; getToken: () => Promise<string | null> }) {
+  const [agents, setAgents] = useState<{ id: string; name: string; team: string }[] | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const map = await apiFetch<{ teams: { name: string; agents: { id: string; name: string }[] }[] }>(`/api/projects/${projectId}/map`, { token: await getToken() });
+        if (alive) setAgents(map.teams.flatMap((t) => t.agents.map((a) => ({ id: a.id, name: a.name, team: t.name }))));
+      } catch { if (alive) setAgents([]); }
+    })();
+    return () => { alive = false; };
+  }, [projectId, getToken]);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Lbl>Agent memory</Lbl>
+        <p className="mt-1 text-xs text-secondary">Each agent keeps a markdown scratchpad it carries between tasks. View, edit, or clear it here.</p>
+      </div>
+      {agents === null && <div className="text-sm text-secondary">Loading…</div>}
+      {agents?.length === 0 && <Empty>No agents yet — hire some first.</Empty>}
+      <div className="space-y-2">
+        {agents?.map((a) => (
+          <div key={a.id} className="rounded-xl border-2 border-white bg-white/60">
+            <button onClick={() => setOpenId((o) => (o === a.id ? null : a.id))} className="flex w-full items-center justify-between px-4 py-2 text-left">
+              <span className="text-sm font-bold">{a.name} <span className="font-mono text-[10px] text-muted">· {a.team}</span></span>
+              <span className="text-muted">{openId === a.id ? "▾" : "▸"}</span>
+            </button>
+            {openId === a.id && <MemoryEditor agentId={a.id} getToken={getToken} />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MemoryEditor({ agentId, getToken }: { agentId: string; getToken: () => Promise<string | null> }) {
+  const [content, setContent] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const m = await apiFetch<{ content_md: string }>(`/api/agents/${agentId}/memory`, { token: await getToken() });
+        if (alive) setContent(m.content_md);
+      } catch { if (alive) setContent(""); }
+    })();
+    return () => { alive = false; };
+  }, [agentId, getToken]);
+
+  async function save() {
+    if (content === null || busy) return;
+    setBusy(true); setErr(null); setSaved(false);
+    try { await apiFetch(`/api/agents/${agentId}/memory`, { method: "PUT", token: await getToken(), body: JSON.stringify({ content_md: content }) }); setSaved(true); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't save"); }
+    finally { setBusy(false); }
+  }
+  async function clear() {
+    setBusy(true); setErr(null); setSaved(false);
+    try { await apiFetch(`/api/agents/${agentId}/memory`, { method: "DELETE", token: await getToken() }); setContent(""); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't clear"); }
+    finally { setBusy(false); }
+  }
+
+  if (content === null) return <div className="px-4 pb-3 text-xs text-secondary">Loading…</div>;
+  return (
+    <div className="space-y-2 border-t border-white/50 px-4 py-3">
+      <textarea value={content} maxLength={20000} onChange={(e) => { setContent(e.target.value); setSaved(false); }} rows={5}
+        placeholder="Empty — this agent has no saved memory yet." className="w-full rounded-lg border-2 border-white bg-white/70 p-2 text-xs outline-none" />
+      <div className="flex items-center gap-2">
+        <PillButton variant="confirm" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save"}</PillButton>
+        <button onClick={clear} disabled={busy} className="text-xs font-bold text-status-failed hover:underline">Clear</button>
+        {saved && <span className="text-xs font-bold text-status-done">Saved ✓</span>}
+        {err && <span className="text-xs font-bold text-status-failed">{err}</span>}
+      </div>
+    </div>
+  );
+}
+
+// --- Notes (Board 밑 Notes 메뉴, issue 4) — 텍스트 전용 노트. 리스트 + 편집 + 마크다운 프리뷰. ---
+interface NoteRow { id: string; title: string; body: string; updated_at: string }
+export function NotesOverlay({ projectId, getToken, onClose }: { projectId: string; getToken: () => Promise<string | null>; onClose: () => void }) {
+  const [notes, setNotes] = useState<NoteRow[] | null>(null);
+  const [sel, setSel] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const load = useCallback(async () => {
+    try { const rows = await apiFetch<NoteRow[]>(`/api/projects/${projectId}/notes`, { token: await getToken() }); setNotes(rows); return rows; }
+    catch { setNotes([]); return [] as NoteRow[]; }
+  }, [projectId, getToken]);
+  useEffect(() => { load(); }, [load]);
+
+  function openNote(n: NoteRow) { setSel(n.id); setTitle(n.title); setBody(n.body); setSaved(false); }
+
+  async function createNote() {
+    setBusy(true);
+    try {
+      const n = await apiFetch<NoteRow>(`/api/projects/${projectId}/notes`, { method: "POST", token: await getToken(), body: JSON.stringify({ title: "", body: "" }) });
+      await load(); openNote(n);
+    } catch { /* noop */ } finally { setBusy(false); }
+  }
+  async function save() {
+    if (!sel) return;
+    setBusy(true); setSaved(false);
+    try { await apiFetch(`/api/notes/${sel}`, { method: "PATCH", token: await getToken(), body: JSON.stringify({ title, body }) }); await load(); setSaved(true); }
+    catch { /* noop */ } finally { setBusy(false); }
+  }
+  async function del(id: string) {
+    setBusy(true);
+    try { await apiFetch(`/api/notes/${id}`, { method: "DELETE", token: await getToken() }); await load(); if (sel === id) setSel(null); }
+    catch { /* noop */ } finally { setBusy(false); }
+  }
+
+  return (
+    <Overlay onClose={onClose}>
+      <div className="flex h-[600px] w-[900px] max-w-[94vw] flex-col p-0">
+        <div className="border-b border-white/40 px-6 py-4"><Title onClose={onClose}>Notes</Title></div>
+        <div className="flex min-h-0 flex-1">
+          <div className="flex w-56 shrink-0 flex-col border-r border-white/40 bg-white/30 p-3">
+            <PillButton variant="primary" onClick={createNote} disabled={busy}>+ New note</PillButton>
+            <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto">
+              {notes === null && <div className="px-1 py-2 text-sm text-secondary">Loading…</div>}
+              {notes?.length === 0 && <div className="px-1 py-2 text-xs text-muted">No notes yet.</div>}
+              {notes?.map((n) => (
+                <button key={n.id} onClick={() => openNote(n)} className={clsx("block w-full truncate rounded-lg px-3 py-2 text-left text-sm font-bold", sel === n.id ? "bg-primary-to text-white" : "text-secondary hover:bg-white/40")}>
+                  {n.title.trim() || "Untitled"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            {sel === null ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted">Select a note, or create one.</div>
+            ) : (
+              <div className="space-y-3">
+                <input value={title} maxLength={200} onChange={(e) => { setTitle(e.target.value); setSaved(false); }} placeholder="Untitled"
+                  className="w-full rounded-pill border-2 border-white bg-white/70 px-4 py-2 font-baloo text-lg font-extrabold outline-none" />
+                <textarea value={body} maxLength={20000} onChange={(e) => { setBody(e.target.value); setSaved(false); }} rows={11}
+                  placeholder={"Write freely. Lists render:\n- a bullet\n1. a numbered item"}
+                  className="w-full rounded-xl border-2 border-white bg-white/70 p-3 text-sm outline-none" />
+                <div className="flex items-center gap-2">
+                  <PillButton variant="confirm" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save"}</PillButton>
+                  <button onClick={() => del(sel)} disabled={busy} className="text-sm font-bold text-status-failed hover:underline">Delete</button>
+                  {saved && <span className="text-xs font-bold text-status-done">Saved ✓</span>}
+                </div>
+                {body.trim() && (
+                  <div className="rounded-xl border-2 border-white/60 bg-white/40 p-4">
+                    <div className="mb-2 font-mono text-[10px] uppercase tracking-wide text-muted">Preview</div>
+                    <Markdown>{body}</Markdown>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </Overlay>
+  );
+}
+
 function Title({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return <div className="flex items-center justify-between"><span className="font-baloo text-2xl font-extrabold">{children}</span><button onClick={onClose} className="text-lg text-muted">×</button></div>;
 }

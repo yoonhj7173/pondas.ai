@@ -35,6 +35,7 @@ from app.routers import (
     context,
     edges,
     memory,
+    notes,
     outputs,
     preview,
     projects,
@@ -185,6 +186,7 @@ def create_app() -> FastAPI:
     app.include_router(context.router)
     app.include_router(outputs.router)
     app.include_router(memory.router)
+    app.include_router(notes.router)
     # SSE / Notifications / Board / Usage(item 12).
     app.include_router(realtime.router)
     # Orchestrator chat(item 13).

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -219,7 +220,19 @@ def usage(
         for team_id, v in team_acc.items()
     ]
 
+    # 오늘(UTC 자정 이후 생성) task만 별도 합 — 팝오버의 "Tokens today".
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_in, today_out = (
+        db.query(
+            func.coalesce(func.sum(Task.tokens_in), 0),
+            func.coalesce(func.sum(Task.tokens_out), 0),
+        )
+        .filter(Task.project_id == project.id, Task.created_at >= today_start)
+        .one()
+    )
+
     return UsageOut(
         total_tokens_in=tin, total_tokens_out=tout, total_cost_usd=round(cost, 6),
+        today_tokens_in=int(today_in), today_tokens_out=int(today_out),
         by_team=by_team, by_agent=by_agent,
     )
