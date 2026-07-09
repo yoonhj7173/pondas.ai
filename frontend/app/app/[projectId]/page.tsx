@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { useAuth, UserButton } from "@clerk/nextjs";
 import { apiFetch, E2E } from "@/lib/api";
+import { setLastProject } from "@/lib/lastProject";
 import { useStore } from "@/lib/store";
 import { connectSSE } from "@/lib/sse";
 import type { MapData } from "@/lib/map/types";
@@ -59,6 +60,7 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
   }
 
   useEffect(() => {
+    setLastProject(params.projectId); // 다음 방문 시 이 프로젝트로 복귀하도록 기억.
     let disconnect: (() => void) | null = null;
     (async () => {
       try {
@@ -72,6 +74,11 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
     return () => disconnect?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.projectId]);
+
+  // 브라우저 탭 타이틀을 프로젝트명으로(클라이언트 컴포넌트라 metadata 불가 → document.title 직접 설정).
+  useEffect(() => {
+    document.title = data?.project?.name ? `${data.project.name} · pondas.ai` : "Workspace · pondas.ai";
+  }, [data?.project?.name]);
 
   // 팀 카드 요약 실시간 갱신 — 아바타/pill은 store로 즉시 바뀌지만, 카드 요약 텍스트는 맵 스냅샷이라
   // task 상태가 바뀌면(working/done/failed/needs-input) 맵을 디바운스 리페치해 요약도 최신화한다.

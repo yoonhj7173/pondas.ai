@@ -171,7 +171,7 @@ function ProjectSwitcher({ name, currentProjectId }: { name: string; currentProj
             )}
           </div>
           <button
-            onClick={() => { setOpen(false); router.push("/onboarding"); }}
+            onClick={() => { setOpen(false); router.push("/onboarding?new=1"); }}
             className="flex w-full items-center gap-2 border-t border-[#eeefe7] px-3 py-2.5 text-sm font-extrabold text-[#2f9fc7] hover:bg-black/5"
           >
             <span className="text-base leading-none">＋</span> New project

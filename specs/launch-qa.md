@@ -2,7 +2,7 @@
 
 **The single source of truth for testing pondas** (E2E + QA unified). Run this whole plan before a launch-grade deploy, and add a case here for **every** feature or bug fix so the process stays the same each time. Cover **happy + unhappy paths**. Tick `[x]` on pass; note failures inline.
 
-**Last updated:** 2026-07-08 — initial runbook (built after the post-launch UX sprint; PRs #57–64).
+**Last updated:** 2026-07-09 — auth/routing/session fixes (QA-ONB-02/05/06, QA-BILL-03): last-project restore, signed-in root→workspace redirect, checkout return→workspace, product-page tab titles.
 
 ---
 
@@ -44,9 +44,11 @@ Any failure blocks the merge:
 ## 1. Onboarding (Flow 0)
 
 - [ ] **QA-ONB-01 — New user → office** — logged-out `/onboarding` (or landing "Start building"): Google sign-in → display name → project name → **team multi-select** (4 cards: Planning / Research / Design / Development, rosters shown) → optional context dropzone → "Enter the office →". Lands on `/app/{id}` with **exactly the selected teams**, one starter agent each.
-- [ ] **QA-ONB-02 — Returning user skips** — an onboarded user hitting `/onboarding` / bare `/app` is routed to their latest project (`/app` index redirect, #58), not re-onboarded.
+- [ ] **QA-ONB-02 — Returning user skips + last-project restore** — an onboarded user hitting bare `/app` **or** `/onboarding` (without `?new=1`) is routed to the **last project they had open** (localStorage `pondas:last_project`, validated against the live list; falls back to newest if stale/deleted), not re-onboarded and **not** a duplicate new project. Reopening the browser and revisiting returns to the same workspace.
 - [ ] **QA-ONB-03 — Signup grants 500 credits** — a fresh account's Treasury shows **500** (D52). (Was 240 pre-#33.)
 - [ ] **QA-ONB-04 — Bad input rejected** — blank/whitespace project name → 422 (not a blank project). Null byte / lone surrogate in name → 422, not 500 (input-sanitization guard).
+- [ ] **QA-ONB-05 — Signed-in root → workspace** — an authenticated user visiting `/` is redirected by middleware to `/app` (→ last project). Logged-out visitors and crawlers still get the marketing landing (SEO preserved). The switcher's "＋ New project" goes to `/onboarding?new=1`, which **always** shows the wizard (creating an additional project is intentional there).
+- [ ] **QA-ONB-06 — Tab titles** — product surfaces set a real `document.title` (client pages can't export metadata): workspace = `{project name} · pondas.ai`, `/onboarding` = `Get started · pondas.ai`, `/billing/return` = `Payment complete · pondas.ai`. Marketing/legal pages keep their existing SSG titles.
 
 ## 2. Office / orient (Flow 1) + status pipeline
 
@@ -131,7 +133,7 @@ Any failure blocks the merge:
 
 - [ ] **QA-BILL-01 — Treasury tile** — bottom-right shows the credit balance + tokens-today; "+" opens the top-up modal.
 - [ ] **QA-BILL-02 — Charge on dispatch** — a dispatched task deducts its tier cost (light 10 / medium 30 / strong 300); a system failure (crash/sandbox) **refunds** (net zero).
-- [ ] **QA-BILL-03 — Top-up (embedded checkout)** — top-up modal → Stripe **embedded** checkout (no redirect to checkout.stripe.com) → pay (staging card on a test deployment) → balance updates via webhook.
+- [ ] **QA-BILL-03 — Top-up (embedded checkout)** — top-up modal → Stripe **embedded** checkout (no redirect to checkout.stripe.com) → pay (staging card on a test deployment) → balance updates via webhook. After payment, `/billing/return` shows the confirmation then **auto-returns to `/app`** (last project) within ~2.5s; the "워크스페이스로" button also points to `/app` (never the marketing landing `/`).
 - [ ] **QA-BILL-04 — Paywall** — insufficient credits → task blocked (`insufficient_credits`) + SSE `paywall` auto-opens the billing modal (D46).
 - [ ] **QA-BILL-05 — Customer portal (cancel)** — a "Manage billing / cancel" path opens the Stripe Customer Portal (CA ARL — click-to-cancel).
 - [ ] **QA-BILL-06 — Webhook idempotency** — a duplicated Stripe event does not double-credit (`credit_ledger.stripe_ref` unique index; IntegrityError treated as already-processed).

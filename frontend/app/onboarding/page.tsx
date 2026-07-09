@@ -3,11 +3,12 @@
 // 온보딩 위저드(Flow 0) — calm gradient + grid, 680px 카드, 스테퍼.
 // 5스텝: ① Google 사인인(앱 내 모달) ② 이름 ③ 프로젝트명 ④ 팀 멀티셀렉트(4) ⑤ 컨텍스트(선택).
 // 로그인이 첫 스텝 — 사인인 전엔 다음 진행 불가(/app은 미들웨어가 별도 보호).
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SignInButton, useAuth, useUser } from "@clerk/nextjs";
 import { PillButton, Stepper } from "@/components/ui/primitives";
 import { apiFetch, E2E, TEAM_TEMPLATES } from "@/lib/api";
+import { pickProject, setLastProject } from "@/lib/lastProject";
 import { CARPET } from "@/lib/tokens";
 
 const STEPS = ["Sign in", "Your name", "Project", "Teams", "Context"];
@@ -24,7 +25,7 @@ const STEPS = ["Sign in", "Your name", "Project", "Teams", "Context"];
  */
 export default function Onboarding() {
   const router = useRouter();
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn, isLoaded, user } = useUser();
   const { getToken } = useAuth();
   const [step, setStep] = useState(0);
   const [displayName, setDisplayName] = useState("");
@@ -32,6 +33,32 @@ export default function Onboarding() {
   const [teams, setTeams] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 기존 프로젝트가 있는 로그인 사용자가 실수로 온보딩에 들어오면(랜딩/북마크 등) 새 프로젝트를
+  // 또 만들지 않도록 워크스페이스로 되돌린다. 스위처의 "New project"만 ?new=1로 위저드를 강제한다.
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    document.title = "Get started · pondas.ai";
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded) return; // Clerk 로딩 대기.
+    const isNew = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("new") === "1";
+    if (E2E || !isSignedIn || isNew) { setChecking(false); return; } // 명시적 신규 생성/미로그인/E2E는 위저드 진행.
+    let alive = true;
+    (async () => {
+      try {
+        const token = await getToken();
+        const projects = await apiFetch<{ id: string }[]>("/api/projects", { token });
+        if (!alive) return;
+        const target = pickProject(projects);
+        if (target) { router.replace(`/app/${target}`); return; } // 이미 프로젝트가 있으면 워크스페이스로.
+      } catch { /* 목록 조회 실패 시 그냥 위저드를 보여준다. */ }
+      if (alive) setChecking(false);
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, isSignedIn]);
 
   // 사인인되면 step 0(로그인)을 자동 통과(E2E 모드는 사인인 스킵).
   const effectiveStep = !(isSignedIn || E2E) ? 0 : Math.max(step, 1);
@@ -54,11 +81,21 @@ export default function Onboarding() {
           display_name: displayName || user?.firstName || "Founder",
         }),
       });
+      setLastProject(project.id); // 새 프로젝트를 마지막 방문지로 기록.
       router.push(`/app/${project.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create project");
       setBusy(false);
     }
+  }
+
+  // 로그인 사용자의 프로젝트 보유 여부를 확인하는 동안 위저드가 깜빡이지 않도록 로더를 보여준다.
+  if (checking) {
+    return (
+      <main className="flex min-h-screen items-center justify-center font-nunito text-secondary" style={{ background: "#C6C9BC" }}>
+        Loading…
+      </main>
+    );
   }
 
   return (
