@@ -13,7 +13,7 @@ import pytest
 from app.db import SessionLocal
 from app.models import Agent, Edge, Goal, OrchestratorMessage, Project, Task, Team
 from app.services import task_service as ts
-from app.services.orchestrator import LLMResponse, ToolCall, run_chat
+from app.services.orchestrator import LLMResponse, ToolCall, _load_history, run_chat
 from seed import seed
 
 
@@ -165,6 +165,26 @@ def test_override_routes_once_without_mutating_edges(env):
 # --- history endpoint via run_chat persistence ---
 
 
+def test_history_neutralizes_assistant_replies(env):
+    """재생 히스토리에서 지휘자(assistant) 과거 답변은 중립 마커로 치환 — user 의도는 유지.
+
+    '툴 없이 텍스트만 답하는' 과거 답변을 그대로 재생하면 모델이 이후 턴에서 dispatch 툴을 안 부르는
+    자기강화 실패 루프가 생겨서(라이브로 재현됨), assistant content를 재생 시 중립화한다.
+    """
+    db, uid, pid, swe, qa = env
+    db.add_all([
+        OrchestratorMessage(project_id=pid, role="user", content="Write taglines"),
+        OrchestratorMessage(project_id=pid, role="orchestrator", content="Dispatched the taglines task to the PM."),
+    ])
+    db.commit()
+    hist = _load_history(db, pid, limit=20)
+    user_msgs = [m for m in hist if m["role"] == "user"]
+    asst_msgs = [m for m in hist if m["role"] == "assistant"]
+    assert any(m["content"] == "Write taglines" for m in user_msgs)      # 사용자 의도 그대로
+    assert asst_msgs and all("Dispatched" not in m["content"] for m in asst_msgs)  # 확인문장 안 재생
+    assert all("tools" in m["content"] for m in asst_msgs)               # 중립 마커
+
+
 def test_history_persisted(env):
     db, uid, pid, swe, qa = env
     client = ScriptedClient([LLMResponse(content="Hello, how can I help?")])
@@ -186,8 +206,10 @@ def test_history_loaded_into_next_turn(env):
     run_chat(db, pid, uid, "what did I say?", client=c2, enqueue=lambda x: None)
     first_call = c2.seen_messages[0]
     pairs = [(m["role"], m.get("content")) for m in first_call]
-    assert ("user", "remember X") in pairs            # 과거 사용자 발화
-    assert ("assistant", "noted X") in pairs          # 과거 지휘자 답변(orchestrator→assistant 매핑)
+    assert ("user", "remember X") in pairs            # 과거 사용자 발화는 그대로
+    # 지휘자 과거 답변은 중립 마커로 치환(툴 미호출 학습 방지) — 원문 'noted X'는 재생되지 않는다.
+    asst = [c for (r, c) in pairs if r == "assistant"]
+    assert asst and all("noted X" not in (c or "") for c in asst)
     assert first_call[0]["role"] == "system"          # 순서: system → 이력 → 현재
     assert first_call[-1] == {"role": "user", "content": "what did I say?"}  # 현재 메시지가 맨 끝(중복 없음)
 
@@ -202,10 +224,10 @@ def test_history_messages_start_with_user(env):
     msgs = c2.seen_messages[0]
     assert msgs[0]["role"] == "system"
     assert msgs[1]["role"] == "user"                  # 첫 비-system 메시지는 반드시 user
-    assert "assistant" in [m["role"] for m in msgs]   # 직전 지휘자 답변은 여전히 포함
-    # user/assistant 쌍 순서: user 'first'가 assistant 'ok reply'보다 앞.
-    roles_contents = [(m["role"], m.get("content")) for m in msgs]
-    assert roles_contents.index(("user", "first")) < roles_contents.index(("assistant", "ok reply"))
+    assert "assistant" in [m["role"] for m in msgs]   # 직전 지휘자 답변 턴은 여전히 포함(내용은 중립화)
+    # user/assistant 교대 순서: 첫 user('first')가 첫 assistant 턴보다 앞.
+    roles = [m["role"] for m in msgs]
+    assert roles.index("user") < roles.index("assistant")
 
 
 def test_history_limit_zero_disables(env):
