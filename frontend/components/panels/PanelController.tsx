@@ -115,7 +115,7 @@ export function PanelController({ projectId, getToken, mapData, sel, setSel, onC
     return (
       <>
         <AddTeamModal templates={templates} inOffice={inOffice} onClose={close}
-          onSubmit={async (key) => { try { await call(`/api/projects/${projectId}/teams`, "POST", { template_key: key }); close(); } catch { /* banner */ } }} />
+          onSubmit={async (keys) => { try { for (const key of keys) await call(`/api/projects/${projectId}/teams`, "POST", { template_key: key }); close(); } catch { /* banner; partial creation stays, modal open for retry */ } }} />
         {errBanner}
       </>
     );

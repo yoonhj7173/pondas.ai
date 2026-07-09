@@ -121,26 +121,31 @@ export function AddAgentModal({ roles, teamAgents, full, onClose, onSubmit }: {
 }
 
 /**
- * AddTeamModal — '팀 추가' 모달. 템플릿(기획/리서치/디자인/개발) 중 하나를 골라 새 방을 만든다.
+ * AddTeamModal — '팀 추가' 모달. 템플릿(기획/리서치/디자인/개발) 중 여러 개를 골라 한 번에 방을 만든다.
  *
  * 무슨 일을 하나: 팀 템플릿들을 카드로 보여준다. 이미 사무실에 있는 팀은 'In office'로 비활성화.
- *   하나 고르면 onSubmit(key)로 부모에 넘긴다.
- * 누가 부르나: PanelController(sel.kind==="addTeam"). 연결: 제출 → POST /api/projects/{id}/teams (teams.py).
+ *   여러 개를 토글 선택하고 onSubmit(keys)로 부모에 넘긴다(부모가 순차 생성).
+ * 누가 부르나: PanelController(sel.kind==="addTeam"). 연결: 제출 → POST /api/projects/{id}/teams (teams.py, 팀당 1회).
  */
 export function AddTeamModal({ templates, inOffice, onClose, onSubmit }: {
-  templates: TeamTemplate[]; inOffice: Set<string>; onClose: () => void; onSubmit: (key: string) => void;
+  templates: TeamTemplate[]; inOffice: Set<string>; onClose: () => void; onSubmit: (keys: string[]) => void;
 }) {
-  const [sel, setSel] = useState<string>("");
+  const [sel, setSel] = useState<string[]>([]);
+  const toggle = (key: string) => setSel((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
+  const n = sel.length;
   return (
     <Overlay onClose={onClose}>
       <div className="w-[780px] max-w-[92vw] p-7">
-        <div className="font-baloo text-2xl font-extrabold">Add a team</div>
+        <div className="font-baloo text-2xl font-extrabold">Add teams</div>
+        <div className="mt-1 text-sm text-secondary">Pick one or more — each becomes a room with its starting agent.</div>
         <div className="mt-5 grid grid-cols-2 gap-3">
           {templates.map((t) => {
             const here = inOffice.has(t.key);
+            const on = sel.includes(t.key);
             return (
-              <button key={t.key} disabled={here} onClick={() => setSel(t.key)} className={clsx("relative rounded-2xl border-[3px] p-4 text-left", here ? "border-white opacity-50" : sel === t.key ? "border-primary-to" : "border-white")} style={{ background: sel === t.key ? CARPET[t.key] : "rgba(255,255,255,0.55)" }}>
+              <button key={t.key} disabled={here} onClick={() => toggle(t.key)} className={clsx("relative rounded-2xl border-[3px] p-4 text-left", here ? "border-white opacity-50" : on ? "border-primary-to" : "border-white")} style={{ background: on ? CARPET[t.key] : "rgba(255,255,255,0.55)" }}>
                 {here && <span className="absolute right-3 top-3 rounded-pill bg-muted/30 px-2 py-0.5 font-mono text-[10px]">In office</span>}
+                {on && <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-primary-to font-baloo text-xs font-extrabold text-white">✓</span>}
                 <div className="font-baloo text-lg font-extrabold">{t.name}</div>
                 <div className="mt-1 text-xs text-secondary">{t.description}</div>
               </button>
@@ -149,7 +154,7 @@ export function AddTeamModal({ templates, inOffice, onClose, onSubmit }: {
         </div>
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-pill px-4 py-2 font-bold text-secondary">Cancel</button>
-          <PillButton variant="confirm" disabled={!sel} onClick={() => onSubmit(sel)}>Build room</PillButton>
+          <PillButton variant="confirm" disabled={n === 0} onClick={() => onSubmit(sel)}>{n === 0 ? "Build rooms" : `Build ${n} room${n === 1 ? "" : "s"}`}</PillButton>
         </div>
       </div>
     </Overlay>

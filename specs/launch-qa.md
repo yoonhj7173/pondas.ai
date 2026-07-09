@@ -2,7 +2,7 @@
 
 **The single source of truth for testing pondas** (E2E + QA unified). Run this whole plan before a launch-grade deploy, and add a case here for **every** feature or bug fix so the process stays the same each time. Cover **happy + unhappy paths**. Tick `[x]` on pass; note failures inline.
 
-**Last updated:** 2026-07-09 — (1) auth/routing/session (QA-ONB-02/05/06, QA-BILL-03): last-project restore, signed-in root→workspace redirect, checkout return→workspace, tab titles. (2) agent validation + custom roles (QA-AGENT-02/11): 20-char name cap + control/angle-bracket rejection, real base-spec prefill, custom-role option, memory PUT hardening.
+**Last updated:** 2026-07-09 — (1) auth/routing/session (QA-ONB-02/05/06, QA-BILL-03). (2) agent validation + custom roles (QA-AGENT-02/11): 20-char name cap + control/angle-bracket rejection, real base-spec prefill, custom-role option, memory PUT hardening. (3) add-teams multi-select (QA-TEAM-02).
 
 ---
 
@@ -78,7 +78,7 @@ Any failure blocks the merge:
 ## 5. Teams (Flow 3)
 
 - [ ] **QA-TEAM-01 — Team panel** — initial avatar, inline rename, AGENTS/TOKENS tiles, agent rows → agent panel, +Add agent / Rename / Remove.
-- [ ] **QA-TEAM-02 — Add team** — +Team → 4 template cards (in-office ones dimmed) → adds the team with its starter agent.
+- [ ] **QA-TEAM-02 — Add teams (multi-select)** — +Team → "Add teams" modal → template cards (in-office ones dimmed/disabled). **Toggle multiple** — selected cards show ✓; CTA reflects the count ("Build 1 room" / "Build 3 rooms", disabled at 0). Confirm creates **each** selected team (sequential `POST /teams`, one per card) with its starter agent; office shows all new rooms. If one create fails mid-batch, the banner shows and already-created rooms persist (no rollback).
 
 ## 6. Agents (Flow 4)
 
