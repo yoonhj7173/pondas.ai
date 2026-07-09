@@ -127,9 +127,7 @@ export function OutputsOverlay({ projectId, getToken, onClose }: { projectId: st
  * 누가 부르나: HUD 유틸의 'Settings' 버튼. 연결: 일시정지 → backend/app/routers/projects.py의 pause/resume.
  */
 export function SettingsOverlay({ projectId, getToken, projectName, paused, onClose, onChanged }: { projectId: string; getToken: () => Promise<string | null>; projectName: string; paused: boolean; onClose: () => void; onChanged: () => void }) {
-  const [tab, setTab] = useState<"context" | "memory" | "guardrails" | "project">("guardrails");
-  const [cost, setCost] = useState(10);
-  const [conc, setConc] = useState(3);
+  const [tab, setTab] = useState<"context" | "memory" | "project">("context");
   const [isPaused, setIsPaused] = useState(paused);
   const [danger, setDanger] = useState<null | "project" | "account">(null);
   const [typed, setTyped] = useState("");
@@ -178,26 +176,21 @@ export function SettingsOverlay({ projectId, getToken, projectName, paused, onCl
         <div className="flex flex-1 min-h-0">
           <div className="w-48 shrink-0 space-y-1 border-r border-white/40 bg-white/30 p-4">
             <div className="mb-3 font-baloo text-lg font-extrabold">Settings</div>
-            {(["context", "memory", "guardrails", "project"] as const).map((t) => (
+            {(["context", "memory", "project"] as const).map((t) => (
               <button key={t} onClick={() => setTab(t)} className={clsx("block w-full rounded-lg px-3 py-2 text-left text-sm font-bold capitalize", tab === t ? "bg-primary-to text-white" : "text-secondary hover:bg-white/40")}>{t}</button>
             ))}
           </div>
           <div className="flex-1 overflow-y-auto p-6">
-            {tab === "guardrails" && (
-              <div className="space-y-6">
-                <Stepper label="Daily cost cap" value={`$${cost}`} onDec={() => setCost((c) => Math.max(10, c - 10))} onInc={() => setCost((c) => Math.min(100, c + 10))} />
-                <Stepper label="Concurrency cap" value={String(conc)} onDec={() => setConc((c) => Math.max(1, c - 1))} onInc={() => setConc((c) => Math.min(5, c + 1))} />
-                <div className="flex items-center justify-between rounded-xl border-2 border-status-failed/40 bg-status-failed/10 px-4 py-3">
-                  <div><div className="font-baloo font-bold text-status-failed">Pause project</div><div className="text-xs text-secondary">Halts all dispatching including edge auto-fires.</div></div>
-                  <button onClick={togglePause} className={clsx("h-7 w-12 rounded-full p-0.5 transition", isPaused ? "bg-status-failed" : "bg-muted-2")}><span className={clsx("block h-6 w-6 rounded-full bg-white transition", isPaused && "translate-x-5")} /></button>
-                </div>
-              </div>
-            )}
             {tab === "context" && <ContextManager projectId={projectId} getToken={getToken} />}
             {tab === "memory" && <MemoryManager projectId={projectId} getToken={getToken} />}
             {tab === "project" && (
               <div className="space-y-4">
                 <ProjectRename projectId={projectId} projectName={projectName} getToken={getToken} onChanged={onChanged} />
+                {/* 프로젝트 일시정지 — 유일하게 남은 실제 프로젝트 컨트롤(cost/concurrency 캡은 크레딧이 이미 상한이라 제거). */}
+                <div className="flex items-center justify-between rounded-xl border-2 border-status-failed/40 bg-status-failed/10 px-4 py-3">
+                  <div><div className="font-baloo font-bold text-status-failed">Pause project</div><div className="text-xs text-secondary">Halts all dispatching including edge auto-fires.</div></div>
+                  <button onClick={togglePause} className={clsx("h-7 w-12 rounded-full p-0.5 transition", isPaused ? "bg-status-failed" : "bg-muted-2")}><span className={clsx("block h-6 w-6 rounded-full bg-white transition", isPaused && "translate-x-5")} /></button>
+                </div>
                 <div className="space-y-3 rounded-xl border-2 border-status-failed/40 bg-status-failed/10 p-4">
                   <div className="font-baloo font-bold text-status-failed">Danger zone</div>
 
@@ -421,18 +414,6 @@ function MemoryEditor({ agentId, getToken }: { agentId: string; getToken: () => 
   );
 }
 
-function Stepper({ label, value, onDec, onInc }: { label: string; value: string; onDec: () => void; onInc: () => void }) {
-  return (
-    <div>
-      <Lbl>{label}</Lbl>
-      <div className="mt-1 flex items-center gap-3">
-        <button onClick={onDec} className="h-9 w-9 rounded-full bg-white/70 text-lg font-bold">−</button>
-        <span className="w-16 text-center font-baloo text-lg font-extrabold">{value}</span>
-        <button onClick={onInc} className="h-9 w-9 rounded-full bg-white/70 text-lg font-bold">+</button>
-      </div>
-    </div>
-  );
-}
 function Title({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return <div className="flex items-center justify-between"><span className="font-baloo text-2xl font-extrabold">{children}</span><button onClick={onClose} className="text-lg text-muted">×</button></div>;
 }
