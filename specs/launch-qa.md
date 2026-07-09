@@ -2,7 +2,7 @@
 
 **The single source of truth for testing pondas** (E2E + QA unified). Run this whole plan before a launch-grade deploy, and add a case here for **every** feature or bug fix so the process stays the same each time. Cover **happy + unhappy paths**. Tick `[x]` on pass; note failures inline.
 
-**Last updated:** 2026-07-09 — auth/routing/session fixes (QA-ONB-02/05/06, QA-BILL-03): last-project restore, signed-in root→workspace redirect, checkout return→workspace, product-page tab titles.
+**Last updated:** 2026-07-09 — (1) auth/routing/session (QA-ONB-02/05/06, QA-BILL-03): last-project restore, signed-in root→workspace redirect, checkout return→workspace, tab titles. (2) agent validation + custom roles (QA-AGENT-02/11): 20-char name cap + control/angle-bracket rejection, real base-spec prefill, custom-role option, memory PUT hardening.
 
 ---
 
@@ -83,7 +83,8 @@ Any failure blocks the merge:
 ## 6. Agents (Flow 4)
 
 - [ ] **QA-AGENT-01 — Agent panel** — status-tinted header, role inline-edit, tier chip, single connection chip, TOKENS/STATUS tiles.
-- [ ] **QA-AGENT-02 — Add agent (role catalog)** — AddAgentModal: role-catalog picker prefills name/role/tier/output (all editable); TierPicker (Strong·Medium·Light); OUTPUT segment (Handoff·Loop·Final + target). Hire persists with tier + single output.
+- [ ] **QA-AGENT-02 — Add agent (role catalog + custom)** — AddAgentModal: picking a pre-defined role prefills name/tier and the **real authored base spec** into the Role-instructions box (not a placeholder) with a notice "Prefilled with the {role} base spec — edit or add your own"; a **"+ Custom role"** pill clears to a blank slate (define name + instructions yourself). TierPicker (Strong·Medium·Light); OUTPUT segment (Handoff·Loop·Final + target). Hire persists with tier + single output (agent uses exactly what's in the instructions box).
+- [ ] **QA-AGENT-11 — Agent name validation** — name input is capped at **20 chars** (visible `n/20` counter, `maxLength` enforced). Server rejects (422, not 500) names that are >20 chars, blank/whitespace-only, contain control chars (newline/tab), or contain `<`/`>` (stored-XSS vector killed at the source). Same rules on rename (`AgentPatch`). Agent memory PUT (`content_md`) is byte-safe (null/surrogate → 422) and capped at 20 000 chars; empty is allowed (clear).
 - [ ] **QA-AGENT-03 — Desks full at 5** — 6th hire blocked ("desks are full" banner).
 - [ ] **QA-AGENT-04 — Elapsed timer** — a working/queued task shows a live "**Working · 2m 14s**" that ticks each second (#60).
 - [ ] **QA-AGENT-05 — Result in-flow** — on done, the panel renders the result **markdown inline** (no extra click) + a files link. Raw HTML is neutralized (XSS-safe renderer, no `rehype-raw`).

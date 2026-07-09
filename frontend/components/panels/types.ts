@@ -22,7 +22,7 @@ export interface AgentPanelData {
 }
 
 export interface RoleTemplate {
-  role_key: string; display_name: string; default_tier: string; is_starter: boolean;
+  role_key: string; display_name: string; role_instructions: string; default_tier: string; is_starter: boolean;
   default_output_type: string | null; default_output_target_role_key: string | null; default_max_iterations: number | null;
 }
 export interface TeamTemplate { key: string; name: string; description: string; engine: string; roles: RoleTemplate[] }
