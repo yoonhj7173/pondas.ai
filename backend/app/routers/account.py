@@ -15,12 +15,17 @@ from app.auth import TenantScope, tenant_scope
 from app.config import settings
 from app.db import get_db
 from app.models import CreditAccount, CreditLedger, Notification, Project, UserProfile
+from app.ratelimit import rate_limit
 from app.services.slack_alerts import send_slack_alert
 
 router = APIRouter(prefix="/api", tags=["account"])
 
 
-@router.delete("/account", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/account",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(rate_limit("5/minute", "account_delete"))],  # 파괴적 — 폭주 방지.
+)
 def delete_account(
     scope: TenantScope = Depends(tenant_scope),
     db: Session = Depends(get_db),
