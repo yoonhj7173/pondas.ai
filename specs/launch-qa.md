@@ -2,7 +2,7 @@
 
 **The single source of truth for testing pondas** (E2E + QA unified). Run this whole plan before a launch-grade deploy, and add a case here for **every** feature or bug fix so the process stays the same each time. Cover **happy + unhappy paths**. Tick `[x]` on pass; note failures inline.
 
-**Last updated:** 2026-07-09 — (1) auth/routing/session (QA-ONB-02/05/06, QA-BILL-03). (2) agent validation + custom roles (QA-AGENT-02/11): 20-char name cap + control/angle-bracket rejection, real base-spec prefill, custom-role option, memory PUT hardening. (3) add-teams multi-select (QA-TEAM-02).
+**Last updated:** 2026-07-09 — (1) auth/routing/session (QA-ONB-02/05/06, QA-BILL-03). (2) agent validation + custom roles (QA-AGENT-02/11): 20-char name cap + control/angle-bracket rejection, real base-spec prefill, custom-role option, memory PUT hardening. (3) add-teams multi-select (QA-TEAM-02). (4) Activity feed expand + chat-style autoscroll (QA-OFFICE-08); token-usage popover with today/total/by-team + `/usage` today aggregation (QA-OFFICE-09).
 
 ---
 
@@ -59,6 +59,8 @@ Any failure blocks the merge:
 - [ ] **QA-OFFICE-05 — Summary live-refresh** — after a task goes done, the card summary updates (to the goal title / "Task complete") **without a page reload** (#62, ~900ms debounce).
 - [ ] **QA-OFFICE-06 — Click → panel** — clicking a team opens the TeamPanel; clicking an agent opens the AgentPanel; both without a full reload.
 - [ ] **QA-OFFICE-07 — Empty team** — a team with 0 agents shows "No agents yet — hire your first"; a project with no tasks shows "No tasks yet — give the team something to do".
+- [ ] **QA-OFFICE-08 — Activity feed expand + chat-style autoscroll** — the top-right Activity panel renders events **chronologically (newest at the bottom)** and **auto-scrolls to the bottom** as new events arrive; if the user scrolls **up** to read history, autoscroll **pauses** (a new event doesn't yank them down) and resumes once they scroll back near the bottom. An **expand toggle** (⤢/⤡) in the header grows the scroll area from `max-h-40vh` (default) to `max-h-60vh` and back.
+- [ ] **QA-OFFICE-09 — Token usage popover** — the bottom-right token button (🪙 live session count; enlarged, clearly visible) opens an **inline dropdown popover above the button** (not a modal) on click: **Today**, **Total (this project)**, and a **By team** breakdown, fetched from `GET /projects/{id}/usage` (refetched on each open). Outside-click / ESC closes it. Empty project → "No usage yet".
 
 ## 3. Project switcher (Flow 9)  _(#57)_
 

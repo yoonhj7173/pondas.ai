@@ -397,5 +397,8 @@ class UsageOut(BaseModel):
     total_tokens_in: int
     total_tokens_out: int
     total_cost_usd: float
+    # 오늘(UTC 자정 이후) 생성된 task 합 — HUD 토큰 팝오버의 "Tokens today".
+    today_tokens_in: int
+    today_tokens_out: int
     by_team: list[UsageBucketOut]
     by_agent: list[UsageBucketOut]
