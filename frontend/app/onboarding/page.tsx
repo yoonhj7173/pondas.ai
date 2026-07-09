@@ -3,7 +3,7 @@
 // 온보딩 위저드(Flow 0) — calm gradient + grid, 680px 카드, 스테퍼.
 // 5스텝: ① Google 사인인(앱 내 모달) ② 이름 ③ 프로젝트명 ④ 팀 멀티셀렉트(4) ⑤ 컨텍스트(선택).
 // 로그인이 첫 스텝 — 사인인 전엔 다음 진행 불가(/app은 미들웨어가 별도 보호).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SignInButton, useAuth, useUser } from "@clerk/nextjs";
 import { PillButton, Stepper } from "@/components/ui/primitives";
@@ -31,6 +31,8 @@ export default function Onboarding() {
   const [displayName, setDisplayName] = useState("");
   const [projectName, setProjectName] = useState("");
   const [teams, setTeams] = useState<string[]>([]);
+  const [files, setFiles] = useState<File[]>([]); // step 4에서 모은 컨텍스트 파일 — 프로젝트 생성 후 업로드.
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // 기존 프로젝트가 있는 로그인 사용자가 실수로 온보딩에 들어오면(랜딩/북마크 등) 새 프로젝트를
@@ -81,6 +83,14 @@ export default function Onboarding() {
           display_name: displayName || user?.firstName || "Founder",
         }),
       });
+      // 고른 컨텍스트 파일 업로드(선택 — 개별 실패해도 워크스페이스 진입은 계속). 보안 검증은 백엔드.
+      for (const f of files) {
+        try {
+          const fd = new FormData();
+          fd.append("file", f);
+          await apiFetch(`/api/projects/${project.id}/context`, { method: "POST", token, body: fd });
+        } catch { /* 개별 파일 실패는 무시 — 컨텍스트는 선택 사항 */ }
+      }
       setLastProject(project.id); // 새 프로젝트를 마지막 방문지로 기록.
       router.push(`/app/${project.id}`);
     } catch (e) {
@@ -185,10 +195,37 @@ export default function Onboarding() {
         )}
 
         {effectiveStep === 4 && (
-          <Step title="Add context (optional)" sub="Drop files relevant to the project. You can also do this later.">
-            <div className="flex w-full max-w-sm items-center justify-center rounded-2xl border-2 border-dashed border-muted-2 bg-white/40 px-6 py-10 text-sm text-secondary">
-              Drag files here, or skip for now
-            </div>
+          <Step title="Add context (optional)" sub="Files (txt, md, pdf · ≤ 10 MB) your agents can read. You can also add these later in Settings.">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt,.md,.markdown,.pdf"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const picked = Array.from(e.target.files ?? []);
+                setFiles((prev) => [...prev, ...picked]);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex w-full max-w-sm flex-col items-center justify-center rounded-2xl border-2 border-dashed border-muted-2 bg-white/40 px-6 py-8 text-sm text-secondary transition-colors hover:border-primary-to hover:bg-white/60"
+            >
+              <span className="text-2xl">📎</span>
+              <span className="mt-1">Click to choose files, or skip for now</span>
+            </button>
+            {files.length > 0 && (
+              <div className="w-full max-w-sm space-y-1">
+                {files.map((f, i) => (
+                  <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-lg border-2 border-white bg-white/60 px-3 py-1.5 text-xs">
+                    <span className="truncate font-bold">{f.name}</span>
+                    <button type="button" onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))} className="shrink-0 text-status-failed hover:underline">Remove</button>
+                  </div>
+                ))}
+              </div>
+            )}
             {error && <div className="text-sm text-status-failed">{error}</div>}
             <PillButton variant="confirm" onClick={finish} disabled={busy}>
               {busy ? "Building…" : "Enter the office →"}

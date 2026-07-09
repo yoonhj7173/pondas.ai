@@ -1,7 +1,7 @@
 "use client";
 
 // 오버레이(item 25) — Board · Settings · Outputs. HUD 유틸 버튼이 연다.
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import clsx from "clsx";
@@ -193,11 +193,11 @@ export function SettingsOverlay({ projectId, getToken, projectName, paused, onCl
                 </div>
               </div>
             )}
-            {tab === "context" && <Empty>Upload project context files (txt/md/pdf).</Empty>}
-            {tab === "memory" && <Empty>Per-agent memory scratchpads — view / edit / clear.</Empty>}
+            {tab === "context" && <ContextManager projectId={projectId} getToken={getToken} />}
+            {tab === "memory" && <MemoryManager projectId={projectId} getToken={getToken} />}
             {tab === "project" && (
               <div className="space-y-4">
-                <div><Lbl>Project name</Lbl><input defaultValue={projectName} className="mt-1 w-full max-w-sm rounded-pill border-2 border-white bg-white/70 px-4 py-2 outline-none" /></div>
+                <ProjectRename projectId={projectId} projectName={projectName} getToken={getToken} onChanged={onChanged} />
                 <div className="space-y-3 rounded-xl border-2 border-status-failed/40 bg-status-failed/10 p-4">
                   <div className="font-baloo font-bold text-status-failed">Danger zone</div>
 
@@ -240,6 +240,184 @@ export function SettingsOverlay({ projectId, getToken, projectName, paused, onCl
         </div>
       </div>
     </Overlay>
+  );
+}
+
+// --- Settings: 프로젝트 이름 변경(백엔드 PATCH /projects/{id} 배선) ---
+function ProjectRename({ projectId, projectName, getToken, onChanged }: { projectId: string; projectName: string; getToken: () => Promise<string | null>; onChanged: () => void }) {
+  const [name, setName] = useState(projectName);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const dirty = name.trim() !== projectName && name.trim().length > 0;
+
+  async function save() {
+    if (!dirty || busy) return;
+    setBusy(true); setErr(null); setSaved(false);
+    try {
+      await apiFetch(`/api/projects/${projectId}`, { method: "PATCH", token: await getToken(), body: JSON.stringify({ name: name.trim() }) });
+      setSaved(true); onChanged();
+    } catch (e) { setErr(e instanceof Error ? e.message : "Couldn't save the name"); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div>
+      <Lbl>Project name</Lbl>
+      <div className="mt-1 flex items-center gap-2">
+        <input value={name} maxLength={200} onChange={(e) => { setName(e.target.value); setSaved(false); }}
+          className="w-full max-w-sm rounded-pill border-2 border-white bg-white/70 px-4 py-2 outline-none" />
+        <PillButton variant="confirm" disabled={!dirty || busy} onClick={save}>{busy ? "Saving…" : "Save"}</PillButton>
+        {saved && <span className="text-xs font-bold text-status-done">Saved ✓</span>}
+      </div>
+      {err && <div className="mt-1 text-xs font-bold text-status-failed">{err}</div>}
+    </div>
+  );
+}
+
+// --- Settings: 프로젝트 컨텍스트 파일(업로드/목록/삭제). 온보딩과 같은 백엔드 경로(보안 동일). ---
+interface ContextFileRow { id: string; filename: string; mime: string; size_bytes: number }
+function ContextManager({ projectId, getToken }: { projectId: string; getToken: () => Promise<string | null> }) {
+  const [files, setFiles] = useState<ContextFileRow[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
+    try { setFiles(await apiFetch<ContextFileRow[]>(`/api/projects/${projectId}/context`, { token: await getToken() })); }
+    catch { setFiles([]); }
+  }, [projectId, getToken]);
+  useEffect(() => { load(); }, [load]);
+
+  async function upload(list: FileList | null) {
+    if (!list?.length) return;
+    setBusy(true); setErr(null);
+    try {
+      for (const f of Array.from(list)) {
+        const fd = new FormData(); fd.append("file", f);
+        await apiFetch(`/api/projects/${projectId}/context`, { method: "POST", token: await getToken(), body: fd });
+      }
+      await load();
+    } catch (e) { setErr(e instanceof Error ? e.message : "Upload failed"); }
+    finally { setBusy(false); if (inputRef.current) inputRef.current.value = ""; }
+  }
+
+  async function del(id: string) {
+    setErr(null);
+    try { await apiFetch(`/api/context/${id}`, { method: "DELETE", token: await getToken() }); await load(); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't remove the file"); }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Lbl>Project context</Lbl>
+        <p className="mt-1 text-xs text-secondary">Files (txt, md, pdf · ≤ 10 MB) your agents can read — the extracted text is injected into their prompts.</p>
+      </div>
+      <div>
+        <input ref={inputRef} type="file" accept=".txt,.md,.markdown,.pdf" multiple className="hidden" onChange={(e) => upload(e.target.files)} />
+        <PillButton variant="primary" disabled={busy} onClick={() => inputRef.current?.click()}>{busy ? "Uploading…" : "+ Upload files"}</PillButton>
+      </div>
+      {err && <div className="rounded-lg bg-status-failed/15 px-3 py-2 text-xs font-bold text-status-failed">{err}</div>}
+      <div className="space-y-2">
+        {files === null && <div className="text-sm text-secondary">Loading…</div>}
+        {files?.length === 0 && <Empty>No context files yet.</Empty>}
+        {files?.map((f) => (
+          <div key={f.id} className="flex items-center justify-between rounded-xl border-2 border-white bg-white/60 px-4 py-2">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-bold">{f.filename}</div>
+              <div className="font-mono text-[10px] text-muted">{f.mime} · {(f.size_bytes / 1024).toFixed(1)} KB</div>
+            </div>
+            <button onClick={() => del(f.id)} className="shrink-0 text-sm font-bold text-status-failed hover:underline">Remove</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// --- Settings: 에이전트별 메모리(보기/수정/비우기). 목록은 /map에서 에이전트를 가져온다. ---
+function MemoryManager({ projectId, getToken }: { projectId: string; getToken: () => Promise<string | null> }) {
+  const [agents, setAgents] = useState<{ id: string; name: string; team: string }[] | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const map = await apiFetch<{ teams: { name: string; agents: { id: string; name: string }[] }[] }>(`/api/projects/${projectId}/map`, { token: await getToken() });
+        if (alive) setAgents(map.teams.flatMap((t) => t.agents.map((a) => ({ id: a.id, name: a.name, team: t.name }))));
+      } catch { if (alive) setAgents([]); }
+    })();
+    return () => { alive = false; };
+  }, [projectId, getToken]);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Lbl>Agent memory</Lbl>
+        <p className="mt-1 text-xs text-secondary">Each agent keeps a markdown scratchpad it carries between tasks. View, edit, or clear it here.</p>
+      </div>
+      {agents === null && <div className="text-sm text-secondary">Loading…</div>}
+      {agents?.length === 0 && <Empty>No agents yet — hire some first.</Empty>}
+      <div className="space-y-2">
+        {agents?.map((a) => (
+          <div key={a.id} className="rounded-xl border-2 border-white bg-white/60">
+            <button onClick={() => setOpenId((o) => (o === a.id ? null : a.id))} className="flex w-full items-center justify-between px-4 py-2 text-left">
+              <span className="text-sm font-bold">{a.name} <span className="font-mono text-[10px] text-muted">· {a.team}</span></span>
+              <span className="text-muted">{openId === a.id ? "▾" : "▸"}</span>
+            </button>
+            {openId === a.id && <MemoryEditor agentId={a.id} getToken={getToken} />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MemoryEditor({ agentId, getToken }: { agentId: string; getToken: () => Promise<string | null> }) {
+  const [content, setContent] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const m = await apiFetch<{ content_md: string }>(`/api/agents/${agentId}/memory`, { token: await getToken() });
+        if (alive) setContent(m.content_md);
+      } catch { if (alive) setContent(""); }
+    })();
+    return () => { alive = false; };
+  }, [agentId, getToken]);
+
+  async function save() {
+    if (content === null || busy) return;
+    setBusy(true); setErr(null); setSaved(false);
+    try { await apiFetch(`/api/agents/${agentId}/memory`, { method: "PUT", token: await getToken(), body: JSON.stringify({ content_md: content }) }); setSaved(true); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't save"); }
+    finally { setBusy(false); }
+  }
+  async function clear() {
+    setBusy(true); setErr(null); setSaved(false);
+    try { await apiFetch(`/api/agents/${agentId}/memory`, { method: "DELETE", token: await getToken() }); setContent(""); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Couldn't clear"); }
+    finally { setBusy(false); }
+  }
+
+  if (content === null) return <div className="px-4 pb-3 text-xs text-secondary">Loading…</div>;
+  return (
+    <div className="space-y-2 border-t border-white/50 px-4 py-3">
+      <textarea value={content} maxLength={20000} onChange={(e) => { setContent(e.target.value); setSaved(false); }} rows={5}
+        placeholder="Empty — this agent has no saved memory yet." className="w-full rounded-lg border-2 border-white bg-white/70 p-2 text-xs outline-none" />
+      <div className="flex items-center gap-2">
+        <PillButton variant="confirm" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save"}</PillButton>
+        <button onClick={clear} disabled={busy} className="text-xs font-bold text-status-failed hover:underline">Clear</button>
+        {saved && <span className="text-xs font-bold text-status-done">Saved ✓</span>}
+        {err && <span className="text-xs font-bold text-status-failed">{err}</span>}
+      </div>
+    </div>
   );
 }
 

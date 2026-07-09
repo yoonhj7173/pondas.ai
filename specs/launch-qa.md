@@ -2,7 +2,7 @@
 
 **The single source of truth for testing pondas** (E2E + QA unified). Run this whole plan before a launch-grade deploy, and add a case here for **every** feature or bug fix so the process stays the same each time. Cover **happy + unhappy paths**. Tick `[x]` on pass; note failures inline.
 
-**Last updated:** 2026-07-09 — (1) auth/routing/session (QA-ONB-02/05/06, QA-BILL-03). (2) agent validation + custom roles (QA-AGENT-02/11): 20-char name cap + control/angle-bracket rejection, real base-spec prefill, custom-role option, memory PUT hardening. (3) add-teams multi-select (QA-TEAM-02). (4) Activity feed expand + chat-style autoscroll (QA-OFFICE-08); token-usage popover with today/total/by-team + `/usage` today aggregation (QA-OFFICE-09).
+**Last updated:** 2026-07-09 — (1) auth/routing/session (QA-ONB-02/05/06, QA-BILL-03). (2) agent validation + custom roles (QA-AGENT-02/11): 20-char name cap + control/angle-bracket rejection, real base-spec prefill, custom-role option, memory PUT hardening. (3) add-teams multi-select (QA-TEAM-02). (4) Activity feed expand + chat-style autoscroll (QA-OFFICE-08); token-usage popover with today/total/by-team + `/usage` today aggregation (QA-OFFICE-09). (5) Settings context/memory + rename wiring (QA-SET-02/02b/05), onboarding context upload (QA-ONB-07), upload hardening — magic bytes/filename/PDF cap (QA-SEC-06). Guardrails cost/concurrency caps left global pending a decision (QA-SET-01).
 
 ---
 
@@ -43,12 +43,13 @@ Any failure blocks the merge:
 
 ## 1. Onboarding (Flow 0)
 
-- [ ] **QA-ONB-01 — New user → office** — logged-out `/onboarding` (or landing "Start building"): Google sign-in → display name → project name → **team multi-select** (4 cards: Planning / Research / Design / Development, rosters shown) → optional context dropzone → "Enter the office →". Lands on `/app/{id}` with **exactly the selected teams**, one starter agent each.
+- [ ] **QA-ONB-01 — New user → office** — logged-out `/onboarding` (or landing "Start building"): Google sign-in → display name → project name → **team multi-select** (4 cards: Planning / Research / Design / Development, rosters shown) → optional **context file picker** (see QA-ONB-07) → "Enter the office →". Lands on `/app/{id}` with **exactly the selected teams**, one starter agent each.
 - [ ] **QA-ONB-02 — Returning user skips + last-project restore** — an onboarded user hitting bare `/app` **or** `/onboarding` (without `?new=1`) is routed to the **last project they had open** (localStorage `pondas:last_project`, validated against the live list; falls back to newest if stale/deleted), not re-onboarded and **not** a duplicate new project. Reopening the browser and revisiting returns to the same workspace.
 - [ ] **QA-ONB-03 — Signup grants 500 credits** — a fresh account's Treasury shows **500** (D52). (Was 240 pre-#33.)
 - [ ] **QA-ONB-04 — Bad input rejected** — blank/whitespace project name → 422 (not a blank project). Null byte / lone surrogate in name → 422, not 500 (input-sanitization guard).
 - [ ] **QA-ONB-05 — Signed-in root → workspace** — an authenticated user visiting `/` is redirected by middleware to `/app` (→ last project). Logged-out visitors and crawlers still get the marketing landing (SEO preserved). The switcher's "＋ New project" goes to `/onboarding?new=1`, which **always** shows the wizard (creating an additional project is intentional there).
 - [ ] **QA-ONB-06 — Tab titles** — product surfaces set a real `document.title` (client pages can't export metadata): workspace = `{project name} · pondas.ai`, `/onboarding` = `Get started · pondas.ai`, `/billing/return` = `Payment complete · pondas.ai`. Marketing/legal pages keep their existing SSG titles.
+- [ ] **QA-ONB-07 — Onboarding context upload** — step 4 is a **real file picker** (click-to-choose, `.txt/.md/.markdown/.pdf`, multi): chosen files list with per-file Remove. On "Enter the office", the project is created **then** each file is uploaded to `POST /projects/{new id}/context` (best-effort — a per-file failure doesn't block entering the office; context is optional). Same backend + security as Settings upload (QA-SEC-06).
 
 ## 2. Office / orient (Flow 1) + status pipeline
 
@@ -127,8 +128,10 @@ Any failure blocks the merge:
 
 ## 12. Settings (Flow 8)
 
-- [ ] **QA-SET-01 — Guardrails persist** — daily cost cap ($10–100) + concurrency (1–5) steppers + **Pause project** toggle persist and take effect (pause blocks dispatch from UI + chat).
-- [ ] **QA-SET-02 — Context / memory** — context dropzone + list; per-agent memory cards view/edit/clear (persist).
+- [ ] **QA-SET-01 — Pause persists; cost/concurrency caps are global (known gap)** — the **Pause project** toggle persists and takes effect (blocks dispatch from UI + chat). ⚠️ The **daily cost cap** + **concurrency** steppers are **not** user-persisted — those values live in the **global** `config` table (operational admin knobs, shared across users), so they must NOT be wired to a user control as-is. Pending a product decision (hide them, or add a real per-project override). Do not fail E2E on the steppers not saving.
+- [ ] **QA-SET-02 — Context files (upload/list/delete)** — Settings → Context: "+ Upload files" (txt/md/pdf ≤ 10 MB, multi) uploads via `POST /projects/{id}/context`, the list shows filename + mime + size, "Remove" deletes (`DELETE /context/{id}`). Uploaded text is injected into agent prompts. Same backend path as onboarding (QA-ONB-07) → same security (QA-SEC-06).
+- [ ] **QA-SET-02b — Agent memory (view/edit/clear)** — Settings → Memory: each agent (from `/map`) expands to a markdown scratchpad editor; **Save** (`PUT /agents/{id}/memory`, ≤ 20 k, byte-safe) and **Clear** (`DELETE`) persist. Empty agent shows the empty placeholder.
+- [ ] **QA-SET-05 — Project rename persists** — Settings → Project → edit name → **Save** (`PATCH /projects/{id}`) persists; Save is disabled when unchanged or blank; the switcher/tab title reflect the new name. _(Was a dead `defaultValue` input before.)_
 - [ ] **QA-SET-03 — Delete project (danger zone)** — Settings → Project → "Delete project" → inline confirm → deletes + routes to `/app` (redirects onward). _(Was a dead button before #63.)_
 - [ ] **QA-SET-04 — Delete account (GDPR, #63)** — "Delete account" → **type `DELETE` to confirm** (button disabled until exactly "DELETE") → `DELETE /api/account` wipes projects (+sandboxes)/wallet/ledger/profile/notifications, cancels any Stripe sub, deletes the Clerk user → signOut → home. **DESTRUCTIVE — only on a throwaway account.** Own-data scoped (can't touch another user).
 
@@ -157,6 +160,7 @@ Any failure blocks the merge:
 - [ ] **QA-SEC-03 — Rate limiting** — abusive request rate is throttled (slowapi; keyed by real client IP via XFF, Redis-backed).
 - [ ] **QA-SEC-04 — Stored-XSS dead** — a task result / agent field containing `<script>` renders inert (react-markdown without `rehype-raw`); the ADVERSARIAL_TEST_RESULTS.md corpus stays dead.
 - [ ] **QA-SEC-05 — LLM request timeout** — a hung provider call is killed by `llm_request_timeout` + `num_retries` (doesn't pin a Celery worker forever).
+- [ ] **QA-SEC-06 — Context upload hardening** — the context upload path (onboarding + Settings) enforces: 10 MB cap (413); extension allowlist txt/md/pdf (400); **magic-byte checks** — a `.pdf` without the `%PDF` header → 400, a `.txt` containing null bytes (binary-in-disguise) → 400; **filename sanitization** — path components stripped (`../../etc/passwd.txt` stored as `passwd.txt`), control chars removed, length-capped; PDF parsing capped at 100 pages (parse-DoS guard). Covered by `tests/test_files.py`.
 - [ ] **QA-EDGE-01 — Insufficient credits mid-flow** — see QA-BILL-04.
 - [ ] **QA-EDGE-02 — Stop mid-execution** — see QA-AGENT-06; suppresses propagation, no orphan.
 - [ ] **QA-EDGE-03 — Task loss on Redis restart** — a queued (not yet picked) task survives a broker restart (Redis AOF on — infra; plus the queued-task reaper re-enqueues stragglers). _(See Known issues if AOF not yet on.)_

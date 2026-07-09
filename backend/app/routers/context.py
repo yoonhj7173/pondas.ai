@@ -19,7 +19,7 @@ from app.db import get_db
 from app.models import ContextFile, Project
 from app.ownership import load_owned_project
 from app.schemas import ContextFileOut
-from app.services.extract import extract
+from app.services.extract import extract, safe_filename
 from app.services.filestore import filestore
 
 router = APIRouter(prefix="/api", tags=["context"])
@@ -53,12 +53,13 @@ async def upload_context(
     if len(data) > MAX_CONTEXT_BYTES:
         raise HTTPException(status_code=413, detail="file too large (max 10MB)")
 
-    # 허용 타입 검사 + 텍스트 추출(허용 외 400).
-    extracted, mime = extract(file.filename or "upload", data)
+    fname = safe_filename(file.filename)
+    # 허용 타입 검사 + 매직바이트 검증 + 텍스트 추출(허용 외/위장 400).
+    extracted, mime = extract(fname, data)
 
     row = ContextFile(
         project_id=project.id,
-        filename=file.filename or "upload",
+        filename=fname,
         mime=mime,
         size_bytes=len(data),
         extracted_text=extracted,

@@ -22,10 +22,12 @@ export async function apiFetch<T>(
   opts: RequestInit & { token?: string | null } = {},
 ): Promise<T> {
   const { token, headers, ...rest } = opts;
+  // FormData(파일 업로드)면 Content-Type을 브라우저가 boundary와 함께 자동 설정하도록 비운다.
+  const isForm = typeof FormData !== "undefined" && rest.body instanceof FormData;
   const res = await fetch(`${BASE}${path}`, {
     ...rest,
     headers: {
-      "Content-Type": "application/json",
+      ...(isForm ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },

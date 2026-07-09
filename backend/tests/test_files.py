@@ -134,6 +134,46 @@ def test_upload_bad_type_rejected(client, auth, made):
     assert resp.status_code == 400
 
 
+def test_upload_fake_pdf_rejected(client, auth, made):
+    # .pdf 확장자지만 %PDF 헤더 없는 위장 바이너리 → 매직바이트 검증으로 400.
+    sub = "f_fakepdf"
+    pid = _project(client, auth, sub)
+    made.append(uuid.UUID(pid))
+    resp = client.post(
+        f"/api/projects/{pid}/context",
+        files={"file": ("report.pdf", b"MZ\x90\x00 not a pdf", "application/pdf")},
+        headers=auth(sub),
+    )
+    assert resp.status_code == 400
+
+
+def test_upload_binary_as_txt_rejected(client, auth, made):
+    # .txt로 위장한 바이너리(널바이트 포함) → 400.
+    sub = "f_bintxt"
+    pid = _project(client, auth, sub)
+    made.append(uuid.UUID(pid))
+    resp = client.post(
+        f"/api/projects/{pid}/context",
+        files={"file": ("notes.txt", b"hello\x00\x01binary", "text/plain")},
+        headers=auth(sub),
+    )
+    assert resp.status_code == 400
+
+
+def test_upload_filename_sanitized(client, auth, made):
+    # 경로 탐색 시도 → basename만 저장.
+    sub = "f_fname"
+    pid = _project(client, auth, sub)
+    made.append(uuid.UUID(pid))
+    resp = client.post(
+        f"/api/projects/{pid}/context",
+        files={"file": ("../../../etc/passwd.txt", b"safe text", "text/plain")},
+        headers=auth(sub),
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["filename"] == "passwd.txt"
+
+
 def test_context_delete(client, auth, made):
     sub = "f_del"
     pid = _project(client, auth, sub)
