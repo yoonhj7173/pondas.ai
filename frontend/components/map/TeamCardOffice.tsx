@@ -95,7 +95,7 @@ function TeamCard({
   return (
     <div
       onClick={() => onSelectTeam?.(team.id)}
-      className="relative cursor-pointer rounded-[20px] border border-white bg-white/95 p-4 shadow-[0_1px_0_#e6e7dd,0_14px_30px_rgba(50,55,45,.13)] transition-transform hover:-translate-y-[3px] hover:shadow-[0_1px_0_#e6e7dd,0_20px_42px_rgba(50,55,45,.18)]"
+      className="relative min-h-[176px] cursor-pointer rounded-[20px] border border-white bg-white/95 p-5 shadow-[0_1px_0_#e6e7dd,0_14px_30px_rgba(50,55,45,.13)] transition-transform hover:-translate-y-[3px] hover:shadow-[0_1px_0_#e6e7dd,0_20px_42px_rgba(50,55,45,.18)]"
     >
       <div className="pointer-events-none absolute bottom-[18px] left-0 top-[18px] w-1 rounded-r" style={{ background: t.accent }} />
       <div className="flex items-center gap-[9px]">
@@ -112,7 +112,7 @@ function TeamCard({
       {team.agents.length === 0 ? (
         <p className="mt-4 text-[12px] italic text-[#a9a89c]">No agents yet — hire your first</p>
       ) : (
-        <div className="mt-[15px] flex flex-wrap gap-x-[18px] gap-y-[14px]">
+        <div className="mt-[18px] flex flex-wrap gap-x-[12px] gap-y-[16px]">
           {team.agents.map((a) => (
             <AgentAvatar key={a.id} agent={a} teamAv={t.av} status={liveStatus(a)}
               onSelect={onSelectAgent} />
@@ -135,7 +135,7 @@ function AgentAvatar({
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onSelect?.(agent.id); }}
-      className="w-[54px] text-center outline-none"
+      className="w-[64px] text-center outline-none"
       title={agent.name}
     >
       <span className="relative mx-auto block h-[46px] w-[46px]">
@@ -147,7 +147,10 @@ function AgentAvatar({
           <span className="absolute -bottom-px -right-px grid h-[15px] w-[15px] place-items-center rounded-full border-[2.5px] border-white font-baloo text-[9px] font-black text-white" style={{ background: s.dot }}>{s.glyph}</span>
         )}
       </span>
-      <span className="mt-[6px] block truncate font-baloo text-[10.5px] font-extrabold text-[#55514a]">{agent.name}</span>
+      <span
+        className="mt-[6px] block break-words font-baloo text-[10.5px] font-extrabold leading-[1.15] text-[#55514a]"
+        style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+      >{agent.name}</span>
       <span className="block font-mono text-[9px] text-[#8f8c7e]">{agent.model_tier}</span>
     </button>
   );

@@ -152,6 +152,7 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
           if (w === "addTeam") openPanel({ kind: "addTeam" });
           else openOverlay(w);
         }}
+        treasurySlot={<TreasuryTile getToken={getToken} onOpen={() => { setBillingPaywall(false); setBillingOpen(true); }} />}
       />
       {!E2E && (
         // 계정 메뉴(아바타 → 로그아웃). 좌하단 고정.
@@ -159,8 +160,7 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
           <UserButton afterSignOutUrl="/" />
         </div>
       )}
-      {/* Treasury HUD 타일 + 충전 모달(빌링 D46). */}
-      <TreasuryTile getToken={getToken} onOpen={() => { setBillingPaywall(false); setBillingOpen(true); }} />
+      {/* 충전 모달(빌링 D46) — 크레딧 타일은 HUD 우하단 treasurySlot으로 렌더. */}
       {billingOpen && <BillingModal getToken={getToken} paywall={billingPaywall} onClose={() => { setBillingOpen(false); setBillingPaywall(false); }} />}
       <PanelController projectId={params.projectId} getToken={getToken} mapData={data} sel={sel} setSel={setSel} onChanged={loadMap} onOpenOutputs={() => openOverlay("outputs")} onOpenTheater={() => useStore.getState().setTheater(true)} />
       {theaterOpen && <Theater projectId={params.projectId} getToken={getToken} onSend={sendChat} onClose={() => useStore.getState().setTheater(false)} />}

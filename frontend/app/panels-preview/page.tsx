@@ -29,7 +29,7 @@ const ROLES: RoleTemplate[] = [
   { role_key: "devops", display_name: "DevOps", role_instructions: "You prepare and run deployments.", default_tier: "medium", is_starter: false, default_output_type: null, default_output_target_role_key: null, default_max_iterations: null },
 ];
 const TEMPLATES: TeamTemplate[] = [
-  { key: "planning", name: "Product Planning", description: "PRDs and specs.", engine: "crew", roles: [] },
+  { key: "planning", name: "Product Management", description: "PRDs and specs.", engine: "crew", roles: [] },
   { key: "research", name: "Research", description: "Markets, competitors, users.", engine: "crew", roles: [] },
   { key: "design", name: "Design", description: "UI code + screenshots.", engine: "agent_sdk", roles: [] },
   { key: "development", name: "Development", description: "Build + verify software.", engine: "agent_sdk", roles: [] },

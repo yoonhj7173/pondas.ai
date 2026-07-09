@@ -38,7 +38,7 @@ async function loadSummary(getToken: GetToken): Promise<Summary | null> {
 function Coin() {
   return (
     <span
-      className="grid h-5 w-5 flex-none place-items-center rounded-full text-[10px] font-extrabold text-[#7a5410]"
+      className="grid h-5 w-5 flex-none place-items-center rounded-full text-[11px] font-extrabold leading-none text-[#7a5410]"
       style={{ background: "radial-gradient(circle at 35% 30%,#fbdd8a,#f7b731)", border: "1.5px solid #d9990f" }}
     >
       ₵
@@ -46,7 +46,7 @@ function Coin() {
   );
 }
 
-/** TreasuryTile — 워크스페이스 우상단(벨 아래) 다크 타일. 잔액 표시 + 클릭 시 모달. */
+/** TreasuryTile — 크레딧 잔액 다크 타일(우하단, 토큰 카운터 옆). 클릭 시 결제 모달. 위치는 부모(HUD)가 잡는다. */
 export function TreasuryTile({ getToken, onOpen }: { getToken: GetToken; onOpen: () => void }) {
   const [s, setS] = useState<Summary | null>(null);
   useEffect(() => {
@@ -59,14 +59,13 @@ export function TreasuryTile({ getToken, onOpen }: { getToken: GetToken; onOpen:
   return (
     <button
       onClick={onOpen}
-      className="absolute right-5 top-[4.75rem] z-20 w-52 rounded-2xl px-4 py-3 text-left text-white shadow-card"
+      title="Credits — click to top up"
+      className="w-48 rounded-2xl px-4 py-3 text-left text-white shadow-card"
       style={{ background: "rgba(36,46,66,0.92)" }}
     >
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-2 font-baloo text-lg font-extrabold">
-          <Coin /> {bal.toLocaleString()}
-        </span>
-        <span className="grid h-7 w-7 place-items-center rounded-lg border-2 border-white/80 text-base font-bold">+</span>
+      {/* '+' 버튼은 제거 — 타일 존재 자체로 크레딧 관리/결제 진입점임을 알 수 있다(2-2). */}
+      <div className="flex items-center gap-2 font-baloo text-lg font-extrabold">
+        <Coin /> <span>{bal.toLocaleString()}</span>
       </div>
       {pct !== null && (
         <>

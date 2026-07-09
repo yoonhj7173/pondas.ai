@@ -16,6 +16,7 @@ export interface HudProps {
   onFocusAgent?: (agentId: string) => void;
   onOpen?: (what: "settings" | "board" | "outputs" | "addTeam") => void;
   currentProjectId?: string;
+  treasurySlot?: React.ReactNode; // 크레딧 타일 — 우하단 토큰 카운터 옆에 나란히 배치(위치는 HUD가 잡음).
 }
 
 /**
@@ -37,7 +38,12 @@ export default function Hud(props: HudProps) {
       <ActivityFeedAndBell onFocusAgent={props.onFocusAgent} />
       <ToastStack onFocusAgent={props.onFocusAgent} />
       <UtilityStack onOpen={props.onOpen} />
-      <TokenCounter projectId={props.currentProjectId} />
+      {/* 우하단: 크레딧 타일 + 토큰 카운터를 세로로 그룹핑(2-2). 가로 배치는 가운데 챗바와 겹쳐 세로 스택.
+          토큰이 위(팝오버가 위로 열려 빈 공간 사용), 크레딧이 아래. */}
+      <div className="absolute bottom-5 right-5 z-20 flex flex-col items-end gap-2">
+        <TokenCounter projectId={props.currentProjectId} />
+        {props.treasurySlot}
+      </div>
       <OrchestratorChat focused={chatFocused} setFocused={setChatFocused} onSend={props.onSend} />
     </>
   );
@@ -324,9 +330,9 @@ function TokenCounter({ projectId }: { projectId?: string }) {
   const teams = data ? [...data.by_team].sort((a, b) => (b.tokens_in + b.tokens_out) - (a.tokens_in + a.tokens_out)) : [];
 
   return (
-    <div ref={wrapRef} className="absolute bottom-5 right-5 z-20">
+    <div ref={wrapRef} className="relative">
       {open && (
-        <div className="mb-2 w-64 rounded-tile border border-white/10 bg-[rgba(36,46,66,0.97)] p-3 text-white shadow-card">
+        <div className="absolute bottom-full right-0 mb-2 w-64 rounded-tile border border-white/10 bg-[rgba(36,46,66,0.97)] p-3 text-white shadow-card">
           <div className="mb-2 font-baloo text-sm font-bold">Token usage</div>
           <TokRow label="Today" value={today} />
           <TokRow label="Total (this project)" value={projTotal} />
