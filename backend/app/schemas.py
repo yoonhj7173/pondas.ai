@@ -353,6 +353,28 @@ class MemoryPut(BaseModel):
     content_md: SafeStr = Field(max_length=20000)
 
 
+# --- Notes (Board 밑 Notes 메뉴, issue 4) — 텍스트 전용(마크다운 넘버링/불릿) ---
+
+
+class NoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    title: str
+    body: str
+    updated_at: UtcDatetime
+
+
+class NoteCreate(BaseModel):
+    title: SafeStr = Field(default="", max_length=200)
+    body: SafeStr = Field(default="", max_length=20000)
+
+
+class NoteUpdate(BaseModel):
+    title: SafeStr = Field(default="", max_length=200)
+    body: SafeStr = Field(default="", max_length=20000)
+
+
 # --- Notifications / Board / Usage (item 12) ---
 
 

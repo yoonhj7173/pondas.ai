@@ -10,7 +10,7 @@ import { connectSSE } from "@/lib/sse";
 import type { MapData } from "@/lib/map/types";
 import Hud from "@/components/hud/Hud";
 import { PanelController, type Selection } from "@/components/panels/PanelController";
-import { BoardOverlay, OutputsOverlay, SettingsOverlay, type OverlayKind } from "@/components/overlays/Overlays";
+import { BoardOverlay, OutputsOverlay, SettingsOverlay, NotesOverlay, type OverlayKind } from "@/components/overlays/Overlays";
 import { TreasuryTile, BillingModal } from "@/components/billing/Treasury";
 import { Theater } from "@/components/preview/Theater";
 import TeamCardOffice from "@/components/map/TeamCardOffice";
@@ -166,6 +166,7 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
       {theaterOpen && <Theater projectId={params.projectId} getToken={getToken} onSend={sendChat} onClose={() => useStore.getState().setTheater(false)} />}
       {overlay === "board" && <BoardOverlay projectId={params.projectId} getToken={getToken} onClose={() => setOverlay(null)} onFocus={(id) => { setOverlay(null); setSel({ kind: "agent", id }); }} />}
       {overlay === "outputs" && <OutputsOverlay projectId={params.projectId} getToken={getToken} onClose={() => setOverlay(null)} />}
+      {overlay === "notes" && <NotesOverlay projectId={params.projectId} getToken={getToken} onClose={() => setOverlay(null)} />}
       {overlay === "settings" && <SettingsOverlay projectId={params.projectId} getToken={getToken} projectName={data.project.name} paused={data.paused} onClose={() => setOverlay(null)} onChanged={loadMap} />}
     </div>
   );

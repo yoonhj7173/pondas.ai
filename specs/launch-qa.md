@@ -2,7 +2,7 @@
 
 **The single source of truth for testing pondas** (E2E + QA unified). Run this whole plan before a launch-grade deploy, and add a case here for **every** feature or bug fix so the process stays the same each time. Cover **happy + unhappy paths**. Tick `[x]` on pass; note failures inline.
 
-**Last updated:** 2026-07-09 — (1) auth/routing/session (QA-ONB-02/05/06, QA-BILL-03). (2) agent validation + custom roles (QA-AGENT-02/11): 20-char name cap + control/angle-bracket rejection, real base-spec prefill, custom-role option, memory PUT hardening. (3) add-teams multi-select (QA-TEAM-02). (4) Activity feed expand + chat-style autoscroll (QA-OFFICE-08); token-usage popover with today/total/by-team + `/usage` today aggregation (QA-OFFICE-09). (5) Settings context/memory + rename wiring (QA-SET-02/02b/05), onboarding context upload (QA-ONB-07), upload hardening — magic bytes/filename/PDF cap (QA-SEC-06). Removed user-facing cost/concurrency guardrail steppers (credits are the real cap); Pause moved to the Project tab, Guardrails tab dropped (QA-SET-01). (6) Workspace polish (QA-OFFICE-01/10): Product Planning→Product Management (catalog + fallback + data migration), agent-name 2-line wrap, roomier cards, credits tile relocated bottom-right (no "+"), ₵ centered.
+**Last updated:** 2026-07-09 — (1) auth/routing/session (QA-ONB-02/05/06, QA-BILL-03). (2) agent validation + custom roles (QA-AGENT-02/11): 20-char name cap + control/angle-bracket rejection, real base-spec prefill, custom-role option, memory PUT hardening. (3) add-teams multi-select (QA-TEAM-02). (4) Activity feed expand + chat-style autoscroll (QA-OFFICE-08); token-usage popover with today/total/by-team + `/usage` today aggregation (QA-OFFICE-09). (5) Settings context/memory + rename wiring (QA-SET-02/02b/05), onboarding context upload (QA-ONB-07), upload hardening — magic bytes/filename/PDF cap (QA-SEC-06). Removed user-facing cost/concurrency guardrail steppers (credits are the real cap); Pause moved to the Project tab, Guardrails tab dropped (QA-SET-01). (6) Workspace polish (QA-OFFICE-01/10): Product Planning→Product Management (catalog + fallback + data migration), agent-name 2-line wrap, roomier cards, credits tile relocated bottom-right (no "+"), ₵ centered. (7) Notes feature — per-project text notes under Board with markdown list preview (QA-NOTE-01/02/03).
 
 ---
 
@@ -126,6 +126,12 @@ Any failure blocks the merge:
 ## 11. Board (Flow 7)
 
 - [ ] **QA-BOARD-01 — Goals mirror dispatch** — a dispatched goal appears as a checklist with status icons; in-progress/failed rows deep-link (focus the agent).
+
+## 11b. Notes (issue 4)
+
+- [ ] **QA-NOTE-01 — Notes CRUD** — HUD utility "📝 Notes" (under Board) opens the Notes overlay: "+ New note" creates + selects a blank note; the master list (left) shows note titles ("Untitled" when blank, newest-first). Editing the title + body and **Save** (`PATCH /notes/{id}`) persists and the list title updates; **Delete** (`DELETE`) removes it and returns to the empty state. Reopening the overlay (or reloading) shows the saved notes (`GET /projects/{id}/notes`).
+- [ ] **QA-NOTE-02 — Text-only with lists renders** — the body is a plain textarea (markdown source); a **Preview** pane renders it via the XSS-safe `Markdown` component (remark-gfm, no rehype-raw): `- ` → bullet list, `1. ` → numbered list. Raw HTML / `<script>` is inert (stored-XSS dead, same renderer as QA-AGENT-05/QA-SEC-04). Title ≤ 200, body ≤ 20 000; null byte/surrogate → 422.
+- [ ] **QA-NOTE-03 — Tenant isolation** — another user's notes list/patch/delete → **404** (owner-scoped, `_load_owned_note`).
 
 ## 12. Settings (Flow 8)
 

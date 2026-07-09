@@ -14,7 +14,7 @@ import { visualStatus, type AgentStatus } from "@/lib/tokens";
 const Markdown = dynamic(() => import("@/components/ui/Markdown"), { ssr: false });
 const MARKDOWN_EXTS = /\.(md|markdown|mdx)$/i;
 
-export type OverlayKind = "board" | "settings" | "outputs" | null;
+export type OverlayKind = "board" | "settings" | "outputs" | "notes" | null;
 
 const STATUS_ICON: Record<string, { glyph: string; cls: string }> = {
   done: { glyph: "✓", cls: "bg-status-done text-white" },
@@ -411,6 +411,90 @@ function MemoryEditor({ agentId, getToken }: { agentId: string; getToken: () => 
         {err && <span className="text-xs font-bold text-status-failed">{err}</span>}
       </div>
     </div>
+  );
+}
+
+// --- Notes (Board 밑 Notes 메뉴, issue 4) — 텍스트 전용 노트. 리스트 + 편집 + 마크다운 프리뷰. ---
+interface NoteRow { id: string; title: string; body: string; updated_at: string }
+export function NotesOverlay({ projectId, getToken, onClose }: { projectId: string; getToken: () => Promise<string | null>; onClose: () => void }) {
+  const [notes, setNotes] = useState<NoteRow[] | null>(null);
+  const [sel, setSel] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const load = useCallback(async () => {
+    try { const rows = await apiFetch<NoteRow[]>(`/api/projects/${projectId}/notes`, { token: await getToken() }); setNotes(rows); return rows; }
+    catch { setNotes([]); return [] as NoteRow[]; }
+  }, [projectId, getToken]);
+  useEffect(() => { load(); }, [load]);
+
+  function openNote(n: NoteRow) { setSel(n.id); setTitle(n.title); setBody(n.body); setSaved(false); }
+
+  async function createNote() {
+    setBusy(true);
+    try {
+      const n = await apiFetch<NoteRow>(`/api/projects/${projectId}/notes`, { method: "POST", token: await getToken(), body: JSON.stringify({ title: "", body: "" }) });
+      await load(); openNote(n);
+    } catch { /* noop */ } finally { setBusy(false); }
+  }
+  async function save() {
+    if (!sel) return;
+    setBusy(true); setSaved(false);
+    try { await apiFetch(`/api/notes/${sel}`, { method: "PATCH", token: await getToken(), body: JSON.stringify({ title, body }) }); await load(); setSaved(true); }
+    catch { /* noop */ } finally { setBusy(false); }
+  }
+  async function del(id: string) {
+    setBusy(true);
+    try { await apiFetch(`/api/notes/${id}`, { method: "DELETE", token: await getToken() }); await load(); if (sel === id) setSel(null); }
+    catch { /* noop */ } finally { setBusy(false); }
+  }
+
+  return (
+    <Overlay onClose={onClose}>
+      <div className="flex h-[600px] w-[900px] max-w-[94vw] flex-col p-0">
+        <div className="border-b border-white/40 px-6 py-4"><Title onClose={onClose}>Notes</Title></div>
+        <div className="flex min-h-0 flex-1">
+          <div className="flex w-56 shrink-0 flex-col border-r border-white/40 bg-white/30 p-3">
+            <PillButton variant="primary" onClick={createNote} disabled={busy}>+ New note</PillButton>
+            <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto">
+              {notes === null && <div className="px-1 py-2 text-sm text-secondary">Loading…</div>}
+              {notes?.length === 0 && <div className="px-1 py-2 text-xs text-muted">No notes yet.</div>}
+              {notes?.map((n) => (
+                <button key={n.id} onClick={() => openNote(n)} className={clsx("block w-full truncate rounded-lg px-3 py-2 text-left text-sm font-bold", sel === n.id ? "bg-primary-to text-white" : "text-secondary hover:bg-white/40")}>
+                  {n.title.trim() || "Untitled"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            {sel === null ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted">Select a note, or create one.</div>
+            ) : (
+              <div className="space-y-3">
+                <input value={title} maxLength={200} onChange={(e) => { setTitle(e.target.value); setSaved(false); }} placeholder="Untitled"
+                  className="w-full rounded-pill border-2 border-white bg-white/70 px-4 py-2 font-baloo text-lg font-extrabold outline-none" />
+                <textarea value={body} maxLength={20000} onChange={(e) => { setBody(e.target.value); setSaved(false); }} rows={11}
+                  placeholder={"Write freely. Lists render:\n- a bullet\n1. a numbered item"}
+                  className="w-full rounded-xl border-2 border-white bg-white/70 p-3 text-sm outline-none" />
+                <div className="flex items-center gap-2">
+                  <PillButton variant="confirm" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save"}</PillButton>
+                  <button onClick={() => del(sel)} disabled={busy} className="text-sm font-bold text-status-failed hover:underline">Delete</button>
+                  {saved && <span className="text-xs font-bold text-status-done">Saved ✓</span>}
+                </div>
+                {body.trim() && (
+                  <div className="rounded-xl border-2 border-white/60 bg-white/40 p-4">
+                    <div className="mb-2 font-mono text-[10px] uppercase tracking-wide text-muted">Preview</div>
+                    <Markdown>{body}</Markdown>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </Overlay>
   );
 }
 
