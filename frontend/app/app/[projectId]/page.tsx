@@ -49,10 +49,12 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
     }
   }, [paywall]);
 
-  async function loadMap() {
+  // syncStore=false면 store(에이전트 실시간 상태)는 건드리지 않고 화면 데이터(팀 카드 요약)만 갱신한다.
+  // 상태-변화로 트리거되는 디바운스 리페치가 setSnapshot으로 더 새로운 SSE 상태를 되돌리는 걸 막는다(감사 P2).
+  async function loadMap(syncStore = true) {
     const token = await getToken();
     const map = await apiFetch<MapData>(`/api/projects/${params.projectId}/map`, { token });
-    useStore.getState().setSnapshot(map);
+    if (syncStore) useStore.getState().setSnapshot(map);
     setData(map);
   }
 
@@ -84,7 +86,7 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
       if (h === prev) return;
       prev = h;
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => { loadMap().catch(() => {}); }, 900);
+      timer = setTimeout(() => { loadMap(false).catch(() => {}); }, 900); // 요약만 갱신, store는 SSE에 맡김.
     });
     return () => { unsub(); if (timer) clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps

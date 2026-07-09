@@ -1,5 +1,6 @@
 // 백엔드 API 클라이언트 — Clerk JWT를 Authorization으로 싣는다(D24).
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const BASE = API_BASE;
 
 // E2E 모드(dev 전용) — Clerk 사인인 우회. 백엔드도 E2E_AUTH_BYPASS로 매칭.
 // E2E 우회는 개발 빌드에서만 — prod 빌드(NODE_ENV=production)에선 강제로 off(NEXT_PUBLIC_E2E가
