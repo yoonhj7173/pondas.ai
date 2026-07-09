@@ -288,8 +288,17 @@ def _load_history(db: Session, project_id: uuid.UUID, limit: int) -> list[dict]:
     # (PostgreSQL now()=txn 시작시각) 정렬이 비결정적 → user를 우선해 user→assistant 순서를 보장한다
     # (Anthropic은 user로 시작하는 교대 메시지를 요구). created_at desc로 캡한 뒤 여기서 안정 정렬.
     rows.sort(key=lambda m: (m.created_at, 0 if m.role == "user" else 1))
+    # 지휘자(assistant) 과거 답변은 대부분 "Dispatched …" 확인 문장이다. 이 '툴 없이 텍스트만
+    # 답하는' 패턴을 그대로 재생하면 모델이 이를 모방해 이후 턴에서 dispatch_task 툴을 안 부르고
+    # 확인 문장만 내놓는다(자기강화 실패 루프 — 히스토리가 쌓일수록 dispatch가 조용히 죽음).
+    # 라이브로 재현+검증됨. 재생 시 중립 마커로 치환해 패턴을 끊는다(user 의도 히스토리는 유지하고,
+    # 현재 상태는 어차피 _system_prompt가 제공). user/assistant 교대 형식도 그대로 보존.
+    _ASSISTANT_HISTORY = "(Acted on the previous request by calling the tools.)"
     return [
-        {"role": "assistant" if m.role == "orchestrator" else "user", "content": m.content}
+        {
+            "role": "assistant" if m.role == "orchestrator" else "user",
+            "content": _ASSISTANT_HISTORY if m.role == "orchestrator" else m.content,
+        }
         for m in rows
     ]
 
