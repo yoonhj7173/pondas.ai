@@ -258,11 +258,16 @@ def create_project(
     try:
         # display_name이 오면 user_profile upsert(온보딩 step 2).
         if body.display_name:
+            # Clerk primary 이메일을 best-effort로 캡처(재접촉/마케팅). 실패해도 온보딩 안 막음.
+            from app.services import clerk_client
+            email = clerk_client.get_user_email(user_id)
             profile = db.get(UserProfile, user_id)
             if profile is None:
-                db.add(UserProfile(user_id=user_id, display_name=body.display_name))
+                db.add(UserProfile(user_id=user_id, display_name=body.display_name, email=email))
             else:
                 profile.display_name = body.display_name
+                if email:  # 조회 실패(None) 시 기존 값 보존
+                    profile.email = email
 
         # 가입 무료 크레딧(D46 B-5) — billing ON일 때만, 1계정 1회(grant_signup 멱등).
         from app.services import credit_service

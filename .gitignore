@@ -30,3 +30,6 @@ runs/
 
 # Slack per-project channel binding (turn-summary hook) — local, not shared.
 .claude/slack_config.json
+
+# local admin secrets/scripts (never commit)
+.local/
