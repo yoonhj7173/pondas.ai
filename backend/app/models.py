@@ -100,6 +100,8 @@ class UserProfile(Base):
 
     user_id: Mapped[str] = mapped_column(Text, primary_key=True)
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
+    # Clerk primary 이메일 미러(재접촉/마케팅용). Clerk가 authoritative — 온보딩 시 best-effort로 캡처.
+    email: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = _updated_at()
 
