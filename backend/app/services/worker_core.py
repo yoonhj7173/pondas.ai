@@ -97,6 +97,15 @@ def _enqueue_children(new_ids: list, enqueue) -> None:
         enqueue(nid)
 
 
+def _task_stopped(db: Session, task_id) -> bool:
+    """유저가 Stop을 눌렀는지 DB에서 확인(QA-05a) — 러너가 스텝 경계마다 부른다.
+
+    컬럼 하나만 SELECT(식별맵 미사용) → 세션 캐시가 아니라 최신 커밋값을 본다(READ COMMITTED).
+    Stop 라우트는 별도 세션에서 failed+stopped를 커밋하므로 이 조회가 그걸 즉시 감지한다.
+    """
+    return bool(db.query(Task.stopped).filter(Task.id == task_id).scalar())
+
+
 def _refund_if_billing(db: Session, task: Task, agent: Agent, cfg) -> None:
     """시스템 실패(우리 잘못 — 크래시/샌드박스 기동 실패/타임아웃)일 때만 차감분 환불(D46 B-4).
 
@@ -264,8 +273,26 @@ def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_cl
         task_timeout_sec=cfg.dev_task_timeout_min * 60,
         # 라이브 진행(QA-01): 스텝마다 "Writing src/App.tsx" 같은 한 줄을 SSE로 흘린다.
         on_step=lambda label: events.emit_progress(task.project_id, task.agent_id, task.id, label),
+        # Stop 실효(QA-05a): 스텝 경계마다 DB의 stopped 플래그 확인 → 유저 Stop이 즉시 먹힌다.
+        should_stop=lambda: _task_stopped(db, task.id),
     )
     cost = cost_usd(cfg, model, outcome.tokens_in, outcome.tokens_out)
+
+    if outcome.status == "stopped":
+        # Stop 라우트가 이미 failed+stopped로 전이·커밋했다 — 여기서 전이하면 IllegalTransition.
+        # 대신 부분 작업물을 보존한다(QA-05b): 지금까지 만든 파일을 수집·버전 커팅하고, 중단
+        # 시점까지의 토큰을 회계에 남긴다(기존엔 22개 파일과 토큰 기록이 통째로 증발했다).
+        # 워크스페이스는 프로젝트별 영속이라 재시도 태스크가 이 파일들 위에서 자연스럽게 이어간다.
+        collect_outputs(db, task, workspace_service.provider, sandbox_id, since_mtime=start_mtime)
+        from app.services.versioning import snapshot_version
+        snapshot_version(db, task)
+        task.verification = outcome.verification
+        task.model_used = model
+        task.tokens_in, task.tokens_out, task.est_cost_usd = outcome.tokens_in, outcome.tokens_out, cost
+        db.commit()
+        events.emit_usage(task.project_id, task.agent_id, outcome.tokens_in, outcome.tokens_out, cost)
+        workspace_service.pause_if_idle(db, project)
+        return "stopped"
 
     if outcome.status == "needs-input":
         ts.transition(db, task, "needs-input", awaiting_prompt=outcome.awaiting_prompt,

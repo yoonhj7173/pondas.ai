@@ -62,7 +62,7 @@ _WORKSPACE_CONVENTIONS = (
 
 @dataclass
 class DevOutcome:
-    status: str                 # done | needs-input | failed
+    status: str                 # done | needs-input | failed | stopped
     output: str = ""
     awaiting_prompt: str | None = None
     error_summary: str | None = None
@@ -116,6 +116,7 @@ def run_dev_task(
     role_instructions: str = "",
     task_timeout_sec: int = DEFAULT_TASK_TIMEOUT_SEC,
     on_step=None,  # (label: str) -> None — 스텝별 라이브 진행 콜백(QA-01). 실패해도 루프 안 깨짐.
+    should_stop=None,  # () -> bool — 스텝 경계마다 확인(QA-05a). True면 즉시 status="stopped" 반환.
 ) -> DevOutcome:
     """코딩 에이전트 루프 — 샌드박스 안에서 AI가 직접 코드를 쓰고·돌려보고·고치길 반복한다.
 
@@ -143,6 +144,17 @@ def run_dev_task(
     start = time.time()
 
     for _ in range(MAX_STEPS):
+        # Stop 확인(QA-05a) — 유저가 Stop을 눌렀으면 다음 스텝을 시작하지 않고 즉시 접는다.
+        # 기존엔 kill_current(베스트에포트)뿐이라 Stop 후에도 루프가 몇 분씩 더 돌았다(실사례 6분).
+        # 지금까지의 토큰/verification은 들고 나가서 호출부가 부분 작업물을 보존한다(QA-05b).
+        if should_stop is not None:
+            try:
+                stop = bool(should_stop())
+            except Exception:  # noqa: BLE001 — 확인 실패는 계속 진행(관측이 본 루프를 못 깨뜨림)
+                stop = False
+            if stop:
+                return DevOutcome(status="stopped", error_summary="Stopped by user",
+                                  verification=verification, tokens_in=tokens_in, tokens_out=tokens_out)
         if time.time() - start > task_timeout_sec:
             return DevOutcome(status="failed", error_summary="dev task exceeded time budget",
                               verification=verification, tokens_in=tokens_in, tokens_out=tokens_out)

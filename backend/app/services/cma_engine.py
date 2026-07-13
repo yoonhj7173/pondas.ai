@@ -148,7 +148,7 @@ def run_dev_task_cma(db: Session, task: Task, agent: Agent, model: str, cfg, enq
     연결: CMA 서버와 실제 통신 → CMAClient (backend/app/services/cma.py).
         완료 후 공통 마무리·전파 → _finalize_done (worker_core.py). (E2B 대응판 → _run_dev_task)
     """
-    from app.services.worker_core import _enqueue_children, _finalize_done  # 순환 회피(lazy).
+    from app.services.worker_core import _enqueue_children, _finalize_done, _task_stopped  # 순환 회피(lazy).
 
     client = CMAClient()
     try:  # outer: client는 출력수집까지 열려있어야 함 → 맨 끝 finally에서 close.
@@ -173,6 +173,8 @@ def run_dev_task_cma(db: Session, task: Task, agent: Agent, model: str, cfg, enq
                 sid, timeout_sec=cfg.dev_task_timeout_min * 60,
                 # 라이브 진행(QA-01): CMA는 스텝 상세가 없어 모델 턴 수로 "일하고 있음"을 알린다.
                 on_progress=lambda label: events.emit_progress(task.project_id, task.agent_id, task.id, label),
+                # Stop 실효(QA-05a): 폴마다 DB의 stopped 플래그 확인.
+                should_stop=lambda: _task_stopped(db, task.id),
             )
         except CMAError as exc:
             log.warning("cma run failed", extra={"task_id": str(task.id)})
@@ -182,6 +184,21 @@ def run_dev_task_cma(db: Session, task: Task, agent: Agent, model: str, cfg, enq
             return "failed"
 
         cost = cost_usd(cfg, model, res.tokens_in, res.tokens_out)
+
+        if res.status == "stopped":
+            # Stop 라우트가 이미 failed+stopped 전이·커밋 — 여기선 부분 작업물 보존(QA-05b).
+            # 수집 먼저(파일이 세션에 묶여 있음) → 세션 종료(Anthropic 쪽 루프가 계속 돌며 과금되는
+            # 것 차단) → 다음 태스크는 새 세션으로 시작.
+            _collect_outputs(db, task, client, sid)
+            from app.services.versioning import snapshot_version
+            snapshot_version(db, task)
+            task.model_used = model
+            task.tokens_in, task.tokens_out, task.est_cost_usd = res.tokens_in, res.tokens_out, cost
+            client.delete_session(sid)
+            agent.cma_session_id = None
+            db.commit()
+            events.emit_usage(task.project_id, task.agent_id, res.tokens_in, res.tokens_out, cost)
+            return "stopped"
 
         # terminated / timeout → failed.
         if res.status in ("terminated", "timeout"):

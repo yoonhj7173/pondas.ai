@@ -111,7 +111,7 @@ def _mock_cma(monkeypatch, reply="Built the Next.js app."):
     """CMA 리소스/클라이언트를 전부 가짜로 — run_dev_task_cma를 라이브 키 없이 done까지 태운다."""
     fake_client = types.SimpleNamespace(
         send_user_message=lambda sid, msg: None,
-        poll_until_idle=lambda sid, timeout_sec, on_progress=None: types.SimpleNamespace(
+        poll_until_idle=lambda sid, timeout_sec, on_progress=None, should_stop=None: types.SimpleNamespace(
             status="idle", reply=reply, tokens_in=120, tokens_out=40, stop_reason="end_turn"),
         close=lambda: None,
     )
@@ -175,3 +175,19 @@ def test_cma_client_round_trip_live():
         if env:
             c._req("DELETE", f"/v1/environments/{env}")
         c.close()
+
+
+# --- Stop 실효성(QA-05a): 폴 루프가 stopped를 감지하고 부분 결과를 들고 나온다 ---
+
+
+def test_poll_until_idle_returns_stopped(monkeypatch):
+    from app.services.cma import CMAClient
+
+    c = CMAClient(api_key="test-key")
+    evs = {"data": [
+        {"type": "span.model_request_end", "model_usage": {"input_tokens": 70, "output_tokens": 30}},
+    ]}
+    monkeypatch.setattr(c, "_req", lambda method, path, body=None: evs)
+    res = c.poll_until_idle("sess", timeout_sec=60, should_stop=lambda: True)
+    assert res.status == "stopped"
+    assert (res.tokens_in, res.tokens_out) == (70, 30)  # 중단 시점까지의 부분 토큰

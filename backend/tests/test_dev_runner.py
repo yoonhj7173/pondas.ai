@@ -136,3 +136,30 @@ def test_on_step_failure_does_not_break_loop(sandbox):
     outcome = run_dev_task("go", provider, sid, client=agent, on_step=boom)
     assert outcome.status == "done"                     # 콜백 실패는 본 루프에 영향 없음
     assert provider.read_file(sid, "x.txt") == b"x"
+
+
+# --- Stop 실효성(QA-05a): 스텝 경계에서 즉시 중단 + 부분 결과 보존 ---
+
+
+def test_should_stop_aborts_between_steps(sandbox):
+    provider, sid = sandbox
+    agent = ScriptedAgent([
+        _call("1", "bash", {"cmd": "echo step1"}),
+        _call("2", "bash", {"cmd": "echo step2"}),   # 여기 도달하면 안 됨
+        LLMResponse(content="Done."),
+    ])
+    answers = iter([False, True])                     # 1스텝 후 Stop 눌림
+    outcome = run_dev_task("go", provider, sid, client=agent, should_stop=lambda: next(answers))
+    assert outcome.status == "stopped"
+    assert outcome.error_summary == "Stopped by user"
+    assert [v["cmd"] for v in outcome.verification] == ["echo step1"]  # 2스텝은 실행 안 됨
+    assert outcome.tokens_in == 10 and outcome.tokens_out == 5         # 부분 토큰 보존
+
+
+def test_should_stop_error_ignored(sandbox):
+    provider, sid = sandbox
+    agent = ScriptedAgent([LLMResponse(content="Done.")])
+    def boom():
+        raise RuntimeError("db hiccup")
+    outcome = run_dev_task("go", provider, sid, client=agent, should_stop=boom)
+    assert outcome.status == "done"                   # 확인 실패는 루프를 못 깨뜨림
