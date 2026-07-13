@@ -20,6 +20,11 @@ celery==5.4.0
 
 # --- Item 13: orchestrator LLM layer (LiteLLM, D26) ---
 litellm==1.61.20
+# litellm은 tenacity를 의존성으로 선언하지 않지만, num_retries 재시도 경로
+# (completion_with_retries)에서 지연 import한다. CrewAI 제거(7/8) 때 tenacity의
+# transitive 공급원(chromadb/instructor)이 빠지면서 클린 빌드에서 사라짐 →
+# 프로바이더 일시 에러 시 "tenacity import failed"로 하드 500. 명시적으로 고정.
+tenacity==8.5.0
 
 # --- Item 14: E2B sandbox (production execution isolation, D29) ---
 # Requires E2B_API_KEY. Until set, LocalSandboxProvider (dev/test only) is used.
