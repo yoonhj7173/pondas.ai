@@ -4,11 +4,15 @@
 // 토큰 카운터 · 프로젝트 스위처 · 유틸 버튼. 전부 store에서 파생(D36).
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useAuth } from "@clerk/nextjs";
 import clsx from "clsx";
 import { useStore, type FeedEvent } from "@/lib/store";
 import { STATUS_CHIP, visualStatus } from "@/lib/tokens";
 import { apiFetch, E2E } from "@/lib/api";
+
+// 채팅 말풍선 마크다운(QA-03-2) — office 기본 청크를 가볍게 유지(lazy, Markdown.tsx 컨벤션).
+const Markdown = dynamic(() => import("@/components/ui/Markdown"), { ssr: false });
 
 export interface HudProps {
   projectName: string;
@@ -44,7 +48,7 @@ export default function Hud(props: HudProps) {
         <TokenCounter projectId={props.currentProjectId} />
         {props.treasurySlot}
       </div>
-      <OrchestratorChat focused={chatFocused} setFocused={setChatFocused} onSend={props.onSend} />
+      <OrchestratorChat focused={chatFocused} setFocused={setChatFocused} onSend={props.onSend} projectId={props.currentProjectId} />
     </>
   );
 }
@@ -194,43 +198,61 @@ function ActivityFeedAndBell({ onFocusAgent }: { onFocusAgent?: (id: string) => 
   const unread = useStore((s) => s.unread);
   const connected = useStore((s) => s.connected);
   const markAllRead = useStore((s) => s.markAllRead);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const progress = useStore((s) => s.progress);
+  const agents = useStore((s) => s.agents);
   const [expanded, setExpanded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true); // 사용자가 위로 스크롤하지 않았으면 최신으로 자동 스크롤 유지.
 
   // 채팅창식: 최신이 맨 아래(store는 최신-우선이라 역순으로 렌더). 새 이벤트/확장 시 하단으로 자동 스크롤.
-  const rows = [...events.slice(0, 30)].reverse();
+  const rows = [...events.slice(0, expanded ? 80 : 30)].reverse();
   useEffect(() => {
     const el = scrollRef.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [events, expanded]);
+  }, [events, expanded, progress]);
   const onScroll = () => {
     const el = scrollRef.current;
     if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24; // 바닥 근처면 계속 붙어서 스크롤.
   };
 
+  // 라이브 진행 서브라인(QA-01)은 "그 에이전트의 가장 최근 working 행"에만 붙인다.
+  const latestWorkingRow: Record<string, number> = {};
+  for (const e of rows) {
+    if (e.kind !== "chat" && ["working", "queued"].includes(visualStatus(e.status as any))) latestWorkingRow[e.agentId] = e.id;
+  }
+
   return (
     <div className="absolute right-5 top-5 z-20 flex items-start gap-2">
       <button
-        onClick={() => { setDrawerOpen((o) => !o); markAllRead(); }}
+        onClick={markAllRead}
+        title="Mark all read"
         className="relative flex h-11 w-11 items-center justify-center rounded-tile bg-[rgba(36,46,66,0.92)] text-lg text-white"
       >
         🔔
         {unread > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-status-failed px-1 text-[10px] font-bold">{unread}</span>}
       </button>
-      <div className="w-[296px] rounded-tile bg-[rgba(36,46,66,0.92)] p-3 text-white">
+      <div className={clsx("rounded-tile bg-[rgba(36,46,66,0.92)] p-3 text-white transition-[width] duration-200", expanded ? "w-[400px]" : "w-[296px]")}>
         <div className="mb-2 flex items-center justify-between">
           <span className="font-baloo text-sm font-bold">Activity</span>
           <span className="flex items-center gap-2">
             <span className="flex items-center gap-1 font-mono text-[10px]"><span className={clsx("h-1.5 w-1.5 rounded-full", connected ? "bg-status-done" : "bg-muted")} />LIVE</span>
-            <button onClick={() => setExpanded((e) => !e)} title={expanded ? "Collapse" : "Expand"} className="text-[13px] leading-none opacity-70 hover:opacity-100">{expanded ? "⤡" : "⤢"}</button>
+            <button onClick={() => setExpanded((e) => !e)} title={expanded ? "Collapse" : "Expand"} className="px-1 text-[15px] leading-none opacity-70 hover:opacity-100">{expanded ? "⤡" : "⤢"}</button>
           </span>
         </div>
-        <div ref={scrollRef} onScroll={onScroll} className={clsx("overflow-y-auto transition-[max-height] duration-200", expanded ? "max-h-[60vh]" : "max-h-[40vh]")}>
+        <div ref={scrollRef} onScroll={onScroll} className={clsx("chat-scroll overflow-y-auto transition-[max-height] duration-200", expanded ? "max-h-[62vh]" : "max-h-[40vh]")}>
           {events.length === 0 && <div className="py-2 text-xs opacity-40">No activity yet</div>}
           {rows.map((e) => (
-            <FeedRow key={e.id} e={e} onClick={() => onFocusAgent?.(e.agentId)} />
+            <FeedRow
+              key={e.id}
+              e={e}
+              // 진행 중 행에만 라이브 진행 한 줄(에이전트가 아직 working일 때).
+              progressLabel={
+                latestWorkingRow[e.agentId] === e.id && ["working", "queued"].includes(agents[e.agentId]?.status ?? "")
+                  ? progress[e.agentId]?.label
+                  : undefined
+              }
+              onClick={() => e.agentId && onFocusAgent?.(e.agentId)}
+            />
           ))}
         </div>
       </div>
@@ -238,15 +260,36 @@ function ActivityFeedAndBell({ onFocusAgent }: { onFocusAgent?: (id: string) => 
   );
 }
 
-function FeedRow({ e, onClick }: { e: FeedEvent; onClick: () => void }) {
+// 이벤트 → 타입 아이콘(QA-06): 시작/완료/실패/입력대기/채팅이 한눈에 구분되게.
+function feedIcon(e: FeedEvent): { glyph: string; bg: string } {
+  if (e.kind === "chat") return { glyph: "💬", bg: "rgba(255,255,255,.12)" };
+  const v = visualStatus(e.status as any);
+  if (v === "working" || v === "queued") return { glyph: "▶", bg: "#3fb4dc" };
+  if (v === "done") return { glyph: "✓", bg: "#4dbb5c" };
+  if (v === "failed") return { glyph: "✕", bg: "#e8503a" };
+  if (v === "needs-input") return { glyph: "!", bg: "#efb43e" };
+  return { glyph: "·", bg: "rgba(255,255,255,.18)" };
+}
+
+function FeedRow({ e, progressLabel, onClick }: { e: FeedEvent; progressLabel?: string; onClick: () => void }) {
   const v = visualStatus(e.status as any);
   const tinted = v === "failed" || v === "needs-input";
+  const icon = feedIcon(e);
   return (
-    <button onClick={onClick} className={clsx("flex w-full items-center justify-between gap-2 rounded px-1.5 py-1 text-left font-nunito text-[11px] hover:bg-white/5", tinted && "bg-white/[0.06]")}>
-      <span className="truncate">
-        <span className="opacity-50">[{e.team}]</span> {e.agent} <span style={{ color: chipFg(v) }}>{e.status}</span>
+    <button onClick={onClick} className={clsx("flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left font-nunito text-[11px] hover:bg-white/5", tinted && "bg-white/[0.06]")}>
+      <span className="mt-px flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ background: icon.bg }}>{icon.glyph}</span>
+      <span className="min-w-0 flex-1">
+        {/* wrap 허용(QA-06) — crop 대신 전체 내용이 보이게. */}
+        <span className="break-words">
+          <b>{e.agent}</b>{e.team && <span className="opacity-50"> · {e.team}</span>}{" "}
+          <span style={{ color: e.kind === "chat" ? "#9fd6ea" : chipFg(v) }}>{e.kind === "chat" ? "replied" : e.status}</span>
+        </span>
+        {e.detail && <span className="mt-0.5 block break-words text-[10.5px] opacity-60">{e.detail}</span>}
+        {progressLabel && (
+          <span className="mt-0.5 block truncate font-mono text-[10px] text-[#8fd4ef]">✏️ {progressLabel}</span>
+        )}
       </span>
-      <span className="shrink-0 font-mono text-[9px] opacity-40">{time(e.ts)}</span>
+      <span className="mt-px shrink-0 font-mono text-[9px] opacity-40">{time(e.ts)}</span>
     </button>
   );
 }
@@ -365,17 +408,58 @@ function TokRow({ label, value, small }: { label: string; value: number | null; 
 
 // --- 오케스트레이터 챗(bottom-center) ---
 /**
- * OrchestratorChat — 회사를 지휘하는 채팅창. 사용자가 한 줄 쓰면 지휘자에게 보내고 답을 말풍선으로 띄운다.
+ * OrchestratorChat — 회사를 지휘하는 채팅창(QA-03 오버홀).
  *
- * 무슨 일을 하나: 입력을 받아 사용자 말풍선을 먼저 띄우고(낙관적 업데이트 — 서버 답 전에 화면 먼저 반영),
- *   onSend로 백엔드에 보내 지휘자 답변이 오면 답 말풍선을 추가한다.
+ * 무슨 일을 하나: ① 열면 저장된 대화 히스토리를 로드해 이어 보여주고(GET /chat/history),
+ *   ② 입력을 받아 사용자 말풍선을 먼저 띄우고(낙관적), ③ 응답 대기 중엔 typing 인디케이터,
+ *   ④ 지휘자 답변은 마크다운으로 렌더, ⑤ 항상 최신 메시지에 붙고 위로 스크롤하면 ↓ 버튼,
+ *   ⑥ 입력은 멀티라인(Enter 전송 / Shift+Enter 줄바꿈), ⑦ 채팅이 닫혀 있을 때 답이 오면
+ *   Activity/벨로 알린다(pushChatEvent).
  * 누가 부르나: Hud. 연결: onSend → ProjectMap.sendChat → POST /chat → run_chat (backend/app/services/orchestrator.py).
  */
-function OrchestratorChat({ focused, setFocused, onSend }: { focused: boolean; setFocused: (f: boolean) => void; onSend?: HudProps["onSend"] }) {
+function OrchestratorChat({ focused, setFocused, onSend, projectId }: {
+  focused: boolean; setFocused: (f: boolean) => void; onSend?: HudProps["onSend"]; projectId?: string;
+}) {
+  const { getToken: clerkToken } = useAuth();
   const [msg, setMsg] = useState("");
   const [bubbles, setBubbles] = useState<{ role: "user" | "orchestrator"; text: string }[]>([]);
   const [sending, setSending] = useState(false); // 디스패치 중 — Enter/클릭 연타로 중복 디스패치 차단.
-  const ref = useRef<HTMLInputElement>(null);
+  const [atBottom, setAtBottom] = useState(true);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const focusedRef = useRef(focused); // 응답 도착 시점의 열림 여부 판단(비동기 콜백에서 최신값 필요).
+  focusedRef.current = focused;
+
+  // 저장된 대화 히스토리 로드(QA-03-1) — 프로젝트당 1회. 열기 전에 미리 받아 열자마자 보이게.
+  useEffect(() => {
+    if (!projectId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const token = E2E ? "e2e" : await clerkToken();
+        const rows = await apiFetch<{ role: string; content: string }[]>(`/api/projects/${projectId}/chat/history`, { token });
+        if (alive && rows.length) {
+          setBubbles(rows.map((r) => ({ role: r.role === "orchestrator" ? "orchestrator" as const : "user" as const, text: r.content })));
+        }
+      } catch { /* 히스토리는 부가 정보 — 실패해도 채팅은 동작 */ }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  function scrollToBottom(smooth = false) {
+    const el = scrollRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+  }
+  // 열 때 + 새 말풍선/typing 때 항상 최신으로(QA-03-7). 사용자가 위로 스크롤한 상태면 붙지 않고 ↓ 버튼.
+  useEffect(() => {
+    if (focused && atBottom) scrollToBottom();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focused, bubbles, sending]);
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (el) setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 32);
+  };
 
   async function send() {
     const m = msg.trim();
@@ -383,38 +467,81 @@ function OrchestratorChat({ focused, setFocused, onSend }: { focused: boolean; s
     setSending(true);
     setBubbles((b) => [...b, { role: "user", text: m }]);
     setMsg("");
+    setAtBottom(true);
+    if (ref.current) ref.current.style.height = "auto"; // textarea 높이 리셋
     try {
       const reply = await onSend?.(m);
-      if (typeof reply === "string" && reply) setBubbles((b) => [...b, { role: "orchestrator", text: reply }]);
+      if (typeof reply === "string" && reply) {
+        setBubbles((b) => [...b, { role: "orchestrator", text: reply }]);
+        // 채팅을 닫아둔 채 답이 도착 → Activity/벨로 알림(QA-06).
+        if (!focusedRef.current) useStore.getState().pushChatEvent(reply);
+      }
     } finally {
       setSending(false);
     }
   }
 
+  // textarea 자동 성장(최대 ~5줄).
+  function autoGrow() {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }
+
   return (
     <div className="absolute bottom-5 left-1/2 z-30 w-[640px] max-w-[90vw] -translate-x-1/2">
-      {focused && bubbles.length > 0 && (
-        <div className="mb-3 max-h-[40vh] space-y-2 overflow-y-auto">
-          {bubbles.map((b, i) => (
-            <div key={i} className={clsx("flex", b.role === "user" ? "justify-end" : "justify-start")}>
-              <div className={clsx("max-w-[80%] rounded-2xl px-4 py-2 font-nunito text-sm shadow", b.role === "user" ? "bg-primary-to text-white" : "bg-white text-ink")}>
-                {b.role === "orchestrator" && <span className="mr-2 font-baloo font-bold">O</span>}
-                {b.text}
+      {focused && (bubbles.length > 0 || sending) && (
+        <div className="relative">
+          <div
+            ref={scrollRef}
+            onScroll={onScroll}
+            onMouseDown={(e) => e.preventDefault()} // 메시지 영역 클릭이 입력 blur(=창 닫힘)로 이어지지 않게.
+            className="chat-scroll mb-3 space-y-2 overflow-y-auto pr-1"
+            style={{ maxHeight: "calc(100vh - 220px)" }} // 세로 풀높이(QA-03-5) — 상단 HUD/하단 입력만 남기고 다 쓴다.
+          >
+            {bubbles.map((b, i) => (
+              <div key={i} className={clsx("flex", b.role === "user" ? "justify-end" : "justify-start")}>
+                <div className={clsx("max-w-[80%] rounded-2xl px-4 py-2 font-nunito text-sm shadow", b.role === "user" ? "bg-primary-to text-white whitespace-pre-wrap" : "bg-white text-ink")}>
+                  {b.role === "orchestrator"
+                    ? <Markdown className="prose-chat">{b.text}</Markdown>  // 마크다운 렌더(QA-03-2)
+                    : b.text}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+            {sending && ( // typing 인디케이터(QA-03-3)
+              <div className="flex justify-start">
+                <div className="flex items-center gap-1.5 rounded-2xl bg-white px-4 py-3 shadow">
+                  <span className="typing-dot" /><span className="typing-dot" style={{ animationDelay: "0.18s" }} /><span className="typing-dot" style={{ animationDelay: "0.36s" }} />
+                </div>
+              </div>
+            )}
+          </div>
+          {!atBottom && ( // scroll-to-bottom(QA-03-7)
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { setAtBottom(true); scrollToBottom(true); }}
+              className="absolute bottom-4 right-3 flex h-9 w-9 items-center justify-center rounded-full border border-black/5 bg-white text-base text-secondary shadow-card"
+              title="Jump to latest"
+            >↓</button>
+          )}
         </div>
       )}
-      <div className="flex items-center gap-2 rounded-pill border-[2.5px] border-white bg-white/90 px-2 py-1 shadow-card">
-        <input
+      <div className="flex items-end gap-2 rounded-[24px] border-[2.5px] border-white bg-white/90 px-2 py-1.5 shadow-card">
+        <textarea
           ref={ref}
+          rows={1}
           value={msg}
-          onChange={(e) => setMsg(e.target.value)}
+          onChange={(e) => { setMsg(e.target.value); autoGrow(); }}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
-          placeholder="Tell your team what to do…"
-          className="flex-1 bg-transparent px-3 py-2 font-nunito text-sm outline-none"
+          onKeyDown={(e) => {
+            // Enter 전송 / Shift+Enter 줄바꿈(QA-03-4). IME 조합 중 Enter는 무시(한글 입력 보호).
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); }
+            if (e.key === "Escape") (e.target as HTMLTextAreaElement).blur();
+          }}
+          placeholder="Tell your team what to do…  (Shift+Enter for a new line)"
+          className="chat-scroll max-h-[120px] flex-1 resize-none bg-transparent px-3 py-2 font-nunito text-sm outline-none"
         />
         <button onMouseDown={(e) => e.preventDefault()} onClick={send} disabled={sending} className="btn-pill btn-primary !px-4 !py-2 text-sm disabled:opacity-60">Send</button>
       </div>

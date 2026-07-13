@@ -67,7 +67,8 @@ export default function TeamCardOffice({
   return (
     // 세로 중앙정렬(콘텐츠 짧으면 가운데, 많으면 스크롤) + 상하 여백으로 HUD 밴드(상단 스위처/Activity,
     // 하단 챗바) 겹침 회피. min-h-full + items-center = "맞으면 중앙, 넘치면 스크롤"의 정석.
-    <div className="h-full w-full overflow-y-auto">
+    // office-floor = 체커 타일 배경(QA-07) — 단색 대신 오피스 공간감.
+    <div className="office-floor h-full w-full overflow-y-auto">
       <div className="flex min-h-full items-center justify-center px-5 pb-28 pt-20">
         <div className="grid w-full max-w-[720px] grid-cols-1 gap-5 sm:grid-cols-2">
           {data.teams.map((team) => (
@@ -138,6 +139,10 @@ function AgentAvatar({
       className="w-[64px] text-center outline-none"
       title={agent.name}
     >
+      {/* 상태 pill을 머리 위로(QA-02) — 오피스를 훑기만 해도 누가 뭘 하는지 읽히게. working은 pulse. */}
+      <span className={`mx-auto mb-1 block w-fit whitespace-nowrap rounded-full px-2 py-px text-[9px] font-extrabold leading-[1.5] ${s.pill} ${sk === "working" ? "animate-pulse" : ""}`}>
+        {s.label}
+      </span>
       <span className="relative mx-auto block h-[46px] w-[46px]">
         <span className="grid h-[46px] w-[46px] place-items-center rounded-full border-[2.5px] border-white text-[23px] shadow-[0_4px_10px_rgba(50,55,45,.16)]" style={{ background: teamAv }}>
           {roleEmoji(agent.name)}

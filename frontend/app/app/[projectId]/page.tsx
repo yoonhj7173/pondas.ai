@@ -14,6 +14,7 @@ import { BoardOverlay, OutputsOverlay, SettingsOverlay, NotesOverlay, type Overl
 import { TreasuryTile, BillingModal } from "@/components/billing/Treasury";
 import { Theater } from "@/components/preview/Theater";
 import TeamCardOffice from "@/components/map/TeamCardOffice";
+import Tour, { shouldShowTour } from "@/components/hud/Tour";
 
 /**
  * ProjectMap — 제품의 메인 화면. 사무실 맵 + HUD(채팅·벨) + 패널/오버레이를 한 화면에 조립한다.
@@ -39,6 +40,8 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
   const [overlay, setOverlay] = useState<OverlayKind>(null);
   const [billingOpen, setBillingOpen] = useState(false);
   const [billingPaywall, setBillingPaywall] = useState(false); // 소진으로 자동 오픈됐는지(배너 카피용).
+  const [tourOpen, setTourOpen] = useState(false); // 첫 진입 투어(QA-06) — 마운트 후 localStorage 확인.
+  useEffect(() => { if (shouldShowTour()) setTourOpen(true); }, []);
   // 크레딧 부족으로 task가 막히면(SSE paywall 이벤트) 결제 모달 자동 노출(D46).
   const paywall = useStore((s) => s.paywall);
   const theaterOpen = useStore((s) => s.theaterOpen);
@@ -168,6 +171,7 @@ export default function ProjectMap({ params }: { params: { projectId: string } }
       {overlay === "outputs" && <OutputsOverlay projectId={params.projectId} getToken={getToken} onClose={() => setOverlay(null)} />}
       {overlay === "notes" && <NotesOverlay projectId={params.projectId} getToken={getToken} onClose={() => setOverlay(null)} />}
       {overlay === "settings" && <SettingsOverlay projectId={params.projectId} getToken={getToken} projectName={data.project.name} paused={data.paused} onClose={() => setOverlay(null)} onChanged={loadMap} />}
+      {tourOpen && <Tour onDone={() => setTourOpen(false)} />}
     </div>
   );
 }
