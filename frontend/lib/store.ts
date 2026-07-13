@@ -16,6 +16,17 @@ export interface FeedEvent {
   detail?: string;          // 부가 한 줄(채팅 미리보기 등)
 }
 
+// 영속 알림(QA-04 통합 Activity) — DB notifications의 투영. 종결 이벤트(done/failed/needs-input)의
+// 뼈대: 새로고침해도 남고 읽음 상태가 있다. 휘발 이벤트(working/chat)는 위 FeedEvent가 담당.
+export interface NotifRow {
+  id: string;
+  agentId: string | null;
+  type: string;      // done | failed | needs-input | blocked
+  message: string;
+  read: boolean;
+  ts: number;
+}
+
 interface AgentState {
   status: AgentStatus;
   tokensIn: number;
@@ -41,13 +52,15 @@ interface StoreState {
   theaterOpen: boolean;  // 시어터 오버레이 열림(D51)
   // 에이전트별 라이브 진행 한 줄(QA-01) — "Writing src/App.tsx" 등. SSE progress 이벤트의 투영.
   progress: Record<string, { label: string; ts: number }>;
+  notifs: NotifRow[]; // 영속 알림(QA-04) — 통합 Activity 타임라인의 뼈대
 
   setSnapshot: (data: MapData) => void;
   applyStatus: (agentId: string, status: AgentStatus) => void;
   applyUsage: (agentId: string, tin: number, tout: number, cost: number) => void;
-  applyNotification: (agentId: string, type: string, message: string) => void;
+  applyNotification: (agentId: string, type: string, message: string, notifId?: string) => void;
   applyProgress: (agentId: string, label: string) => void;
   pushChatEvent: (preview: string) => void; // 채팅 닫힘 중 오케 답변 도착 → 피드+벨(QA-06)
+  setNotifications: (rows: NotifRow[]) => void; // GET /notifications 결과 반영(마운트 시)
   triggerPaywall: () => void;
   clearPaywall: () => void;
   applyPreview: (status: string, url: string | null, versionNo: number | null) => void;
@@ -81,6 +94,7 @@ export const useStore = create<StoreState>((set) => ({
   preview: { status: "none", url: null, versionNo: null },
   theaterOpen: false,
   progress: {},
+  notifs: [],
 
   // /map 스냅샷으로 교체(초기 + 재연결 reconcile).
   setSnapshot: (data) =>
@@ -135,8 +149,19 @@ export const useStore = create<StoreState>((set) => ({
       };
     }),
 
-  applyNotification: (agentId, type, message) =>
-    set((s) => ({ unread: s.unread + 1 })),
+  // SSE notification → 영속 알림 행을 실시간 prepend(QA-04) + 벨 뱃지 +1.
+  applyNotification: (agentId, type, message, notifId) =>
+    set((s) => ({
+      unread: s.unread + 1,
+      notifs: [
+        { id: notifId ?? `local_${++_eventId}`, agentId: agentId || null, type, message, read: false, ts: Date.now() },
+        ...s.notifs,
+      ].slice(0, 100),
+    })),
+
+  // 로드 시 미읽음 수도 서버 기준으로 복원 — 헤더 뱃지/읽음 버튼이 영속 미읽음을 반영(QA-04).
+  setNotifications: (rows) =>
+    set(() => ({ notifs: rows.slice(0, 100), unread: rows.filter((r) => !r.read).length })),
 
   triggerPaywall: () => set({ paywall: true }),
   clearPaywall: () => set({ paywall: false }),
@@ -151,6 +176,7 @@ export const useStore = create<StoreState>((set) => ({
       },
     })),
   setTheater: (open) => set({ theaterOpen: open }),
-  markAllRead: () => set({ unread: 0 }),
+  // 로컬 읽음 처리 — 서버 read-all POST는 호출부(Hud)가 담당(QA-04).
+  markAllRead: () => set((s) => ({ unread: 0, notifs: s.notifs.map((n) => ({ ...n, read: true })) })),
   setConnected: (c) => set({ connected: c }),
 }));

@@ -1,6 +1,7 @@
 // SSE 연결(item 22) — project:{id} 스트림을 store로 라우팅. 재연결 시 /map+/usage reconcile.
 import { useStore } from "@/lib/store";
 import { apiFetch } from "@/lib/api";
+import { ding } from "@/lib/sound";
 import type { AgentStatus } from "@/lib/tokens";
 import type { MapData } from "@/lib/map/types";
 
@@ -45,7 +46,11 @@ export function connectSSE(projectId: string, token: string): () => void {
       if (data.type === "task_status") s.applyStatus(data.agent_id, data.status as AgentStatus);
       else if (data.type === "progress") s.applyProgress(data.agent_id, data.label ?? ""); // 라이브 진행 한 줄(QA-01)
       else if (data.type === "usage") s.applyUsage(data.agent_id, data.tokens_in ?? 0, data.tokens_out ?? 0, data.cost_usd ?? 0);
-      else if (data.type === "notification") s.applyNotification(data.agent_id, data.notif_type, data.message);
+      else if (data.type === "notification") {
+        s.applyNotification(data.agent_id, data.notif_type, data.message, data.notification_id);
+        // 유저 액션 필요 이벤트만 소리(QA-04 합의: needs-input/failed. done은 무음).
+        if (data.notif_type === "needs-input" || data.notif_type === "failed") ding("attention");
+      }
       else if (data.type === "paywall") s.triggerPaywall(); // 크레딧 부족 → 결제 모달 자동 노출(D46).
       else if (data.type === "preview_status") s.applyPreview(data.status, data.url ?? null, data.version_no ?? null); // Live Preview 갱신(D49/D51).
     };
