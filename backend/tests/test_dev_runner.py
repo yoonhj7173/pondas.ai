@@ -163,3 +163,34 @@ def test_should_stop_error_ignored(sandbox):
         raise RuntimeError("db hiccup")
     outcome = run_dev_task("go", provider, sid, client=agent, should_stop=boom)
     assert outcome.status == "done"                   # 확인 실패는 루프를 못 깨뜨림
+
+
+# --- 서브태스크 plan(QA-06): update_plan 도구 → 정제 + 콜백 ---
+
+
+def test_update_plan_tool_calls_on_plan(sandbox):
+    provider, sid = sandbox
+    agent = ScriptedAgent([
+        _call("1", "update_plan", {"steps": [
+            {"title": "Set up project", "done": True},
+            {"title": "Build home screen"},
+        ]}),
+        LLMResponse(content="Done."),
+    ])
+    plans = []
+    outcome = run_dev_task("go", provider, sid, client=agent, on_plan=plans.append)
+    assert outcome.status == "done"
+    assert plans == [[
+        {"title": "Set up project", "done": True},
+        {"title": "Build home screen", "done": False},
+    ]]
+
+
+def test_update_plan_sanitizes_model_output(sandbox):
+    from app.services.dev_runner import _sanitize_plan, PLAN_MAX_STEPS
+    # 개수 캡 + 제목 길이 캡 + 쓰레기 항목 제거 + done 불리언 강제.
+    steps = [{"title": "x" * 200, "done": "yes"}] + [{"title": f"s{i}"} for i in range(20)] + ["junk", {"done": True}]
+    out = _sanitize_plan(steps)
+    assert len(out) <= PLAN_MAX_STEPS
+    assert len(out[0]["title"]) == 80 and out[0]["done"] is True
+    assert all(isinstance(s["done"], bool) and s["title"] for s in out)

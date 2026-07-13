@@ -188,7 +188,7 @@ def test_stop_preserves_partial_work(env, monkeypatch):
     tid = _queued(db, uid, pid, aid, instructions="build ui", engine="agent_sdk")
 
     def fake_run(prompt, provider, sandbox_id, *, client, role_instructions="",
-                 task_timeout_sec=0, on_step=None, should_stop=None):
+                 task_timeout_sec=0, on_step=None, should_stop=None, on_plan=None):
         # 러너가 일부 작업(파일 1개)을 한 뒤 유저가 Stop 누른 상황 재현.
         provider.write_file(sandbox_id, "app/page.tsx", b"partial work")
         t = db.get(Task, tid)
@@ -212,3 +212,34 @@ def test_stop_preserves_partial_work(env, monkeypatch):
     outs = db.query(Output).filter_by(task_id=tid).all()
     assert any(o.path == "app/page.tsx" for o in outs)         # 부분 파일 수집됨
     assert db.query(WorkspaceVersion).filter_by(project_id=pid).count() == 1  # 버전 커팅
+
+
+def test_plan_persisted_and_emitted(env, monkeypatch):
+    """update_plan → tasks.plan 영속 + SSE plan 이벤트(QA-06)."""
+    from app.services import dev_runner
+
+    db, uid, pid, aid = env
+    tid = _queued(db, uid, pid, aid, instructions="design", engine="agent_sdk")
+    plan = [{"title": "Scaffold", "done": True}, {"title": "Screens", "done": False}]
+
+    def fake_run(prompt, provider, sandbox_id, *, client, role_instructions="",
+                 task_timeout_sec=0, on_step=None, should_stop=None, on_plan=None):
+        on_plan(plan)
+        return dev_runner.DevOutcome(status="done", output="ok", tokens_in=10, tokens_out=5)
+
+    monkeypatch.setattr("app.services.dev_runner.run_dev_task", fake_run)
+    pubsub = redis_client.pubsub()
+    pubsub.subscribe(f"project:{pid}")
+    try:
+        result = worker_core.process_task(db, tid, dev_client=object(), enqueue=lambda x: None)
+        assert result == "done"
+        t = db.get(Task, tid); db.refresh(t)
+        assert t.plan == plan                                   # 영속
+        msgs = []
+        for _ in range(20):
+            m = pubsub.get_message(timeout=0.2)
+            if m and m.get("type") == "message":
+                msgs.append(json.loads(m["data"]))
+        assert any(e.get("type") == "plan" and e.get("steps") == plan for e in msgs)  # SSE
+    finally:
+        pubsub.close()

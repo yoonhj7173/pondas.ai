@@ -64,6 +64,16 @@ def emit_progress(project_id, agent_id, task_id, label: str) -> None:
     })
 
 
+def emit_plan(project_id, agent_id, task_id, steps: list) -> None:
+    """서브태스크 plan 갱신(QA-06) — 에이전트가 update_plan을 부를 때 체크리스트를 브로드캐스트."""
+    _publish(project_id, {
+        "type": "plan",
+        "agent_id": str(agent_id),
+        "task_id": str(task_id),
+        "steps": steps,
+    })
+
+
 def emit_usage(project_id, agent_id, tokens_in: int, tokens_out: int, cost: float) -> None:
     _publish(project_id, {
         "type": "usage",

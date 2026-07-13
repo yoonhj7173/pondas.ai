@@ -400,6 +400,9 @@ class Task(Base):
     )
     # verification: dev/design task의 [{cmd, exit_code, summary}] 명령 로그(D31).
     verification: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # plan: dev/design 에이전트가 세운 서브태스크 체크리스트 [{title, done}] (QA-06 2단계).
+    # 러너의 update_plan 도구가 갱신 — 패널 체크리스트(✓✓▸○)의 영속 소스.
+    plan: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = _updated_at()
 

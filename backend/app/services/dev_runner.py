@@ -47,7 +47,36 @@ DEV_TOOLS = [
         "description": "Read a file from the workspace.",
         "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
     }},
+    # 서브태스크 plan(QA-06 2단계) — 유저에게 진행률 체크리스트로 보인다. 전체 교체 방식(멱등).
+    {"type": "function", "function": {
+        "name": "update_plan",
+        "description": (
+            "Share/update your work plan with the user as a short checklist (3-6 steps). "
+            "Call this FIRST with your plan, then again whenever you complete a step "
+            "(send the full list each time, marking finished steps done:true)."
+        ),
+        "parameters": {"type": "object", "properties": {
+            "steps": {"type": "array", "items": {"type": "object", "properties": {
+                "title": {"type": "string"}, "done": {"type": "boolean"},
+            }, "required": ["title"]}},
+        }, "required": ["steps"]},
+    }},
 ]
+
+PLAN_MAX_STEPS = 8
+PLAN_TITLE_CAP = 80
+
+
+def _sanitize_plan(steps) -> list[dict]:
+    """update_plan 인자 정제 — 모델 출력이므로 개수/길이/타입을 강제한다."""
+    out: list[dict] = []
+    for s in (steps or [])[:PLAN_MAX_STEPS]:
+        if not isinstance(s, dict):
+            continue
+        title = str(s.get("title", "")).strip()[:PLAN_TITLE_CAP]
+        if title:
+            out.append({"title": title, "done": bool(s.get("done", False))})
+    return out
 
 _WORKSPACE_CONVENTIONS = (
     "# Workspace conventions\n"
@@ -56,7 +85,10 @@ _WORKSPACE_CONVENTIONS = (
     "work as expected. When you start a dev server, run it in the background. When you are done "
     "and everything works, give a short final summary. If you are a reviewer and the work meets "
     "the bar, include the word APPROVED. If you cannot proceed without information only the user "
-    "can give, reply with a single line 'AWAITING_INPUT: <question>'."
+    "can give, reply with a single line 'AWAITING_INPUT: <question>'.\n"
+    "Start by calling update_plan with a short checklist (3-6 steps) of how you'll approach the "
+    "task, and call it again (full list) each time you finish a step — the user watches this "
+    "checklist to follow your progress."
 )
 
 
@@ -79,6 +111,8 @@ def _step_label(call: ToolCall) -> str:
         return f"Reading {call.args.get('path', '?')}"
     if call.name == "bash":
         return f"Running: {call.args.get('cmd', '')[:80]}"
+    if call.name == "update_plan":
+        return "Updating plan"
     return call.name
 
 
@@ -117,6 +151,7 @@ def run_dev_task(
     task_timeout_sec: int = DEFAULT_TASK_TIMEOUT_SEC,
     on_step=None,  # (label: str) -> None — 스텝별 라이브 진행 콜백(QA-01). 실패해도 루프 안 깨짐.
     should_stop=None,  # () -> bool — 스텝 경계마다 확인(QA-05a). True면 즉시 status="stopped" 반환.
+    on_plan=None,  # (steps: list[dict]) -> None — update_plan 도구 호출 시 정제된 plan 전달(QA-06).
 ) -> DevOutcome:
     """코딩 에이전트 루프 — 샌드박스 안에서 AI가 직접 코드를 쓰고·돌려보고·고치길 반복한다.
 
@@ -180,7 +215,17 @@ def run_dev_task(
                         on_step(_step_label(c))
                     except Exception:  # noqa: BLE001 — 진행 표시는 관측용, 본 루프를 못 깨뜨림
                         pass
-                result = _exec_tool(provider, sandbox_id, c, verification)
+                if c.name == "update_plan":
+                    # 샌드박스를 안 만지는 메타 도구(QA-06) — 정제 후 콜백으로 영속/브로드캐스트 위임.
+                    plan = _sanitize_plan(c.args.get("steps"))
+                    if on_plan is not None and plan:
+                        try:
+                            on_plan(plan)
+                        except Exception:  # noqa: BLE001 — 관측용
+                            pass
+                    result: dict = {"ok": True, "steps": len(plan)}
+                else:
+                    result = _exec_tool(provider, sandbox_id, c, verification)
                 messages.append({"role": "tool", "tool_call_id": c.id, "content": json.dumps(result)[:_SUMMARY_CAP]})
             continue
 

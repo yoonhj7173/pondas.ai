@@ -97,6 +97,13 @@ def _enqueue_children(new_ids: list, enqueue) -> None:
         enqueue(nid)
 
 
+def _save_plan(db: Session, task: Task, steps: list) -> None:
+    """update_plan 반영(QA-06) — tasks.plan 영속(+커밋) 후 SSE 브로드캐스트. 실패는 러너가 삼킴."""
+    task.plan = steps
+    db.commit()  # 러너 도중에도 패널 재오픈이 최신 plan을 보도록 즉시 커밋(스텝 경계라 안전).
+    events.emit_plan(task.project_id, task.agent_id, task.id, steps)
+
+
 def _task_stopped(db: Session, task_id) -> bool:
     """유저가 Stop을 눌렀는지 DB에서 확인(QA-05a) — 러너가 스텝 경계마다 부른다.
 
@@ -275,6 +282,8 @@ def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_cl
         on_step=lambda label: events.emit_progress(task.project_id, task.agent_id, task.id, label),
         # Stop 실효(QA-05a): 스텝 경계마다 DB의 stopped 플래그 확인 → 유저 Stop이 즉시 먹힌다.
         should_stop=lambda: _task_stopped(db, task.id),
+        # 서브태스크 plan(QA-06): 영속(패널 재오픈용) + SSE(라이브 체크리스트).
+        on_plan=lambda steps: _save_plan(db, task, steps),
     )
     cost = cost_usd(cfg, model, outcome.tokens_in, outcome.tokens_out)
 
