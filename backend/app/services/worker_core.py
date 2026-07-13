@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.crews.base import _coerce_output, detect_needs_input
 from app.crews.factory import TextLLM
 from app.models import Agent, AgentMemory, Output, Task
@@ -268,7 +269,11 @@ def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_cl
     prompt = assemble_prompt(db, task, context_token_budget=cfg.context_token_budget)
     if dev_client is None:
         from app.services.orchestrator import LiteLLMClient
-        dev_client = LiteLLMClient(db, model=model)
+        # dev/design 코딩루프 성능(perf): 프롬프트 캐싱(매 턴 컨텍스트 재처리 제거) + 스트리밍
+        # (긴 파일 생성이 타임아웃 재시도로 낭비되던 것 방지 + TTFT 단축). 오케 챗과 달리 여기만 on.
+        # DEV_FAST_MODE kill switch — 문제 시 즉시 원복(로컬에서 실 Anthropic 경로 검증 불가).
+        fast = settings.dev_fast_mode
+        dev_client = LiteLLMClient(db, model=model, stream=fast, cache=fast)
 
     # mtime 여유 2초 — 파일시스템 mtime이 초 단위로 truncate되면(일부 FS/타이밍) task 시작과
     # 같은 초에 쓰인 파일이 since_mtime보다 작아져 수집에서 누락될 수 있다(간헐 flake). 살짝 과수집이

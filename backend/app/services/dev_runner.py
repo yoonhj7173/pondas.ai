@@ -88,7 +88,11 @@ _WORKSPACE_CONVENTIONS = (
     "can give, reply with a single line 'AWAITING_INPUT: <question>'.\n"
     "Start by calling update_plan with a short checklist (3-6 steps) of how you'll approach the "
     "task, and call it again (full list) each time you finish a step — the user watches this "
-    "checklist to follow your progress."
+    "checklist to follow your progress.\n"
+    "Build INCREMENTALLY in small files: split UI into per-screen/per-component files "
+    "(e.g. src/screens/Home.tsx, src/components/Card.tsx) rather than dumping one giant file. "
+    "A single monolithic file makes one huge, slow write and hides progress — many small "
+    "write_file calls are faster and let the user watch each piece land."
 )
 
 

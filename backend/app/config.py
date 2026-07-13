@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     llm_num_retries: int = Field(default=1, alias="LLM_NUM_RETRIES")
     # 텍스트 에이전트 출력 상한 — 비용 런어웨이 방지(문서류엔 충분). 필요 시 env로 조정.
     text_agent_max_tokens: int = Field(default=4096, alias="TEXT_AGENT_MAX_TOKENS")
+    # dev/design 코딩루프 성능(프롬프트 캐싱 + 스트리밍). 로컬에서 실 Anthropic 경로 검증 불가라
+    # kill switch로 둔다 — 문제 시 Railway에서 DEV_FAST_MODE=false로 재배포 없이 즉시 원복.
+    dev_fast_mode: bool = Field(default=True, alias="DEV_FAST_MODE")
 
     # --- Auth ---
     clerk_secret_key: str = Field(default="", alias="CLERK_SECRET_KEY")
