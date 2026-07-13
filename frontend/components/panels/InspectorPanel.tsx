@@ -6,6 +6,7 @@ import clsx from "clsx";
 import dynamic from "next/dynamic";
 import { GlassPanel, PillButton, StatusChip } from "@/components/ui/primitives";
 import { STATUS_CHIP, visualStatus } from "@/lib/tokens";
+import { useStore } from "@/lib/store";
 import type { AgentPanelData, TeamPanelData } from "./types";
 
 // 결과 마크다운은 lazy 로드 — react-markdown을 office 기본 청크에서 분리(Phase 2, D51).
@@ -142,9 +143,12 @@ export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput, on
       )}
 
       {working && data.active_started_at && (
-        <div className="mt-4 flex items-center gap-2 rounded-xl border-2 border-status-working/40 bg-status-working/10 p-3 text-sm text-status-working">
-          <span className="inline-block h-2 w-2 flex-none animate-pulse rounded-full bg-status-working" />
-          <span className="font-bold">{data.status === "queued" ? "Queued" : "Working"} · <Elapsed since={data.active_started_at} /></span>
+        <div className="mt-4 rounded-xl border-2 border-status-working/40 bg-status-working/10 p-3 text-sm text-status-working">
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-2 w-2 flex-none animate-pulse rounded-full bg-status-working" />
+            <span className="font-bold">{data.status === "queued" ? "Queued" : "Working"} · <Elapsed since={data.active_started_at} /></span>
+          </div>
+          <LiveStep agentId={data.id} />
         </div>
       )}
 
@@ -190,6 +194,18 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 function Label({ children }: { children: React.ReactNode }) {
   return <div className="font-mono text-[10px] uppercase tracking-wider text-muted">{children}</div>;
+}
+
+// 라이브 진행 한 줄(QA-01) — SSE progress의 store 투영. "Writing src/App.tsx" 같은 현재 스텝.
+// 이게 보이면 유저가 "죽었나?" 하고 멀쩡한 태스크를 Stop하지 않는다(8분 침묵 → 22파일 증발 실사례).
+function LiveStep({ agentId }: { agentId: string }) {
+  const step = useStore((s) => s.progress[agentId]);
+  if (!step) return null;
+  return (
+    <div className="mt-1.5 truncate pl-4 font-mono text-[11px] text-status-working/90" title={step.label}>
+      ✏️ {step.label}
+    </div>
+  );
 }
 
 // 진행 중 경과시간 — 매초 갱신(작업이 도는지/멈췄는지 감각을 준다).

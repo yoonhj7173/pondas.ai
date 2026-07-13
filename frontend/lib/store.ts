@@ -12,6 +12,8 @@ export interface FeedEvent {
   agentId: string;
   status: string;
   ts: number;
+  kind?: "status" | "chat"; // chat = 오케스트레이터 답변 도착(채팅 닫힘 중 알림, QA-06)
+  detail?: string;          // 부가 한 줄(채팅 미리보기 등)
 }
 
 interface AgentState {
@@ -37,11 +39,15 @@ interface StoreState {
   paywall: boolean; // 크레딧 부족으로 task가 막힘 → 결제 모달 자동 노출 신호(D46).
   preview: PreviewState; // Live Preview 상태(D49)
   theaterOpen: boolean;  // 시어터 오버레이 열림(D51)
+  // 에이전트별 라이브 진행 한 줄(QA-01) — "Writing src/App.tsx" 등. SSE progress 이벤트의 투영.
+  progress: Record<string, { label: string; ts: number }>;
 
   setSnapshot: (data: MapData) => void;
   applyStatus: (agentId: string, status: AgentStatus) => void;
   applyUsage: (agentId: string, tin: number, tout: number, cost: number) => void;
   applyNotification: (agentId: string, type: string, message: string) => void;
+  applyProgress: (agentId: string, label: string) => void;
+  pushChatEvent: (preview: string) => void; // 채팅 닫힘 중 오케 답변 도착 → 피드+벨(QA-06)
   triggerPaywall: () => void;
   clearPaywall: () => void;
   applyPreview: (status: string, url: string | null, versionNo: number | null) => void;
@@ -74,6 +80,7 @@ export const useStore = create<StoreState>((set) => ({
   paywall: false,
   preview: { status: "none", url: null, versionNo: null },
   theaterOpen: false,
+  progress: {},
 
   // /map 스냅샷으로 교체(초기 + 재연결 reconcile).
   setSnapshot: (data) =>
@@ -93,11 +100,30 @@ export const useStore = create<StoreState>((set) => ({
     set((s) => {
       const prev = s.agents[agentId] ?? { status: "idle", tokensIn: 0, tokensOut: 0 };
       const meta = s.agentMeta[agentId] ?? { name: "Agent", team: "" };
-      const ev: FeedEvent = { id: ++_eventId, team: meta.team, agent: meta.name, agentId, status, ts: Date.now() };
+      const ev: FeedEvent = { id: ++_eventId, team: meta.team, agent: meta.name, agentId, status, ts: Date.now(), kind: "status" };
+      // 종결 상태로 바뀌면 진행 한 줄은 낡은 정보 → 지운다(QA-01).
+      const progress = ["working", "queued"].includes(status)
+        ? s.progress
+        : (() => { const p = { ...s.progress }; delete p[agentId]; return p; })();
       return {
         agents: { ...s.agents, [agentId]: { ...prev, status } },
         events: [ev, ...s.events].slice(0, FEED_CAP),
+        progress,
       };
+    }),
+
+  // 라이브 진행(QA-01) — 러너의 "지금 뭐 하는 중" 한 줄. 피드 행이 아니라 최신값 교체(플러딩 방지).
+  applyProgress: (agentId, label) =>
+    set((s) => ({ progress: { ...s.progress, [agentId]: { label, ts: Date.now() } } })),
+
+  // 채팅 닫힘 중 오케스트레이터 답변 도착 → 피드 행 + 벨 뱃지(QA-06).
+  pushChatEvent: (preview) =>
+    set((s) => {
+      const ev: FeedEvent = {
+        id: ++_eventId, team: "", agent: "Orchestrator", agentId: "", status: "replied",
+        ts: Date.now(), kind: "chat", detail: preview.length > 120 ? preview.slice(0, 117) + "…" : preview,
+      };
+      return { events: [ev, ...s.events].slice(0, FEED_CAP), unread: s.unread + 1 };
     }),
 
   applyUsage: (agentId, tin, tout, cost) =>

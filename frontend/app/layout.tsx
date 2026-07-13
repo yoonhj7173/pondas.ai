@@ -65,7 +65,41 @@ export const metadata: Metadata = {
  */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      // 로그인 모달 브랜드 스킨(QA-08) — Clerk 기본 무색 테마 대신 candy 토큰(pill 버튼·card 라운드).
+      appearance={{
+        variables: {
+          colorPrimary: "#3fb4dc",
+          colorText: "#2c2925",
+          colorTextSecondary: "#5c574f",
+          colorBackground: "#fdfcf8",
+          borderRadius: "14px",
+          fontFamily: "var(--font-nunito), sans-serif",
+        },
+        elements: {
+          cardBox: "rounded-[24px] border-[2.5px] border-white shadow-[0_30px_70px_rgba(30,35,25,0.4)]",
+          headerTitle: "font-extrabold",
+          socialButtonsBlockButton: "rounded-full border-2 border-[#e6e7dd] font-bold",
+          formButtonPrimary: "rounded-full font-extrabold",
+          footer: "hidden", // "Secured by Clerk" 뱃지 숨김(브랜드 일관성)
+        },
+      }}
+      // "Sign in to cursor-pm" 카피 교체(QA-08) — 내부 코드네임 노출 방지. Clerk 앱 이름 변경과 별개의 안전망.
+      localization={{
+        signIn: {
+          start: {
+            title: "Sign in to pondas.ai",
+            subtitle: "Your AI office is waiting",
+          },
+        },
+        signUp: {
+          start: {
+            title: "Join pondas.ai",
+            subtitle: "Run a virtual company of AI agents",
+          },
+        },
+      }}
+    >
       <html lang="en" className={`${baloo.variable} ${nunito.variable} ${mono.variable} ${mulish.variable} ${bricolage.variable}`}>
         <body>
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }} />
