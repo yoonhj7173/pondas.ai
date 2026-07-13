@@ -17,7 +17,7 @@ const TEAM: TeamPanelData = {
 const AGENT: AgentPanelData = {
   id: "a2", team_id: "t1", name: "QA", role_instructions: "You are a QA engineer. Verify real behavior by running the app.", model_tier: "medium",
   status: "needs-input", tokens_total: 9120,
-  current_task_id: "task-1", active_started_at: null, awaiting_prompt: "Which database should I assume — Postgres or SQLite?", error_summary: null, failed_task_id: null,
+  current_task_id: "task-1", active_started_at: null, awaiting_prompt: "Which database should I assume — Postgres or SQLite?", error_summary: null, failed_task_id: null, plan: null,
   last_result_markdown: "### Cafe Finder v1 완성 ☕\n랜딩 + 카페 리스트를 구현하고 샌드박스에서 렌더링 확인까지 마쳤어요.\n\n- 랜딩: 히어로 + 검색바 + 인기 카페 3곳\n- 리스트: 평점순 정렬, 모바일 반응형\n\n```tsx\nexport default function Page() { return <CafeList /> }\n```",
   last_task_id: "task-0", last_output_count: 7,
   outgoing: { id: "e1", to_agent_id: "a1", to_agent_name: "SWE", type: "review_loop", max_iterations: 5 }, incoming: [],

@@ -53,12 +53,15 @@ interface StoreState {
   // 에이전트별 라이브 진행 한 줄(QA-01) — "Writing src/App.tsx" 등. SSE progress 이벤트의 투영.
   progress: Record<string, { label: string; ts: number }>;
   notifs: NotifRow[]; // 영속 알림(QA-04) — 통합 Activity 타임라인의 뼈대
+  // 에이전트별 서브태스크 체크리스트(QA-06) — SSE plan 이벤트의 투영. [{title, done}]
+  plans: Record<string, { title: string; done: boolean }[]>;
 
   setSnapshot: (data: MapData) => void;
   applyStatus: (agentId: string, status: AgentStatus) => void;
   applyUsage: (agentId: string, tin: number, tout: number, cost: number) => void;
   applyNotification: (agentId: string, type: string, message: string, notifId?: string) => void;
   applyProgress: (agentId: string, label: string) => void;
+  applyPlan: (agentId: string, steps: { title: string; done: boolean }[]) => void;
   pushChatEvent: (preview: string) => void; // 채팅 닫힘 중 오케 답변 도착 → 피드+벨(QA-06)
   setNotifications: (rows: NotifRow[]) => void; // GET /notifications 결과 반영(마운트 시)
   triggerPaywall: () => void;
@@ -95,6 +98,7 @@ export const useStore = create<StoreState>((set) => ({
   theaterOpen: false,
   progress: {},
   notifs: [],
+  plans: {},
 
   // /map 스냅샷으로 교체(초기 + 재연결 reconcile).
   setSnapshot: (data) =>
@@ -115,20 +119,29 @@ export const useStore = create<StoreState>((set) => ({
       const prev = s.agents[agentId] ?? { status: "idle", tokensIn: 0, tokensOut: 0 };
       const meta = s.agentMeta[agentId] ?? { name: "Agent", team: "" };
       const ev: FeedEvent = { id: ++_eventId, team: meta.team, agent: meta.name, agentId, status, ts: Date.now(), kind: "status" };
-      // 종결 상태로 바뀌면 진행 한 줄은 낡은 정보 → 지운다(QA-01).
-      const progress = ["working", "queued"].includes(status)
+      // 종결 상태로 바뀌면 진행 한 줄/plan은 낡은 정보 → 지운다(QA-01/06).
+      const active = ["working", "queued"].includes(status);
+      const progress = active
         ? s.progress
         : (() => { const p = { ...s.progress }; delete p[agentId]; return p; })();
+      const plans = active
+        ? s.plans
+        : (() => { const p = { ...s.plans }; delete p[agentId]; return p; })();
       return {
         agents: { ...s.agents, [agentId]: { ...prev, status } },
         events: [ev, ...s.events].slice(0, FEED_CAP),
         progress,
+        plans,
       };
     }),
 
   // 라이브 진행(QA-01) — 러너의 "지금 뭐 하는 중" 한 줄. 피드 행이 아니라 최신값 교체(플러딩 방지).
   applyProgress: (agentId, label) =>
     set((s) => ({ progress: { ...s.progress, [agentId]: { label, ts: Date.now() } } })),
+
+  // 서브태스크 체크리스트(QA-06) — update_plan 도구의 투영. 최신값 교체.
+  applyPlan: (agentId, steps) =>
+    set((s) => ({ plans: { ...s.plans, [agentId]: steps } })),
 
   // 채팅 닫힘 중 오케스트레이터 답변 도착 → 피드 행 + 벨 뱃지(QA-06).
   pushChatEvent: (preview) =>

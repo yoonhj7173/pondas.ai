@@ -45,6 +45,7 @@ export function connectSSE(projectId: string, token: string): () => void {
       const s = useStore.getState();
       if (data.type === "task_status") s.applyStatus(data.agent_id, data.status as AgentStatus);
       else if (data.type === "progress") s.applyProgress(data.agent_id, data.label ?? ""); // 라이브 진행 한 줄(QA-01)
+      else if (data.type === "plan") s.applyPlan(data.agent_id, data.steps ?? []); // 서브태스크 체크리스트(QA-06)
       else if (data.type === "usage") s.applyUsage(data.agent_id, data.tokens_in ?? 0, data.tokens_out ?? 0, data.cost_usd ?? 0);
       else if (data.type === "notification") {
         s.applyNotification(data.agent_id, data.notif_type, data.message, data.notification_id);

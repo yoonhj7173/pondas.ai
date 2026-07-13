@@ -148,6 +148,7 @@ export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput, on
             <span className="inline-block h-2 w-2 flex-none animate-pulse rounded-full bg-status-working" />
             <span className="font-bold">{data.status === "queued" ? "Queued" : "Working"} · <Elapsed since={data.active_started_at} /></span>
           </div>
+          <PlanChecklist agentId={data.id} initial={data.plan} />
           <LiveStep agentId={data.id} />
         </div>
       )}
@@ -194,6 +195,30 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 function Label({ children }: { children: React.ReactNode }) {
   return <div className="font-mono text-[10px] uppercase tracking-wider text-muted">{children}</div>;
+}
+
+// 서브태스크 체크리스트(QA-06 2단계) — 에이전트가 update_plan으로 세운 plan을 ✓/▸/○로 렌더.
+// 라이브(SSE) 우선, 없으면 패널 페이로드의 영속 plan(재오픈 직후). "지금 어디까지 왔나"가 보이면
+// 유저가 긴 태스크를 신뢰하고 기다린다(8분 침묵 → Stop 사건의 2단계 처방).
+function PlanChecklist({ agentId, initial }: { agentId: string; initial: { title: string; done: boolean }[] | null }) {
+  const live = useStore((s) => s.plans[agentId]);
+  const steps = live ?? initial ?? [];
+  if (steps.length === 0) return null;
+  const currentIdx = steps.findIndex((s) => !s.done); // 첫 미완료 = 현재 진행 스텝
+  return (
+    <div className="mt-2 space-y-0.5">
+      {steps.map((s, i) => (
+        <div key={i} className={
+          i === currentIdx
+            ? "flex items-start gap-1.5 rounded-md bg-status-working/15 px-1.5 py-0.5 text-[12px] font-bold text-status-working"
+            : "flex items-start gap-1.5 px-1.5 py-0.5 text-[12px] " + (s.done ? "text-secondary" : "text-muted-2")
+        }>
+          <span className="w-3.5 flex-none text-center font-black">{s.done ? "✓" : i === currentIdx ? "▸" : "○"}</span>
+          <span className={s.done ? "line-through decoration-secondary/40" : undefined}>{s.title}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // 라이브 진행 한 줄(QA-01) — SSE progress의 store 투영. "Writing src/App.tsx" 같은 현재 스텝.

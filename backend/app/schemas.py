@@ -295,6 +295,8 @@ class AgentPanelOut(BaseModel):
     error_summary: str | None = None
     # 실패한 최신 task(있으면) — 패널의 Retry 대상.
     failed_task_id: uuid.UUID | None = None
+    # 활성 task의 서브태스크 체크리스트(QA-06) — 패널 재오픈 시 초기값(라이브 갱신은 SSE plan).
+    plan: list | None = None
     # 최근 결과 인-플로우(Phase 2, D51) — 완료 직후 패널에서 바로 결과를 렌더.
     last_result_markdown: str | None = None
     last_task_id: uuid.UUID | None = None
