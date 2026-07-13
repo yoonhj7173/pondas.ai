@@ -50,6 +50,7 @@ class SandboxTimeout(Exception):
 
 class SandboxProvider(Protocol):
     def create(self, project_id, runtime_image: str) -> str: ...
+    def set_timeout(self, sandbox_id: str, seconds: int) -> None: ...
     def pause(self, sandbox_id: str) -> None: ...
     def resume(self, sandbox_id: str) -> None: ...
     def destroy(self, sandbox_id: str) -> None: ...
@@ -82,6 +83,10 @@ class LocalSandboxProvider:
         if d is None or not d.exists():
             raise KeyError(f"unknown sandbox {sandbox_id}")
         return d
+
+    def set_timeout(self, sandbox_id: str, seconds: int) -> None:
+        # 로컬은 auto-GC가 없으므로 no-op(존재 검증만).
+        self._dir(sandbox_id)
 
     def pause(self, sandbox_id: str) -> None:
         # 상태가 디스크에 있으므로 no-op(파일시스템이 보존됨).
@@ -181,6 +186,12 @@ class E2BSandboxProvider:
             self._handles[sandbox_id] = h
         return h
 
+    def set_timeout(self, sandbox_id: str, seconds: int) -> None:
+        # E2B 샌드박스 auto-GC 수명 연장. create의 timeout(기본 10분)은 부팅용 초기값일 뿐 —
+        # 긴 dev/design 태스크(예산 30분)는 이걸로 태스크 예산만큼 늘려야 중간에 "sandbox not
+        # found"로 죽지 않는다(P0). 수명은 상한일 뿐, 태스크가 끝나면 pause_if_idle이 바로 재움.
+        self._h(sandbox_id).set_timeout(seconds)
+
     def pause(self, sandbox_id: str) -> None:
         self._h(sandbox_id).pause()
         self._handles.pop(sandbox_id, None)  # 재개는 connect로.
@@ -196,7 +207,27 @@ class E2BSandboxProvider:
         except Exception:  # noqa: BLE001
             pass
 
+    # 일시적 커넥션 장애 — 재접속으로 회복 가능한 타입들. 에이전트 루프가 몇 분씩 생각하는 동안
+    # 유휴 HTTP/2 커넥션이 끊기면(StreamReset/RemoteProtocolError) 명령 자체가 아니라 연결이 문제다.
+    _TRANSIENT_CONN_ERRORS = ("RemoteProtocolError", "ConnectError", "ConnectionError", "ReadError")
+
+    def _is_transient_conn_error(self, exc: Exception) -> bool:
+        return type(exc).__name__ in self._TRANSIENT_CONN_ERRORS or "StreamReset" in str(exc)
+
     def exec(self, sandbox_id: str, cmd: str, *, timeout: int = 120, env: dict | None = None) -> ExecResult:
+        try:
+            return self._exec_once(sandbox_id, cmd, timeout=timeout, env=env)
+        except Exception as exc:  # noqa: BLE001
+            # 커넥션 blip 1회 재시도 — 죽은 핸들 폐기 후 재접속. 샌드박스 자체가 죽었으면(GC 등)
+            # 재접속도 실패해 원래처럼 예외가 난다. 주의: 명령이 이미 시작됐을 가능성은 있으나
+            # (응답만 유실) dev 워크스페이스에선 재실행이 유실보다 안전하다.
+            if not self._is_transient_conn_error(exc):
+                raise
+            log.warning("transient conn error, reconnect+retry", extra={"sandbox_id": sandbox_id, "err": type(exc).__name__})
+            self._handles.pop(sandbox_id, None)
+            return self._exec_once(sandbox_id, cmd, timeout=timeout, env=env)
+
+    def _exec_once(self, sandbox_id: str, cmd: str, *, timeout: int, env: dict | None) -> ExecResult:
         h = self._h(sandbox_id)
         try:
             # request_timeout > command timeout: 정상적으로 긴 명령은 HTTP가 안 끊기게.

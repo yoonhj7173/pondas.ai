@@ -81,6 +81,19 @@ class WorkspaceService:
         log.info("workspace running", extra={"project_id": str(project.id), "sandbox_id": sid})
         return sid
 
+    def extend_lifetime(self, sandbox_id: str, seconds: int) -> None:
+        """샌드박스 auto-GC 수명을 태스크 예산에 맞춰 연장(P0).
+
+        왜: E2B 샌드박스는 create 시 기본 10분 수명인데 dev/design 태스크 예산은 30분 —
+            수명을 안 늘리면 10분 지나 E2B가 샌드박스를 지워 "sandbox not found"로 크래시한다.
+        best-effort: 연장 실패해도 태스크는 계속(10분 안에 끝날 수 있음). 실패는 로그만.
+        누가 부르나: _run_dev_task — ensure_running 직후, 새 생성/재사용/resume 모든 경로에.
+        """
+        try:
+            self.provider.set_timeout(sandbox_id, seconds)
+        except Exception:  # noqa: BLE001
+            log.warning("extend_lifetime failed", extra={"sandbox_id": sandbox_id, "seconds": seconds})
+
     def _has_active_dev_task(self, db: Session, project_id) -> bool:
         return (
             db.query(Task.id)
