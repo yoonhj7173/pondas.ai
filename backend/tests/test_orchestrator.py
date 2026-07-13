@@ -241,3 +241,44 @@ def test_history_limit_zero_disables(env):
         {"role": "user", "content": "now"},
     ]
     assert c2.seen_messages[0][0]["role"] == "system"
+
+
+# --- action memory (QA-05): 중립 마커가 행동 요약을 사실로 포함 ---
+
+
+def test_history_marker_keeps_action_memory(env):
+    """디스패치한 턴의 재생 마커에 '무엇을 했는지'가 남아야 한다 — "시킨 적 없다" 가스라이팅 방지.
+
+    여전히 괄호 마커(자연어 확인문장 아님)라 #76의 텍스트-만-답변 패턴은 재생하지 않는다.
+    """
+    db, uid, pid, swe, qa = env
+    client = ScriptedClient([
+        _calls(("dispatch_task", {"agent_name": "SWE", "instructions": "Implement login"})),
+        LLMResponse(content="Dispatched! SWE is on it."),
+    ])
+    run_chat(db, pid, uid, "build login", client=client, enqueue=lambda x: None)
+
+    # DB에 actions 저장됨.
+    orch_row = (
+        db.query(OrchestratorMessage)
+        .filter_by(project_id=pid, role="orchestrator")
+        .order_by(OrchestratorMessage.created_at.desc())
+        .first()
+    )
+    assert orch_row.actions and "dispatch_task" in orch_row.actions
+
+    # 재생 마커: 행동은 기억하되, 원문 확인문장("Dispatched! ...")은 재생 안 함.
+    hist = _load_history(db, pid, limit=20)
+    asst = [m["content"] for m in hist if m["role"] == "assistant"]
+    assert any("dispatched a task to SWE" in c for c in asst)   # 기억 유지
+    assert all("Dispatched!" not in c for c in asst)            # 원문 미재생(#76 보존)
+    assert all(c.startswith("(") for c in asst)                 # 여전히 괄호 마커
+
+
+def test_history_marker_without_actions_unchanged(env):
+    """행동이 없던 턴(순수 대화)은 기존 중립 마커 그대로 — 회귀 없음."""
+    db, uid, pid, swe, qa = env
+    run_chat(db, pid, uid, "just chatting", client=ScriptedClient([LLMResponse(content="sure!")]), enqueue=lambda x: None)
+    hist = _load_history(db, pid, limit=20)
+    asst = [m["content"] for m in hist if m["role"] == "assistant"]
+    assert asst == ["(Acted on the previous request by calling the tools.)"]

@@ -71,6 +71,17 @@ class DevOutcome:
     tokens_out: int = 0
 
 
+def _step_label(call: ToolCall) -> str:
+    """도구 호출 → 사람이 읽을 진행 한 줄(QA-01). 예: 'Writing src/App.tsx', 'Running: npm test'."""
+    if call.name == "write_file":
+        return f"Writing {call.args.get('path', '?')}"
+    if call.name == "read_file":
+        return f"Reading {call.args.get('path', '?')}"
+    if call.name == "bash":
+        return f"Running: {call.args.get('cmd', '')[:80]}"
+    return call.name
+
+
 def _exec_tool(provider: SandboxProvider, sandbox_id: str, call: ToolCall, verification: list) -> dict:
     """도구 1개를 샌드박스에서 실행. bash는 verification에 명령 로그를 남긴다."""
     name, args = call.name, call.args
@@ -104,6 +115,7 @@ def run_dev_task(
     client,
     role_instructions: str = "",
     task_timeout_sec: int = DEFAULT_TASK_TIMEOUT_SEC,
+    on_step=None,  # (label: str) -> None — 스텝별 라이브 진행 콜백(QA-01). 실패해도 루프 안 깨짐.
 ) -> DevOutcome:
     """코딩 에이전트 루프 — 샌드박스 안에서 AI가 직접 코드를 쓰고·돌려보고·고치길 반복한다.
 
@@ -151,6 +163,11 @@ def run_dev_task(
                 ],
             })
             for c in resp.tool_calls:
+                if on_step is not None:
+                    try:
+                        on_step(_step_label(c))
+                    except Exception:  # noqa: BLE001 — 진행 표시는 관측용, 본 루프를 못 깨뜨림
+                        pass
                 result = _exec_tool(provider, sandbox_id, c, verification)
                 messages.append({"role": "tool", "tool_call_id": c.id, "content": json.dumps(result)[:_SUMMARY_CAP]})
             continue

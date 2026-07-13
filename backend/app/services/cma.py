@@ -157,7 +157,7 @@ class CMAClient:
 
     # --- 폴링(이벤트 리스트 → 우리 상태 재료) ---
     def poll_until_idle(self, session_id: str, *, timeout_sec: float = 600.0,
-                        interval: float = 3.0) -> SessionResult:
+                        interval: float = 3.0, on_progress=None) -> SessionResult:
         """끝날 때까지 기다리기(폴링) — 에이전트가 일을 마칠 때까지 주기적으로 상태를 물어본다.
 
         PM 한 줄: 폴링(polling — 결과가 나왔는지 일정 간격으로 계속 되묻는 방식). CMA는 작업이
@@ -165,8 +165,10 @@ class CMAClient:
         무슨 일을 하나: 세션 이벤트들을 읽어 답변 텍스트·토큰 수·종료 상태를 모은다. 제한 시간을
             넘기면 timeout으로 반환. 결과(SessionResult)는 호출부가 done/needs-input/failed로 매핑한다.
         누가 부르나: run_dev_task_cma (backend/app/services/cma_engine.py).
+        on_progress: (label: str) -> None — 모델 턴이 늘 때마다 라이브 진행 한 줄(QA-01). 실패 무시.
         """
         deadline = time.time() + timeout_sec
+        seen_turns = 0
         while True:
             evs = self._req("GET", f"/v1/sessions/{session_id}/events").get("data", [])
             reply = _collect_reply(evs)
@@ -175,8 +177,15 @@ class CMAClient:
             if term is not None:
                 status, stop_reason, await_ids = term
                 return SessionResult(reply, tin, tout, status, stop_reason, await_ids)
+            turns = sum(1 for e in evs if e.get("type") == "span.model_request_end")
+            if on_progress is not None and turns > seen_turns:
+                seen_turns = turns
+                try:
+                    on_progress(f"Working — model turn {turns}")
+                except Exception:  # noqa: BLE001 — 진행 표시는 관측용
+                    pass
             # 턴 상한 초과 → 폭주로 간주해 종료(호출부가 terminated/timeout처럼 failed 처리, 감사 P0).
-            if sum(1 for e in evs if e.get("type") == "span.model_request_end") >= MAX_MODEL_REQUESTS:
+            if turns >= MAX_MODEL_REQUESTS:
                 return SessionResult(reply, tin, tout, "timeout", "turn_cap", [])
             if time.time() > deadline:
                 return SessionResult(reply, tin, tout, "timeout", None, [])

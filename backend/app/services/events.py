@@ -50,6 +50,20 @@ def emit_status(task: Task) -> None:
     })
 
 
+def emit_progress(project_id, agent_id, task_id, label: str) -> None:
+    """라이브 진행 한 줄(QA-01) — dev/design 러너가 지금 뭘 하는지 실시간으로 쏜다.
+
+    "8분 침묵" 처방: 진행이 안 보이면 유저가 멀쩡한 태스크를 Stop해버린다(실사례 — 22파일 증발).
+    DB에 안 쓰는 transient 이벤트 — 스텝마다 나가므로 가볍게, 발행 실패는 여느 이벤트처럼 무시.
+    """
+    _publish(project_id, {
+        "type": "progress",
+        "agent_id": str(agent_id),
+        "task_id": str(task_id),
+        "label": label[:160],
+    })
+
+
 def emit_usage(project_id, agent_id, tokens_in: int, tokens_out: int, cost: float) -> None:
     _publish(project_id, {
         "type": "usage",

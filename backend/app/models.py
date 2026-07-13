@@ -554,6 +554,8 @@ class OrchestratorMessage(Base):
     project_id: Mapped[uuid.UUID] = _fk_uuid("projects.id")
     role: Mapped[str] = mapped_column(Text, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    # 그 턴에 지휘자가 실제로 한 행동 요약(JSON, ctx.actions) — 히스토리 재생 시 기억 유지용(QA-05).
+    actions: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = _created_at()
 
     __table_args__ = (
