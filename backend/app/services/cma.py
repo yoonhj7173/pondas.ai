@@ -157,7 +157,7 @@ class CMAClient:
 
     # --- 폴링(이벤트 리스트 → 우리 상태 재료) ---
     def poll_until_idle(self, session_id: str, *, timeout_sec: float = 600.0,
-                        interval: float = 3.0, on_progress=None) -> SessionResult:
+                        interval: float = 3.0, on_progress=None, should_stop=None) -> SessionResult:
         """끝날 때까지 기다리기(폴링) — 에이전트가 일을 마칠 때까지 주기적으로 상태를 물어본다.
 
         PM 한 줄: 폴링(polling — 결과가 나왔는지 일정 간격으로 계속 되묻는 방식). CMA는 작업이
@@ -166,6 +166,8 @@ class CMAClient:
             넘기면 timeout으로 반환. 결과(SessionResult)는 호출부가 done/needs-input/failed로 매핑한다.
         누가 부르나: run_dev_task_cma (backend/app/services/cma_engine.py).
         on_progress: (label: str) -> None — 모델 턴이 늘 때마다 라이브 진행 한 줄(QA-01). 실패 무시.
+        should_stop: () -> bool — 폴마다 확인(QA-05a). True면 status="stopped"로 즉시 반환
+            (호출부가 부분 산출물 수집 + 세션 종료 처리).
         """
         deadline = time.time() + timeout_sec
         seen_turns = 0
@@ -173,6 +175,13 @@ class CMAClient:
             evs = self._req("GET", f"/v1/sessions/{session_id}/events").get("data", [])
             reply = _collect_reply(evs)
             tin, tout = _collect_tokens(evs)
+            # Stop 확인(QA-05a) — 유저가 Stop을 눌렀으면 지금까지의 부분 결과를 들고 즉시 나간다.
+            if should_stop is not None:
+                try:
+                    if should_stop():
+                        return SessionResult(reply, tin, tout, "stopped", None, [])
+                except Exception:  # noqa: BLE001 — 확인 실패는 계속 폴링
+                    pass
             term = _terminal(evs)
             if term is not None:
                 status, stop_reason, await_ids = term

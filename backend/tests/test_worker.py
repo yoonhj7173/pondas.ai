@@ -170,3 +170,45 @@ def test_celery_run_task_wrapper(env):
     tid = _queued(db, uid, pid, aid)
     from app.celery_app import run_task
     assert run_task(str(tid)) == "not_dispatched"
+
+
+# --- Stop 실효성(QA-05): stopped 러너 결과 → 전이 없이 부분 작업물 보존 ---
+
+
+def test_stop_preserves_partial_work(env, monkeypatch):
+    """유저 Stop 시: 상태는 라우트가 만든 failed+stopped 그대로, 파일·버전·토큰은 보존된다.
+
+    실사례(07-13): 22개 파일을 만들던 디자이너 태스크를 Stop → 전부 증발 + 토큰 0 기록.
+    이제 러너가 stopped를 반환하면 collect_outputs + snapshot + 부분 토큰 회계가 돈다.
+    """
+    from app.services import dev_runner
+    from app.models import WorkspaceVersion
+
+    db, uid, pid, aid = env
+    tid = _queued(db, uid, pid, aid, instructions="build ui", engine="agent_sdk")
+
+    def fake_run(prompt, provider, sandbox_id, *, client, role_instructions="",
+                 task_timeout_sec=0, on_step=None, should_stop=None):
+        # 러너가 일부 작업(파일 1개)을 한 뒤 유저가 Stop 누른 상황 재현.
+        provider.write_file(sandbox_id, "app/page.tsx", b"partial work")
+        t = db.get(Task, tid)
+        ts.stop(db, t)          # Stop 라우트가 하는 일(failed+stopped 전이)
+        db.commit()
+        return dev_runner.DevOutcome(
+            status="stopped", error_summary="Stopped by user",
+            verification=[{"cmd": "echo hi", "exit_code": 0, "summary": ""}],
+            tokens_in=100, tokens_out=40,
+        )
+
+    monkeypatch.setattr("app.services.dev_runner.run_dev_task", fake_run)  # lazy import라 소스 모듈 패치
+    result = worker_core.process_task(db, tid, dev_client=object(), enqueue=lambda x: None)
+    assert result == "stopped"
+
+    t = db.get(Task, tid)
+    db.refresh(t)
+    assert t.status == "failed" and t.stopped is True          # 라우트 전이 그대로(재전이 없음)
+    assert (t.tokens_in, t.tokens_out) == (100, 40)            # 부분 토큰 회계 보존
+    assert t.verification                                      # 검증 로그 보존
+    outs = db.query(Output).filter_by(task_id=tid).all()
+    assert any(o.path == "app/page.tsx" for o in outs)         # 부분 파일 수집됨
+    assert db.query(WorkspaceVersion).filter_by(project_id=pid).count() == 1  # 버전 커팅
