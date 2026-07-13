@@ -85,15 +85,14 @@ def sse(
 @router.get("/notifications", response_model=list[NotificationOut])
 def list_notifications(
     user_id: str = Depends(require_user),
+    project_id: uuid.UUID | None = None,
     db: Session = Depends(get_db),
 ) -> list[NotificationOut]:
-    rows = (
-        db.query(Notification)
-        .filter(Notification.user_id == user_id)
-        .order_by(Notification.read, Notification.created_at.desc())
-        .limit(100)
-        .all()
-    )
+    # project_id 쿼리로 프로젝트 스코프 조회(QA-04 통합 Activity) — 미지정 시 기존처럼 유저 전체.
+    q = db.query(Notification).filter(Notification.user_id == user_id)
+    if project_id is not None:
+        q = q.filter(Notification.project_id == project_id)
+    rows = q.order_by(Notification.read, Notification.created_at.desc()).limit(100).all()
     return [NotificationOut.model_validate(r) for r in rows]
 
 

@@ -7,9 +7,10 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useAuth } from "@clerk/nextjs";
 import clsx from "clsx";
-import { useStore, type FeedEvent } from "@/lib/store";
+import { useStore, type FeedEvent, type NotifRow } from "@/lib/store";
 import { STATUS_CHIP, visualStatus } from "@/lib/tokens";
 import { apiFetch, E2E } from "@/lib/api";
+import { ding } from "@/lib/sound";
 
 // 채팅 말풍선 마크다운(QA-03-2) — office 기본 청크를 가볍게 유지(lazy, Markdown.tsx 컨벤션).
 const Markdown = dynamic(() => import("@/components/ui/Markdown"), { ssr: false });
@@ -39,7 +40,7 @@ export default function Hud(props: HudProps) {
       {/* 챗 포커스 시 월드 디밍. */}
       {chatFocused && <div className="pointer-events-none absolute inset-0 z-10 bg-[rgba(40,46,40,0.28)]" />}
       <ProjectSwitcher name={props.projectName} currentProjectId={props.currentProjectId} />
-      <ActivityFeedAndBell onFocusAgent={props.onFocusAgent} />
+      <UnifiedActivity onFocusAgent={props.onFocusAgent} projectId={props.currentProjectId} />
       <ToastStack onFocusAgent={props.onFocusAgent} />
       <UtilityStack onOpen={props.onOpen} />
       {/* 우하단: 크레딧 타일 + 토큰 카운터를 세로로 그룹핑(2-2). 가로 배치는 가운데 챗바와 겹쳐 세로 스택.
@@ -192,68 +193,116 @@ function ProjectSwitcher({ name, currentProjectId }: { name: string; currentProj
   );
 }
 
-// --- Activity 피드 + 벨(top-right) ---
-function ActivityFeedAndBell({ onFocusAgent }: { onFocusAgent?: (id: string) => void }) {
+// --- 통합 Activity(top-right, QA-04) — 영속 알림(DB) + 라이브 피드를 한 타임라인으로 ---
+//
+// 병합 규칙: 종결 이벤트(done/failed/needs-input/blocked)는 영속 notifications가 담당(새로고침
+// 후에도 남고 읽음 상태 있음), 휘발 이벤트(working 시작/채팅 답변)는 라이브 피드가 담당.
+// 라이브 피드의 종결 행은 걸러서 같은 사건이 두 번 보이지 않게 한다. 별도 벨 버튼은 제거 —
+// 미읽음 칩과 읽음 처리가 패널 헤더로 들어왔다(어차피 벨 드로어 UI는 존재한 적이 없었다).
+type TimelineRow =
+  | { kind: "live"; key: string; ts: number; e: FeedEvent }
+  | { kind: "notif"; key: string; ts: number; n: NotifRow };
+
+function UnifiedActivity({ onFocusAgent, projectId }: { onFocusAgent?: (id: string) => void; projectId?: string }) {
+  const { getToken: clerkToken } = useAuth();
   const events = useStore((s) => s.events);
+  const notifs = useStore((s) => s.notifs);
   const unread = useStore((s) => s.unread);
   const connected = useStore((s) => s.connected);
-  const markAllRead = useStore((s) => s.markAllRead);
   const progress = useStore((s) => s.progress);
   const agents = useStore((s) => s.agents);
   const [expanded, setExpanded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true); // 사용자가 위로 스크롤하지 않았으면 최신으로 자동 스크롤 유지.
 
-  // 채팅창식: 최신이 맨 아래(store는 최신-우선이라 역순으로 렌더). 새 이벤트/확장 시 하단으로 자동 스크롤.
-  const rows = [...events.slice(0, expanded ? 80 : 30)].reverse();
+  // 영속 알림 로드(QA-04) — 프로젝트 스코프. 새로고침해도 종결 히스토리가 남는 근원.
+  useEffect(() => {
+    if (!projectId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const token = E2E ? "e2e" : await clerkToken();
+        const rows = await apiFetch<{ id: string; agent_id: string | null; type: string; message: string; read: boolean; created_at: string }[]>(
+          `/api/notifications?project_id=${projectId}`, { token });
+        if (!alive) return;
+        useStore.getState().setNotifications(rows.map((r) => ({
+          id: r.id, agentId: r.agent_id, type: r.type, message: r.message, read: r.read,
+          ts: new Date(r.created_at).getTime(),
+        })));
+      } catch { /* 영속 히스토리는 부가 — 라이브 피드는 계속 동작 */ }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  async function markAllRead() {
+    useStore.getState().markAllRead(); // 낙관적 — 뱃지/하이라이트 즉시 제거.
+    try {
+      const token = E2E ? "e2e" : await clerkToken();
+      await apiFetch(`/api/notifications/read-all`, { method: "POST", token });
+    } catch { /* 서버 실패 시 다음 로드에서 unread로 복원됨 */ }
+  }
+
+  // 타임라인 병합: 종결=notifs, 휘발(working/queued 시작 + 채팅)=live. 시간 오름차순(아래=최신).
+  const live: TimelineRow[] = events
+    .filter((e) => e.kind === "chat" || ["working", "queued"].includes(visualStatus(e.status as any)))
+    .map((e) => ({ kind: "live" as const, key: `e${e.id}`, ts: e.ts, e }));
+  const persisted: TimelineRow[] = notifs.map((n) => ({ kind: "notif" as const, key: `n${n.id}`, ts: n.ts, n }));
+  const rows = [...persisted, ...live].sort((a, b) => a.ts - b.ts).slice(expanded ? -80 : -30);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [events, expanded, progress]);
+  }, [events, notifs, expanded, progress]);
   const onScroll = () => {
     const el = scrollRef.current;
     if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24; // 바닥 근처면 계속 붙어서 스크롤.
   };
 
   // 라이브 진행 서브라인(QA-01)은 "그 에이전트의 가장 최근 working 행"에만 붙인다.
-  const latestWorkingRow: Record<string, number> = {};
-  for (const e of rows) {
-    if (e.kind !== "chat" && ["working", "queued"].includes(visualStatus(e.status as any))) latestWorkingRow[e.agentId] = e.id;
+  const latestWorkingRow: Record<string, string> = {};
+  for (const r of rows) {
+    if (r.kind === "live" && r.e.kind !== "chat") latestWorkingRow[r.e.agentId] = r.key;
   }
 
   return (
-    <div className="absolute right-5 top-5 z-20 flex items-start gap-2">
-      <button
-        onClick={markAllRead}
-        title="Mark all read"
-        className="relative flex h-11 w-11 items-center justify-center rounded-tile bg-[rgba(36,46,66,0.92)] text-lg text-white"
-      >
-        🔔
-        {unread > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-status-failed px-1 text-[10px] font-bold">{unread}</span>}
-      </button>
-      <div className={clsx("rounded-tile bg-[rgba(36,46,66,0.92)] p-3 text-white transition-[width] duration-200", expanded ? "w-[400px]" : "w-[296px]")}>
+    <div className="absolute right-5 top-5 z-20">
+      <div className={clsx("rounded-tile bg-[rgba(36,46,66,0.92)] p-3 text-white transition-[width] duration-200", expanded ? "w-[400px]" : "w-[312px]")}>
         <div className="mb-2 flex items-center justify-between">
-          <span className="font-baloo text-sm font-bold">Activity</span>
+          <span className="flex items-center gap-2">
+            <span className="font-baloo text-sm font-bold">Activity</span>
+            {unread > 0 && (
+              <button onClick={markAllRead} title="Mark all read"
+                className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-status-failed px-1.5 text-[10px] font-bold hover:opacity-85">
+                {unread}
+              </button>
+            )}
+          </span>
           <span className="flex items-center gap-2">
             <span className="flex items-center gap-1 font-mono text-[10px]"><span className={clsx("h-1.5 w-1.5 rounded-full", connected ? "bg-status-done" : "bg-muted")} />LIVE</span>
+            {unread > 0 && <button onClick={markAllRead} title="Mark all read" className="text-[12px] leading-none opacity-70 hover:opacity-100">✓ read</button>}
             <button onClick={() => setExpanded((e) => !e)} title={expanded ? "Collapse" : "Expand"} className="px-1 text-[15px] leading-none opacity-70 hover:opacity-100">{expanded ? "⤡" : "⤢"}</button>
           </span>
         </div>
         <div ref={scrollRef} onScroll={onScroll} className={clsx("chat-scroll overflow-y-auto transition-[max-height] duration-200", expanded ? "max-h-[62vh]" : "max-h-[40vh]")}>
-          {events.length === 0 && <div className="py-2 text-xs opacity-40">No activity yet</div>}
-          {rows.map((e) => (
-            <FeedRow
-              key={e.id}
-              e={e}
-              // 진행 중 행에만 라이브 진행 한 줄(에이전트가 아직 working일 때).
-              progressLabel={
-                latestWorkingRow[e.agentId] === e.id && ["working", "queued"].includes(agents[e.agentId]?.status ?? "")
-                  ? progress[e.agentId]?.label
-                  : undefined
-              }
-              onClick={() => e.agentId && onFocusAgent?.(e.agentId)}
-            />
-          ))}
+          {rows.length === 0 && <div className="py-2 text-xs opacity-40">No activity yet</div>}
+          {rows.map((r) =>
+            r.kind === "notif" ? (
+              <NotifRowView key={r.key} n={r.n} onClick={() => r.n.agentId && onFocusAgent?.(r.n.agentId)} />
+            ) : (
+              <FeedRow
+                key={r.key}
+                e={r.e}
+                // 진행 중 행에만 라이브 진행 한 줄(에이전트가 아직 working일 때).
+                progressLabel={
+                  latestWorkingRow[r.e.agentId] === r.key && ["working", "queued"].includes(agents[r.e.agentId]?.status ?? "")
+                    ? progress[r.e.agentId]?.label
+                    : undefined
+                }
+                onClick={() => r.e.agentId && onFocusAgent?.(r.e.agentId)}
+              />
+            ),
+          )}
         </div>
       </div>
     </div>
@@ -261,22 +310,40 @@ function ActivityFeedAndBell({ onFocusAgent }: { onFocusAgent?: (id: string) => 
 }
 
 // 이벤트 → 타입 아이콘(QA-06): 시작/완료/실패/입력대기/채팅이 한눈에 구분되게.
+const NOTIF_ICON: Record<string, { glyph: string; bg: string }> = {
+  done: { glyph: "✓", bg: "#4dbb5c" },
+  failed: { glyph: "✕", bg: "#e8503a" },
+  "needs-input": { glyph: "!", bg: "#efb43e" },
+  blocked: { glyph: "⏸", bg: "#efb43e" },
+};
+
 function feedIcon(e: FeedEvent): { glyph: string; bg: string } {
   if (e.kind === "chat") return { glyph: "💬", bg: "rgba(255,255,255,.12)" };
   const v = visualStatus(e.status as any);
   if (v === "working" || v === "queued") return { glyph: "▶", bg: "#3fb4dc" };
-  if (v === "done") return { glyph: "✓", bg: "#4dbb5c" };
-  if (v === "failed") return { glyph: "✕", bg: "#e8503a" };
-  if (v === "needs-input") return { glyph: "!", bg: "#efb43e" };
-  return { glyph: "·", bg: "rgba(255,255,255,.18)" };
+  return NOTIF_ICON[v] ?? { glyph: "·", bg: "rgba(255,255,255,.18)" };
+}
+
+// 영속 알림 행(QA-04) — 서버 메시지("PM finished" 등) + 미읽음 하이라이트.
+function NotifRowView({ n, onClick }: { n: NotifRow; onClick: () => void }) {
+  const icon = NOTIF_ICON[n.type] ?? { glyph: "·", bg: "rgba(255,255,255,.18)" };
+  return (
+    <button onClick={onClick} className={clsx("flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left font-nunito text-[11px] hover:bg-white/5", !n.read && "bg-white/[0.07]")}>
+      <span className="mt-px flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ background: icon.bg }}>{icon.glyph}</span>
+      <span className="min-w-0 flex-1 break-words">
+        {n.message}
+        {!n.read && <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-status-working align-middle" />}
+      </span>
+      <span className="mt-px shrink-0 font-mono text-[9px] opacity-40">{time(n.ts)}</span>
+    </button>
+  );
 }
 
 function FeedRow({ e, progressLabel, onClick }: { e: FeedEvent; progressLabel?: string; onClick: () => void }) {
   const v = visualStatus(e.status as any);
-  const tinted = v === "failed" || v === "needs-input";
   const icon = feedIcon(e);
   return (
-    <button onClick={onClick} className={clsx("flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left font-nunito text-[11px] hover:bg-white/5", tinted && "bg-white/[0.06]")}>
+    <button onClick={onClick} className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left font-nunito text-[11px] hover:bg-white/5">
       <span className="mt-px flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ background: icon.bg }}>{icon.glyph}</span>
       <span className="min-w-0 flex-1">
         {/* wrap 허용(QA-06) — crop 대신 전체 내용이 보이게. */}
@@ -473,8 +540,8 @@ function OrchestratorChat({ focused, setFocused, onSend, projectId }: {
       const reply = await onSend?.(m);
       if (typeof reply === "string" && reply) {
         setBubbles((b) => [...b, { role: "orchestrator", text: reply }]);
-        // 채팅을 닫아둔 채 답이 도착 → Activity/벨로 알림(QA-06).
-        if (!focusedRef.current) useStore.getState().pushChatEvent(reply);
+        // 채팅을 닫아둔 채 답이 도착 → Activity/벨로 알림 + 소리(QA-06/04).
+        if (!focusedRef.current) { useStore.getState().pushChatEvent(reply); ding("chat"); }
       }
     } finally {
       setSending(false);

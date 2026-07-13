@@ -387,6 +387,7 @@ class NotificationOut(BaseModel):
     type: str
     message: str
     read: bool
+    created_at: UtcDatetime  # 통합 Activity 타임라인 정렬용(QA-04)
 
 
 class BoardTaskOut(BaseModel):
