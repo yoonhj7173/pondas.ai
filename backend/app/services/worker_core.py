@@ -244,6 +244,11 @@ def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_cl
         db.commit(); events.emit_status(task)
         return "failed"
 
+    # 샌드박스 수명을 태스크 예산에 맞춤(P0) — create 기본 10분 vs 태스크 예산 30분 불일치로
+    # 장시간 태스크 도중 E2B가 샌드박스를 GC("sandbox not found" 크래시)하던 것 방지.
+    # +300s 여유: 출력 수집(collect_outputs)·버전 스냅샷까지 샌드박스가 살아있어야 한다.
+    workspace_service.extend_lifetime(sandbox_id, cfg.dev_task_timeout_min * 60 + 300)
+
     prompt = assemble_prompt(db, task, context_token_budget=cfg.context_token_budget)
     if dev_client is None:
         from app.services.orchestrator import LiteLLMClient
