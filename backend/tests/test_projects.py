@@ -50,13 +50,13 @@ def _create(client, auth, sub, **body):
 # --- Templates ---
 
 
-def test_templates_returns_4_teams_11_roles(client, auth):
+def test_templates_returns_4_teams_10_roles(client, auth):
     resp = client.get("/api/templates", headers=auth("user_tpl"))
     assert resp.status_code == 200, resp.text
     data = resp.json()
     assert {t["key"] for t in data} == {"planning", "research", "design", "development"}
     roles_total = sum(len(t["roles"]) for t in data)
-    assert roles_total == 11
+    assert roles_total == 10
     dev = next(t for t in data if t["key"] == "development")
     assert dev["engine"] == "agent_sdk"
     assert len(dev["roles"]) == 5
