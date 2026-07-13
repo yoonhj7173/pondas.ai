@@ -293,14 +293,46 @@ def _load_history(db: Session, project_id: uuid.UUID, limit: int) -> list[dict]:
     # 확인 문장만 내놓는다(자기강화 실패 루프 — 히스토리가 쌓일수록 dispatch가 조용히 죽음).
     # 라이브로 재현+검증됨. 재생 시 중립 마커로 치환해 패턴을 끊는다(user 의도 히스토리는 유지하고,
     # 현재 상태는 어차피 _system_prompt가 제공). user/assistant 교대 형식도 그대로 보존.
-    _ASSISTANT_HISTORY = "(Acted on the previous request by calling the tools.)"
+    #
+    # 단, 완전 무기억 마커는 부작용이 있다(QA-05): "디자이너 누가 시켰어?"에 지휘자가 "저는 시킨 적
+    # 없다"고 답하는 가스라이팅. 그래서 그 턴의 행동 요약(actions)을 마커 안에 사실로 남긴다 —
+    # 여전히 괄호 마커(자연어 답변 아님)라 텍스트-만-답하는 패턴은 재생하지 않는다.
     return [
         {
             "role": "assistant" if m.role == "orchestrator" else "user",
-            "content": _ASSISTANT_HISTORY if m.role == "orchestrator" else m.content,
+            "content": _history_marker(m) if m.role == "orchestrator" else m.content,
         }
         for m in rows
     ]
+
+
+_ASSISTANT_HISTORY = "(Acted on the previous request by calling the tools.)"
+
+
+def _history_marker(m: OrchestratorMessage) -> str:
+    """지휘자 과거 턴의 중립 마커 — 행동 요약이 있으면 사실로 포함(기억 유지, QA-05)."""
+    if not m.actions:
+        return _ASSISTANT_HISTORY
+    try:
+        acts = json.loads(m.actions)
+        parts = [_action_line(a) for a in acts[:5]]
+        parts = [p for p in parts if p]
+        if not parts:
+            return _ASSISTANT_HISTORY
+        return f"(Acted by calling tools: {'; '.join(parts)}.)"
+    except Exception:  # noqa: BLE001 — 요약 파싱 실패는 기존 마커로 폴백
+        return _ASSISTANT_HISTORY
+
+
+def _action_line(a: dict) -> str:
+    kind = a.get("action", "")
+    if kind == "dispatch_task":
+        return f"dispatched a task to {a.get('agent', 'an agent')}"
+    if kind == "resume_task":
+        return f"resumed {a.get('agent', 'an agent')}'s task with user input"
+    if kind == "create_goal":
+        return f"created goal '{a.get('title', '')}'"
+    return kind
 
 
 def run_chat(
@@ -375,9 +407,13 @@ def run_chat(
         reply = resp.content or ""
         break
 
-    # 히스토리 영속(유저 + 오케스트레이터 응답).
+    # 히스토리 영속(유저 + 오케스트레이터 응답). 행동 요약(actions)도 저장 — 다음 턴에서
+    # 지휘자가 "내가 뭘 했는지"를 기억하게(QA-05, _history_marker).
     db.add(OrchestratorMessage(project_id=project.id, role="user", content=message))
-    db.add(OrchestratorMessage(project_id=project.id, role="orchestrator", content=reply))
+    db.add(OrchestratorMessage(
+        project_id=project.id, role="orchestrator", content=reply,
+        actions=json.dumps(ctx.actions) if ctx.actions else None,
+    ))
     db.commit()
     # 커밋 이후에 enqueue — 워커가 트랜잭션 커밋 전 task를 집어 not_found를 내고 task가 영원히
     # queued로 남는 레이스를 막는다(E2E BUG-5). 커밋됐으니 워커가 반드시 task를 본다.

@@ -262,6 +262,8 @@ def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_cl
         prompt, workspace_service.provider, sandbox_id,
         client=dev_client, role_instructions=agent.role_instructions,
         task_timeout_sec=cfg.dev_task_timeout_min * 60,
+        # 라이브 진행(QA-01): 스텝마다 "Writing src/App.tsx" 같은 한 줄을 SSE로 흘린다.
+        on_step=lambda label: events.emit_progress(task.project_id, task.agent_id, task.id, label),
     )
     cost = cost_usd(cfg, model, outcome.tokens_in, outcome.tokens_out)
 

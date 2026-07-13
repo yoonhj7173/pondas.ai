@@ -169,7 +169,11 @@ def run_dev_task_cma(db: Session, task: Task, agent: Agent, model: str, cfg, enq
                 sid = _ensure_session(db, agent, env_id, store_id, client)
                 client.send_user_message(sid, msg)
 
-            res = client.poll_until_idle(sid, timeout_sec=cfg.dev_task_timeout_min * 60)
+            res = client.poll_until_idle(
+                sid, timeout_sec=cfg.dev_task_timeout_min * 60,
+                # 라이브 진행(QA-01): CMA는 스텝 상세가 없어 모델 턴 수로 "일하고 있음"을 알린다.
+                on_progress=lambda label: events.emit_progress(task.project_id, task.agent_id, task.id, label),
+            )
         except CMAError as exc:
             log.warning("cma run failed", extra={"task_id": str(task.id)})
             ts.transition(db, task, "failed", error_summary=f"CMA: {exc}", model_used=model)

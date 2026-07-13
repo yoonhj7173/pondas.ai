@@ -107,3 +107,32 @@ def test_task_timeout_fails_cleanly(sandbox):
     agent = ScriptedAgent([_call("1", "bash", {"cmd": "echo loop"})])
     outcome = run_dev_task("loop forever", provider, sid, client=agent, task_timeout_sec=0)
     assert outcome.status == "failed" and "time budget" in outcome.error_summary
+
+
+# --- 라이브 진행 콜백(QA-01) ---
+
+
+def test_on_step_reports_progress_labels(sandbox):
+    provider, sid = sandbox
+    agent = ScriptedAgent([
+        _call("1", "write_file", {"path": "app.py", "content": "print('hi')\n"}),
+        _call("2", "bash", {"cmd": "python app.py"}),
+        LLMResponse(content="Done."),
+    ])
+    labels = []
+    outcome = run_dev_task("build it", provider, sid, client=agent, on_step=labels.append)
+    assert outcome.status == "done"
+    assert labels == ["Writing app.py", "Running: python app.py"]
+
+
+def test_on_step_failure_does_not_break_loop(sandbox):
+    provider, sid = sandbox
+    agent = ScriptedAgent([
+        _call("1", "write_file", {"path": "x.txt", "content": "x"}),
+        LLMResponse(content="Done."),
+    ])
+    def boom(_label):
+        raise RuntimeError("observer down")
+    outcome = run_dev_task("go", provider, sid, client=agent, on_step=boom)
+    assert outcome.status == "done"                     # 콜백 실패는 본 루프에 영향 없음
+    assert provider.read_file(sid, "x.txt") == b"x"

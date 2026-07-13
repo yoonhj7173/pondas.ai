@@ -111,7 +111,7 @@ def _mock_cma(monkeypatch, reply="Built the Next.js app."):
     """CMA 리소스/클라이언트를 전부 가짜로 — run_dev_task_cma를 라이브 키 없이 done까지 태운다."""
     fake_client = types.SimpleNamespace(
         send_user_message=lambda sid, msg: None,
-        poll_until_idle=lambda sid, timeout_sec: types.SimpleNamespace(
+        poll_until_idle=lambda sid, timeout_sec, on_progress=None: types.SimpleNamespace(
             status="idle", reply=reply, tokens_in=120, tokens_out=40, stop_reason="end_turn"),
         close=lambda: None,
     )
