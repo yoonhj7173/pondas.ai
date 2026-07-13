@@ -83,7 +83,7 @@ class PreviewService:
     def runnable_target(self, files: list[tuple[str, bytes]]) -> str | None:
         """실행 가능한 웹 앱인지 판정 — 루트 package.json에 dev 스크립트가 있으면 그 명령을 반환.
 
-        없으면 None(순수 문서/리서치 프로젝트 → 프리뷰 카드 숨김, closure는 result-in-flow가 담당).
+        없으면 None(순수 문서/리서치 프로젝트 or 정적 목업 → static_entry로 별도 판정).
         """
         pkg = next((data for path, data in files if path == "package.json"), None)
         if pkg is None:
@@ -93,6 +93,18 @@ class PreviewService:
         except (ValueError, UnicodeDecodeError):
             return None
         return "npm run dev" if "dev" in scripts else None
+
+    def static_entry(self, files: list[tuple[str, bytes]]) -> str | None:
+        """정적 HTML 목업(D42→디자인 목업)인지 판정 — index.html이 있으면 그 디렉터리를 서빙 대상으로.
+
+        Design 팀 산출물(프레임워크 없는 정적 HTML+CSS)을 dev server 없이 그대로 프리뷰한다.
+        가장 얕은 index.html의 디렉터리를 반환(루트면 ""). 없으면 None(순수 문서 프로젝트).
+        """
+        indexes = [path for path, _ in files if path == "index.html" or path.endswith("/index.html")]
+        if not indexes:
+            return None
+        shallowest = min(indexes, key=lambda p: p.count("/"))
+        return shallowest[: -len("index.html")].rstrip("/")  # 디렉터리(루트면 "")
 
     # --- 샌드박스 수명 ---
 
@@ -159,6 +171,45 @@ class PreviewService:
         tail = self.provider.exec(sandbox_id, "tail -c 500 /tmp/preview.log || true", timeout=10)
         raise PreviewError(f"dev server did not become ready: {tail.stdout[-500:]}")
 
+    # 의존성 없는 정적 서버(node 내장 http/fs) — Design 목업용. npm install 불필요 → 수초 내 기동.
+    _STATIC_SERVER_JS = r"""
+const http=require('http'),fs=require('fs'),path=require('path');
+const root=path.resolve(process.argv[2]||'.'),port=parseInt(process.argv[3]||'3000',10);
+const MIME={'.html':'text/html','.css':'text/css','.js':'text/javascript','.json':'application/json','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.gif':'image/gif','.svg':'image/svg+xml','.ico':'image/x-icon','.woff':'font/woff','.woff2':'font/woff2'};
+http.createServer((req,res)=>{
+  let p=decodeURIComponent((req.url||'/').split('?')[0]);
+  if(p.endsWith('/'))p+='index.html';
+  const fp=path.join(root,p);
+  if(!fp.startsWith(root)){res.writeHead(403);return res.end('forbidden');}
+  fs.readFile(fp,(e,data)=>{
+    if(e){res.writeHead(404,{'Content-Type':'text/html'});return res.end('<h1>404</h1>');}
+    res.writeHead(200,{'Content-Type':MIME[path.extname(fp).toLowerCase()]||'application/octet-stream'});
+    res.end(data);
+  });
+}).listen(port,'0.0.0.0',()=>console.log('static up'));
+"""
+
+    def _serve_static(self, sandbox_id: str, serve_dir: str) -> str:
+        """정적 목업 서버 기동 → public host. npm 없이 node 내장 모듈만(수초 기동, 안정적)."""
+        self.provider.write_file(sandbox_id, "/tmp/static-server.js", self._STATIC_SERVER_JS.encode("utf-8"))
+        root = f"{self.provider.WORKDIR}/{serve_dir}".rstrip("/") if hasattr(self.provider, "WORKDIR") else (serve_dir or ".")
+        self.provider.exec(
+            sandbox_id,
+            f"sh -c 'nohup node /tmp/static-server.js \"{root}\" {PREVIEW_PORT} "
+            f"> /tmp/preview.log 2>&1 & echo started'",
+            timeout=30,
+        )
+        deadline = time.time() + _HEALTH_TIMEOUT
+        while time.time() < deadline:
+            r = self.provider.exec(
+                sandbox_id, f"curl -sf -o /dev/null localhost:{PREVIEW_PORT} && echo up || true", timeout=15,
+            )
+            if "up" in r.stdout:
+                return self.provider.get_host(sandbox_id, PREVIEW_PORT)
+            time.sleep(_HEALTH_INTERVAL)
+        tail = self.provider.exec(sandbox_id, "tail -c 500 /tmp/preview.log || true", timeout=10)
+        raise PreviewError(f"static server did not become ready: {tail.stdout[-500:]}")
+
     # --- 공개 API ---
 
     def start(self, db: Session, project: Project) -> dict:
@@ -172,8 +223,10 @@ class PreviewService:
             return {"status": "disabled"}
 
         files = self._current_files(db, project)
+        # 실행형 웹앱(Development, npm) 우선, 없으면 정적 목업(Design, HTML) 판정.
         dev_cmd = self.runnable_target(files)
-        if dev_cmd is None:
+        static_dir = self.static_entry(files) if dev_cmd is None else None
+        if dev_cmd is None and static_dir is None:
             self._set_status(db, project, "none")
             return {"status": "none"}
 
@@ -182,7 +235,7 @@ class PreviewService:
         try:
             sid = self._ensure_sandbox(db, project)
             self._materialize(sid, files)
-            host = self._serve(sid, dev_cmd)
+            host = self._serve(sid, dev_cmd) if dev_cmd else self._serve_static(sid, static_dir)
         except Exception as exc:  # noqa: BLE001 — 기동 실패는 error 상태로.
             log.warning("preview start failed", extra={"project_id": str(project.id), "err": str(exc)})
             self._set_status(db, project, "error", version_no=version)

@@ -1,6 +1,6 @@
 """Schema + seed tests (v3) — run against LIVE Postgres (mock 아님).
 
-migration이 적용되어 v3 테이블이 존재하는지, seed가 정확히 4 team templates / 11 role
+migration이 적용되어 v3 테이블이 존재하는지, seed가 정확히 4 team templates / 10 role
 catalog rows를 넣는지, 재실행 시 멱등한지, starter/엔진/티어/config 맵이 스펙대로인지
 검증한다. tech-design §5 + decision-log D40/D41/D43/D44 / specs/role-catalog.md 대응.
 
@@ -29,7 +29,7 @@ V3_TABLES = {
 EXPECTED_TEMPLATES = {
     "planning": ("crew", {"pm": True, "spec_writer": False}),
     "research": ("crew", {"researcher": True, "analyst": False}),
-    "design": ("agent_sdk", {"product_designer": True, "visual_designer": False}),
+    "design": ("agent_sdk", {"product_designer": True}),
     "development": ("agent_sdk", {
         "swe": True, "architect": False, "qa": False,
         "code_reviewer": False, "devops": False,
@@ -55,14 +55,14 @@ def test_no_data_team_in_p0():
         db.close()
 
 
-def test_seed_inserts_4_templates_11_roles():
+def test_seed_inserts_4_templates_10_roles():
     db = SessionLocal()
     try:
         counts = seed(db)
         assert counts["team_templates"] == 4
-        assert counts["agent_templates"] == 11
+        assert counts["agent_templates"] == 10
         assert db.query(TeamTemplate).count() == 4
-        assert db.query(AgentTemplate).count() == 11
+        assert db.query(AgentTemplate).count() == 10
     finally:
         db.close()
 
@@ -73,7 +73,7 @@ def test_seed_is_idempotent():
         seed(db)
         seed(db)
         assert db.query(TeamTemplate).count() == 4
-        assert db.query(AgentTemplate).count() == 11
+        assert db.query(AgentTemplate).count() == 10
     finally:
         db.close()
 

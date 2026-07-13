@@ -243,3 +243,38 @@ def test_api_start_stop_get_and_ownership(env, preview_on, client, auth, monkeyp
     # cross-user 404.
     assert client.get(f"/api/projects/{pid}/preview", headers=auth("intruder")).status_code == 404
     assert client.post(f"/api/projects/{pid}/preview/start", headers=auth("intruder")).status_code == 404
+
+
+# --- 정적 목업 모드(Design 팀, D42 refined) ---
+
+
+def test_static_entry_detection():
+    svc = preview_service
+    assert svc.static_entry([("index.html", b"<h1>Home</h1>")]) == ""          # 루트
+    assert svc.static_entry([("mockups/index.html", b"<h1>x</h1>")]) == "mockups"
+    # 가장 얕은 index.html의 디렉터리.
+    assert svc.static_entry([("a/b/index.html", b""), ("index.html", b"")]) == ""
+    assert svc.static_entry([("home.html", b"<h1>x</h1>")]) is None            # index.html 없음
+    assert svc.static_entry([("report.md", b"# doc")]) is None
+
+
+def test_start_serves_static_mockup(env, preview_on, monkeypatch):
+    db, uid, pid, aid = env
+    _seed_files(db, uid, pid, aid, {
+        "index.html": "<link rel=stylesheet href=design-system.css><h1>Habit</h1>",
+        "design-system.css": ":root{--bg:#fff}",
+    })
+    called = {}
+    def fake_static(sid, serve_dir):
+        called["serve_dir"] = serve_dir
+        return "3000-fake.e2b.app"
+    # npm _serve는 안 불려야 함(정적 경로).
+    monkeypatch.setattr(preview_service, "_serve", lambda sid, cmd: (_ for _ in ()).throw(AssertionError("npm path taken")))
+    monkeypatch.setattr(preview_service, "_serve_static", fake_static)
+
+    out = preview_service.start(db, db.get(Project, pid))
+    assert out["status"] == "ready" and out["url"] == "https://3000-fake.e2b.app"
+    assert called["serve_dir"] == ""                                          # 루트 서빙
+    # 목업 파일이 샌드박스에 머티리얼라이즈됨.
+    project = db.get(Project, pid)
+    assert b"Habit" in preview_service.provider.read_file(project.preview_sandbox_id, "index.html")
