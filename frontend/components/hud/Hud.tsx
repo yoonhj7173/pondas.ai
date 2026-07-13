@@ -518,11 +518,20 @@ function OrchestratorChat({ focused, setFocused, onSend, projectId }: {
     const el = scrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
   }
-  // 열 때 + 새 말풍선/typing 때 항상 최신으로(QA-03-7). 사용자가 위로 스크롤한 상태면 붙지 않고 ↓ 버튼.
+  // 열림 전환 시 무조건 최신으로 — 컨테이너가 갓 마운트되면 scrollHeight가 아직 안 잡혀서
+  // 동기 스크롤은 맨 위(top=0)에 머문다. rAF로 레이아웃 후 바닥으로 붙이고 stick 상태를 리셋.
+  useEffect(() => {
+    if (!focused) return;
+    setAtBottom(true);
+    const id = requestAnimationFrame(() => scrollToBottom());
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focused]);
+  // 새 말풍선/typing 때 최신으로(QA-03-7). 사용자가 위로 스크롤한 상태면 붙지 않고 ↓ 버튼.
   useEffect(() => {
     if (focused && atBottom) scrollToBottom();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focused, bubbles, sending]);
+  }, [bubbles, sending]);
   const onScroll = () => {
     const el = scrollRef.current;
     if (el) setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 32);
