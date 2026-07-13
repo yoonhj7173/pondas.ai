@@ -425,32 +425,68 @@ def run_chat(
 # --- 프로덕션 LiteLLM 클라이언트 ---
 
 
-class LiteLLMClient:
-    """litellm.completion 호출(프롬프트 캐싱 passthrough, D26/D32). model 미지정 시 strong."""
+def _inject_cache_control(messages: list[dict]) -> list[dict]:
+    """프롬프트 캐싱 breakpoint 주입(D26/D32) — dev 툴루프의 반복 재처리 비용 제거.
 
-    def __init__(self, db: Session, model: str | None = None):
+    Anthropic 정규 순서(tools → system → messages)에서 cache_control은 그 지점까지의 프리픽스를
+    캐시한다. ① system 블록(=tools+system 프리픽스: 역할지침+도구스키마, 매 턴 동일) ②
+    마지막 문자열-content 메시지(=누적 대화 프리픽스, rolling). 2 breakpoint로 스텝이 쌓여도
+    직전까지의 히스토리를 캐시 히트시켜 매 턴 통짜 재처리를 없앤다. content가 None인 assistant
+    tool_call 메시지는 건드리지 않는다.
+    """
+    out = [dict(m) for m in messages]
+    for m in out:  # system(있으면 하나)
+        if m.get("role") == "system" and isinstance(m.get("content"), str):
+            m["content"] = [{"type": "text", "text": m["content"], "cache_control": {"type": "ephemeral"}}]
+            break
+    for m in reversed(out):  # rolling: 마지막 문자열 content
+        if isinstance(m.get("content"), str) and m["content"]:
+            m["content"] = [{"type": "text", "text": m["content"], "cache_control": {"type": "ephemeral"}}]
+            break
+    return out
+
+
+class LiteLLMClient:
+    """litellm.completion 호출(프롬프트 캐싱 passthrough, D26/D32). model 미지정 시 strong.
+
+    stream/cache는 dev·design 러너 전용 플래그(성능) — 오케스트레이터 챗은 기본값(off)으로 무변경.
+    - cache=True: 프롬프트 캐싱 breakpoint 주입 → 긴 툴루프의 매 턴 컨텍스트 재처리 제거.
+    - stream=True: 스트리밍 호출 + stream_chunk_builder로 재조립 → 긴 파일 생성이 per-attempt
+      타임아웃(120s)에 걸려 재시도로 낭비되던 것 방지 + TTFT 단축.
+    """
+
+    def __init__(self, db: Session, model: str | None = None, *, stream: bool = False, cache: bool = False):
         cfg = load_config(db)
         self.model = model or model_for_tier(cfg, "strong")
+        self.stream = stream
+        self.cache = cache
 
     def complete(self, messages: list[dict], tools: list[dict]) -> LLMResponse:
         """실제 LLM 1회 호출 — 대화내역+도구목록을 보내고, 도구호출 또는 답변문장을 받아온다.
 
         무슨 일을 하나: litellm(여러 LLM 제공사를 한 인터페이스로 부르는 라이브러리)로 모델을
             호출한다. 모델이 "도구를 쓰겠다"고 하면 tool_calls를, 그냥 답하면 content를 채워 반환.
-        누가 부르나: run_chat의 툴루프가 매 반복마다 부른다.
-        연결: 반환된 LLMResponse를 run_chat이 보고 도구 실행 여부를 결정한다.
+        누가 부르나: run_chat의 툴루프 / dev_runner의 코딩루프가 매 반복마다 부른다.
+        연결: 반환된 LLMResponse를 호출부가 보고 도구 실행 여부를 결정한다.
         """
+        import litellm
         from litellm import completion
 
         # timeout/num_retries 필수 — 없으면 프로바이더 행이 chat 요청/Celery 워커를 무한 점유(감사 P0).
-        resp = completion(
+        kwargs = dict(
             model=self.model,
-            messages=messages,
+            messages=_inject_cache_control(messages) if self.cache else messages,
             tools=tools,
             tool_choice="auto",
             timeout=settings.llm_request_timeout_sec,
             num_retries=settings.llm_num_retries,
         )
+        if self.stream:
+            # 스트리밍: 청크를 모아 stream_chunk_builder로 완성 응답으로 재조립(파싱 로직 불변).
+            chunks = list(completion(**kwargs, stream=True))
+            resp = litellm.stream_chunk_builder(chunks, messages=kwargs["messages"])
+        else:
+            resp = completion(**kwargs)
         msg = resp.choices[0].message
         tcs = getattr(msg, "tool_calls", None)
         if tcs:
