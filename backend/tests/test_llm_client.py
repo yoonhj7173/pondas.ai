@@ -200,3 +200,39 @@ def test_stream_malformed_without_truncation_raises(monkeypatch):
     monkeypatch.setattr("litellm.completion", fake_completion)
     with pytest.raises(ValueError):
         client.complete([{"role": "user", "content": "x"}], [])
+
+
+def test_usage_extracted_non_stream(monkeypatch):
+    """A2: usage를 읽어 토큰/캐시 카운트를 채운다 — 여태 dev 경로 토큰이 전부 0이었다."""
+    usage = types.SimpleNamespace(prompt_tokens=100, completion_tokens=20,
+                                  cache_read_input_tokens=80, cache_creation_input_tokens=5)
+
+    def fake_completion(**kwargs):
+        msg = types.SimpleNamespace(tool_calls=None, content="ok")
+        return types.SimpleNamespace(choices=[types.SimpleNamespace(message=msg, finish_reason="stop")],
+                                     usage=usage)
+
+    monkeypatch.setattr("litellm.completion", fake_completion)
+    client = LiteLLMClient.__new__(LiteLLMClient)
+    client.model, client.stream, client.cache, client.max_tokens = "claude-x", False, False, None
+    resp = client.complete([{"role": "user", "content": "hi"}], [])
+    assert (resp.tokens_in, resp.tokens_out) == (100, 20)
+    assert (resp.tokens_cache_read, resp.tokens_cache_write) == (80, 5)
+
+
+def test_usage_extracted_from_stream(monkeypatch):
+    """스트림 마지막 청크의 usage를 취한다(Anthropic 규약)."""
+    client = LiteLLMClient.__new__(LiteLLMClient)
+    client.model, client.stream, client.cache, client.max_tokens = "claude-x", True, False, None
+    usage = types.SimpleNamespace(prompt_tokens=40, completion_tokens=9,
+                                  cache_read_input_tokens=30, cache_creation_input_tokens=0)
+
+    def fake_completion(**kwargs):
+        final = _delta_chunk(content="!", finish_reason="stop")
+        final.usage = usage
+        return iter([_delta_chunk(content="hi"), final])
+
+    monkeypatch.setattr("litellm.completion", fake_completion)
+    resp = client.complete([{"role": "user", "content": "x"}], [])
+    assert resp.content == "hi!"
+    assert (resp.tokens_in, resp.tokens_out, resp.tokens_cache_read) == (40, 9, 30)

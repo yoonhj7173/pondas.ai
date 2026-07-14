@@ -48,6 +48,9 @@ class LLMResponse:
     content: str | None = None
     tokens_in: int = 0   # dev-runner가 스텝별 토큰을 누적(item 16).
     tokens_out: int = 0
+    # 프롬프트 캐시 관측(비용 최적화) — 히트율이 안 보이면 최적화가 됐는지 알 수 없다.
+    tokens_cache_read: int = 0
+    tokens_cache_write: int = 0
 
 
 # --- 도구 스키마(OpenAI/LiteLLM function-calling 형식) ---
@@ -241,30 +244,34 @@ def _execute(ctx: _Ctx, call: ToolCall) -> dict:
         return {"error": f"{type(exc).__name__}: {exc}"}
 
 
-def _system_prompt(ctx: _Ctx) -> str:
-    """지휘자 지침문 작성 — LLM에게 "넌 사무실 지휘자다 + 지금 직원 명단/상태"를 알려주는 글을 만든다.
+# 지휘자 규칙(안정 프리픽스) — 매 턴 동일한 부분만 모아 cache_control 대상이 된다.
+# 로스터(에이전트 상태)는 턴마다 변해서 여기 넣으면 캐시가 매번 깨진다 → 별도 블록으로 분리.
+_SYSTEM_RULES = (
+    "You are the orchestrator of an office-sim of AI agents. The user steers the whole "
+    "company through you in freeform chat. Use the tools to create goals and dispatch tasks.\n\n"
+    "Rules:\n"
+    "- User-drawn edges auto-fire on completion; usually dispatch only the entry agent of a chain.\n"
+    "- A chat instruction that routes differently is a ONE-OFF override (override_to_agent_name); "
+    "it never changes the saved edges.\n"
+    "- Answer status questions from get_project_status (authoritative), never guess.\n"
+    "- To answer a blocked/needs-input agent's question, use resume_task.\n"
+    "- After acting, reply briefly in plain language describing what you dispatched."
+)
 
-    무슨 일을 하나: 시스템 프롬프트(LLM의 역할·규칙을 정하는 첫 지시문)를 만든다. 현재 에이전트
-        명단과 각자 상태를 넣어줘서, LLM이 누구에게 일을 시킬 수 있는지 알고 판단하게 한다.
-    누가 부르나: run_chat이 루프 시작 전에 한 번.
-    """
+
+def _roster_block(ctx: _Ctx) -> str:
+    """현재 에이전트 명단+상태(가변) — 캐시 breakpoint 뒤에 붙는 블록."""
     status_by = agent_status_map(ctx.db, ctx.project.id)
     agents = ctx.db.query(Agent).filter(Agent.project_id == ctx.project.id).all()
     roster = "\n".join(
         f"- {a.name} (status: {status_by.get(a.id, 'idle')})" for a in agents
     ) or "(no agents yet)"
-    return (
-        "You are the orchestrator of an office-sim of AI agents. The user steers the whole "
-        "company through you in freeform chat. Use the tools to create goals and dispatch tasks.\n\n"
-        "Rules:\n"
-        "- User-drawn edges auto-fire on completion; usually dispatch only the entry agent of a chain.\n"
-        "- A chat instruction that routes differently is a ONE-OFF override (override_to_agent_name); "
-        "it never changes the saved edges.\n"
-        "- Answer status questions from get_project_status (authoritative), never guess.\n"
-        "- To answer a blocked/needs-input agent's question, use resume_task.\n"
-        "- After acting, reply briefly in plain language describing what you dispatched.\n\n"
-        f"Current agents:\n{roster}"
-    )
+    return f"Current agents:\n{roster}"
+
+
+def _system_prompt(ctx: _Ctx) -> str:
+    """지휘자 지침문(규칙+로스터 합본) — 캐싱이 필요 없는 곳(테스트/단순 호출)용 평문 버전."""
+    return _SYSTEM_RULES + "\n\n" + _roster_block(ctx)
 
 
 def _load_history(db: Session, project_id: uuid.UUID, limit: int) -> list[dict]:
@@ -373,7 +380,10 @@ def run_chat(
     if enqueue is None:
         from app.celery_app import enqueue_task as enqueue
     if client is None:
-        client = LiteLLMClient(db)
+        # 캐싱 필수(비용) — 매 턴 시스템 규칙+툴스키마+히스토리 전액 재전송이 무캐시로 나가면
+        # 오케 챗이 토큰을 가장 빨리 태우는 경로가 된다(strong 티어 × 툴루프 최대 8회).
+        # max_tokens: 지휘자 답변은 짧은 확인/브리핑 — 텍스트 에이전트와 동일 상한.
+        client = LiteLLMClient(db, cache=True, max_tokens=settings.text_agent_max_tokens)
 
     ctx = _Ctx(db=db, project=project, user_id=user_id, enqueue=enqueue)
     # 과거 대화 이력을 system과 현재 메시지 사이에 끼워, 지휘자가 맥락을 이어가게 한다(stateless 해소).
@@ -383,7 +393,13 @@ def run_chat(
     while history and history[0]["role"] == "assistant":
         history.pop(0)
     messages = [
-        {"role": "system", "content": _system_prompt(ctx)},
+        # system을 [안정 규칙(cache_control), 가변 로스터] 2블록으로 분리 — 로스터가 턴마다
+        # 바뀌어도 규칙+툴스키마 프리픽스는 캐시 히트. (_inject_cache_control은 문자열 content만
+        # 감싸므로 이 블록 구조를 건드리지 않고, rolling breakpoint만 마지막 메시지에 붙인다.)
+        {"role": "system", "content": [
+            {"type": "text", "text": _SYSTEM_RULES, "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": _roster_block(ctx)},
+        ]},
         *history,
         {"role": "user", "content": message},
     ]
@@ -444,6 +460,26 @@ def _inject_cache_control(messages: list[dict]) -> list[dict]:
             m["content"] = [{"type": "text", "text": m["content"], "cache_control": {"type": "ephemeral"}}]
             break
     return out
+
+
+def _usage_tokens(usage) -> tuple[int, int, int, int]:
+    """litellm usage 객체 → (in, out, cache_read, cache_write). 없으면 0들.
+
+    E2B dev 경로가 여태 usage를 안 읽어 태스크 토큰/비용이 전부 0으로 기록됐다(COGS 깜깜이).
+    cache_read/write는 캐시 히트율 관측용 — litellm은 Anthropic의 cache_read_input_tokens/
+    cache_creation_input_tokens를 usage에 그대로 싣고, OpenAI 규격 미러(prompt_tokens_details
+    .cached_tokens)도 채운다. 둘 다 시도한다.
+    """
+    if usage is None:
+        return 0, 0, 0, 0
+    ti = int(getattr(usage, "prompt_tokens", 0) or 0)
+    to = int(getattr(usage, "completion_tokens", 0) or 0)
+    cr = int(getattr(usage, "cache_read_input_tokens", 0) or 0)
+    cw = int(getattr(usage, "cache_creation_input_tokens", 0) or 0)
+    if not cr:
+        det = getattr(usage, "prompt_tokens_details", None)
+        cr = int(getattr(det, "cached_tokens", 0) or 0)
+    return ti, to, cr, cw
 
 
 def _parse_tool_calls(raw: list[tuple], truncated: bool) -> list[ToolCall]:
@@ -516,10 +552,15 @@ class LiteLLMClient:
             # 조각을 합칠 때 JSON을 깨뜨려("Expecting ',' delimiter") json.loads가 터졌다(실사례).
             # Anthropic은 arguments 조각들의 단순 연결이 유효한 JSON임을 보장하므로, index별로
             # 직접 이어 붙이면 파싱 위험이 비스트리밍과 동일해진다.
-            return self._collect_stream(list(completion(**kwargs, stream=True)))
+            # include_usage 필수 — 없으면 스트림 청크에 usage가 안 실려 토큰 집계가 0이 된다(실측).
+            out = self._collect_stream(list(completion(
+                **kwargs, stream=True, stream_options={"include_usage": True})))
+            self._log_usage(out)
+            return out
         resp = completion(**kwargs)
         choice = resp.choices[0]
         msg = choice.message
+        ti, to, cr, cw = _usage_tokens(getattr(resp, "usage", None))
         tcs = getattr(msg, "tool_calls", None)
         if tcs:
             truncated = getattr(choice, "finish_reason", None) == "length"
@@ -527,8 +568,22 @@ class LiteLLMClient:
                 [(tc.id, tc.function.name, tc.function.arguments) for tc in tcs], truncated
             )
             if calls:
-                return LLMResponse(tool_calls=calls)
-        return LLMResponse(content=msg.content or "")
+                out = LLMResponse(tool_calls=calls, tokens_in=ti, tokens_out=to,
+                                  tokens_cache_read=cr, tokens_cache_write=cw)
+                self._log_usage(out)
+                return out
+        out = LLMResponse(content=msg.content or "", tokens_in=ti, tokens_out=to,
+                          tokens_cache_read=cr, tokens_cache_write=cw)
+        self._log_usage(out)
+        return out
+
+    def _log_usage(self, resp: LLMResponse) -> None:
+        """호출 1건의 토큰/캐시 사용량 로그 — railway 로그로 캐시 히트율·비용을 실측 가능하게."""
+        log.info(
+            "llm usage model=%s in=%d out=%d cache_read=%d cache_write=%d",
+            self.model, resp.tokens_in, resp.tokens_out,
+            resp.tokens_cache_read, resp.tokens_cache_write,
+        )
 
     @staticmethod
     def _collect_stream(chunks: list) -> LLMResponse:
@@ -539,7 +594,11 @@ class LiteLLMClient:
         content_parts: list[str] = []
         frags: dict[int, dict] = {}  # index -> {"id","name","args"}
         finish_reason = None
+        usage = None  # Anthropic 스트림은 마지막 청크에 usage를 싣는다 — 마지막 non-None을 취함.
         for ch in chunks:
+            u = getattr(ch, "usage", None)
+            if u is not None:
+                usage = u
             choices = getattr(ch, "choices", None)
             if not choices:
                 continue
@@ -561,10 +620,13 @@ class LiteLLMClient:
                         slot["name"] = fn.name
                     if getattr(fn, "arguments", None):
                         slot["args"] += fn.arguments
+        ti, to, cr, cw = _usage_tokens(usage)
         calls = _parse_tool_calls(
             [(f["id"] or "", f["name"], f["args"]) for _, f in sorted(frags.items()) if f["name"]],
             truncated=finish_reason == "length",
         )
         if calls:
-            return LLMResponse(tool_calls=calls)
-        return LLMResponse(content="".join(content_parts))
+            return LLMResponse(tool_calls=calls, tokens_in=ti, tokens_out=to,
+                               tokens_cache_read=cr, tokens_cache_write=cw)
+        return LLMResponse(content="".join(content_parts), tokens_in=ti, tokens_out=to,
+                           tokens_cache_read=cr, tokens_cache_write=cw)

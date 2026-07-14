@@ -282,3 +282,18 @@ def test_history_marker_without_actions_unchanged(env):
     hist = _load_history(db, pid, limit=20)
     asst = [m["content"] for m in hist if m["role"] == "assistant"]
     assert asst == ["(Acted on the previous request by calling the tools.)"]
+
+
+def test_system_prompt_split_for_caching(env):
+    """C1: system = [안정 규칙(cache_control), 가변 로스터] 2블록 — 로스터 변동이 규칙+툴스키마
+    프리픽스 캐시를 깨지 않게 분리한다(오케 챗이 무캐시로 토큰을 태우던 문제)."""
+    db, uid, pid, swe, qa = env
+    c = ScriptedClient([LLMResponse(content="ok")])
+    run_chat(db, pid, uid, "hello", client=c, enqueue=lambda x: None)
+    sys_msg = c.seen_messages[0][0]
+    assert sys_msg["role"] == "system"
+    blocks = sys_msg["content"]
+    assert isinstance(blocks, list) and len(blocks) == 2
+    assert blocks[0]["cache_control"] == {"type": "ephemeral"}   # 안정 규칙 → 캐시 breakpoint
+    assert "cache_control" not in blocks[1]                       # 가변 로스터 → 캐시 밖
+    assert "Current agents" in blocks[1]["text"] and "SWE" in blocks[1]["text"]
