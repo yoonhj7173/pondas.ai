@@ -87,6 +87,19 @@ TOOL_SCHEMAS = [
         "description": "List recent output files grouped by task.",
         "parameters": {"type": "object", "properties": {}},
     }},
+    # 컨텍스트 허브(B2) — 지휘자가 결과물의 '내용'에 접근할 수 있어야 리뷰/요약/판단이 가능하다.
+    {"type": "function", "function": {
+        "name": "get_task_result",
+        "description": "Get an agent's most recent finished task: status, result summary, and output file list. Use this to review or report on what an agent produced.",
+        "parameters": {"type": "object", "properties": {"agent_name": {"type": "string"}},
+                       "required": ["agent_name"]},
+    }},
+    {"type": "function", "function": {
+        "name": "read_output",
+        "description": "Read the content of a produced file by path (current project version). Use after get_task_result/list_outputs to inspect a deliverable.",
+        "parameters": {"type": "object", "properties": {"path": {"type": "string"}},
+                       "required": ["path"]},
+    }},
 ]
 
 
@@ -218,12 +231,63 @@ def _tool_list_outputs(ctx: _Ctx, args: dict) -> dict:
     return {"outputs": [{"task_id": k, "files": v} for k, v in by_task.items()]}
 
 
+_RESULT_SUMMARY_CAP = 2000
+_OUTPUT_READ_CAP = 8000
+
+
+def _tool_get_task_result(ctx: _Ctx, args: dict) -> dict:
+    """[지휘자 도구] 결과 조회(B2) — 에이전트의 최근 종결 태스크의 요약+파일 목록을 가져온다.
+
+    무슨 일을 하나: "디자이너 뭐 만들었어? 리뷰해줘" 류 요청에 지휘자가 실제 결과에 접근하게 한다.
+        여태 list_outputs가 파일 '이름'만 줘서 내용 기반 리뷰가 원천 불가능했다.
+    """
+    agent = _find_agent(ctx, args.get("agent_name", ""))
+    if agent is None:
+        return {"error": f"no agent named '{args.get('agent_name')}'"}
+    task = (
+        ctx.db.query(Task)
+        .filter(Task.agent_id == agent.id, Task.status.in_(("done", "failed", "needs-input", "blocked")))
+        .order_by(Task.created_at.desc())
+        .first()
+    )
+    if task is None:
+        return {"error": f"{agent.name} has no finished task yet"}
+    files = [r.path for r in ctx.db.query(Output).filter(Output.task_id == task.id).all()]
+    summary = (task.result_markdown or task.error_summary or "").strip()
+    if len(summary) > _RESULT_SUMMARY_CAP:
+        summary = summary[:_RESULT_SUMMARY_CAP] + "\n…[truncated]"
+    return {"agent": agent.name, "status": task.status, "summary": summary, "files": files}
+
+
+def _tool_read_output(ctx: _Ctx, args: dict) -> dict:
+    """[지휘자 도구] 산출 파일 읽기(B2) — 경로로 현재 프로젝트 버전의 파일 내용을 가져온다."""
+    from app.models import ProjectFile
+    path = (args.get("path") or "").strip()
+    row = (
+        ctx.db.query(Output)
+        .join(ProjectFile, ProjectFile.output_id == Output.id)
+        .filter(ProjectFile.project_id == ctx.project.id, ProjectFile.path == path)
+        .first()
+    )
+    if row is None:
+        return {"error": f"no file at '{path}' — use get_task_result or list_outputs for valid paths"}
+    if row.content is None:
+        return {"error": f"'{path}' is binary ({row.mime}); cannot display as text"}
+    content = row.content
+    truncated = len(content) > _OUTPUT_READ_CAP
+    if truncated:
+        content = content[:_OUTPUT_READ_CAP] + "\n…[truncated]"
+    return {"path": path, "content": content, "truncated": truncated}
+
+
 _TOOLS = {
     "create_goal": _tool_create_goal,
     "dispatch_task": _tool_dispatch_task,
     "get_project_status": _tool_get_project_status,
     "resume_task": _tool_resume_task,
     "list_outputs": _tool_list_outputs,
+    "get_task_result": _tool_get_task_result,
+    "read_output": _tool_read_output,
 }
 
 
@@ -255,7 +319,15 @@ _SYSTEM_RULES = (
     "it never changes the saved edges.\n"
     "- Answer status questions from get_project_status (authoritative), never guess.\n"
     "- To answer a blocked/needs-input agent's question, use resume_task.\n"
-    "- After acting, reply briefly in plain language describing what you dispatched."
+    "- To review or report on what an agent produced, use get_task_result (summary + files) "
+    "and read_output (file content) — never claim you cannot access the work.\n"
+    "- After acting, reply briefly in plain language describing what you dispatched.\n\n"
+    "What you can and cannot do (be honest about this):\n"
+    "- Task completions appear in this conversation as [event] lines, and the user is notified "
+    "automatically via the Activity feed.\n"
+    "- You only run when the user sends a message — you CANNOT send messages later on your own. "
+    "Never promise to 'let the user know when it finishes'; instead say the Activity feed will "
+    "notify them and you can summarize results when they return."
 )
 
 
@@ -304,13 +376,29 @@ def _load_history(db: Session, project_id: uuid.UUID, limit: int) -> list[dict]:
     # 단, 완전 무기억 마커는 부작용이 있다(QA-05): "디자이너 누가 시켰어?"에 지휘자가 "저는 시킨 적
     # 없다"고 답하는 가스라이팅. 그래서 그 턴의 행동 요약(actions)을 마커 안에 사실로 남긴다 —
     # 여전히 괄호 마커(자연어 답변 아님)라 텍스트-만-답하는 패턴은 재생하지 않는다.
-    return [
+    out = [
         {
             "role": "assistant" if m.role == "orchestrator" else "user",
             "content": _history_marker(m) if m.role == "orchestrator" else m.content,
         }
         for m in rows
     ]
+    return _merge_consecutive(out)
+
+
+def _merge_consecutive(msgs: list[dict]) -> list[dict]:
+    """연속 같은-role 메시지 병합(내용은 \\n\\n 연결) — Anthropic은 user/assistant 교대를 요구한다.
+
+    task 종결 이벤트 행(role=event→user)이 유저 메시지와 연달아 서면 user,user가 되므로
+    이력 내부와 (run_chat에서) 이력끝↔현재메시지 경계 모두 이 함수로 정규화한다.
+    """
+    merged: list[dict] = []
+    for m in msgs:
+        if merged and merged[-1]["role"] == m["role"]:
+            merged[-1]["content"] = f"{merged[-1]['content']}\n\n{m['content']}"
+        else:
+            merged.append(dict(m))
+    return merged
 
 
 _ASSISTANT_HISTORY = "(Acted on the previous request by calling the tools.)"
@@ -400,8 +488,8 @@ def run_chat(
             {"type": "text", "text": _SYSTEM_RULES, "cache_control": {"type": "ephemeral"}},
             {"type": "text", "text": _roster_block(ctx)},
         ]},
-        *history,
-        {"role": "user", "content": message},
+        # 이력끝이 이벤트(user-role)면 현재 user 메시지와 연달아 서므로 경계도 병합.
+        *_merge_consecutive([*history, {"role": "user", "content": message}]),
     ]
 
     reply = ""

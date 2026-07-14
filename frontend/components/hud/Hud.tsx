@@ -489,7 +489,10 @@ function OrchestratorChat({ focused, setFocused, onSend, projectId }: {
 }) {
   const { getToken: clerkToken } = useAuth();
   const [msg, setMsg] = useState("");
-  const [bubbles, setBubbles] = useState<{ role: "user" | "orchestrator"; text: string }[]>([]);
+  const [bubbles, setBubbles] = useState<{ role: "user" | "orchestrator" | "event"; text: string }[]>([]);
+  // 태스크 종결 라이브 이벤트 라인(B1) — SSE가 store에 쌓으면 여기서 소비해 버블로 append.
+  const chatEvents = useStore((s) => s.chatEvents);
+  const consumedEvents = useRef(0);
   const [sending, setSending] = useState(false); // 디스패치 중 — Enter/클릭 연타로 중복 디스패치 차단.
   const [atBottom, setAtBottom] = useState(true);
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -506,13 +509,27 @@ function OrchestratorChat({ focused, setFocused, onSend, projectId }: {
         const token = E2E ? "e2e" : await clerkToken();
         const rows = await apiFetch<{ role: string; content: string }[]>(`/api/projects/${projectId}/chat/history`, { token });
         if (alive && rows.length) {
-          setBubbles(rows.map((r) => ({ role: r.role === "orchestrator" ? "orchestrator" as const : "user" as const, text: r.content })));
+          setBubbles(rows.map((r) => ({
+            role: r.role === "orchestrator" ? "orchestrator" as const
+              : r.role === "event" ? "event" as const : "user" as const,
+            // 이벤트 행은 "[event] " 프리픽스 제거하고 회색 라인으로(B1).
+            text: r.role === "event" ? r.content.replace(/^\[event\]\s*/, "") : r.content,
+          })));
         }
       } catch { /* 히스토리는 부가 정보 — 실패해도 채팅은 동작 */ }
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
+
+  // 라이브 이벤트 라인 소비(B1) — store에 새로 쌓인 것만 버블로 append(중복 방지 카운터).
+  useEffect(() => {
+    if (chatEvents.length > consumedEvents.current) {
+      const fresh = chatEvents.slice(consumedEvents.current);
+      consumedEvents.current = chatEvents.length;
+      setBubbles((b) => [...b, ...fresh.map((e) => ({ role: "event" as const, text: e.text }))]);
+    }
+  }, [chatEvents]);
 
   function scrollToBottom(smooth = false) {
     const el = scrollRef.current;
@@ -577,6 +594,14 @@ function OrchestratorChat({ focused, setFocused, onSend, projectId }: {
             style={{ maxHeight: "calc(100vh - 220px)" }} // 세로 풀높이(QA-03-5) — 상단 HUD/하단 입력만 남기고 다 쓴다.
           >
             {bubbles.map((b, i) => (
+              b.role === "event" ? (
+                // 태스크 종결 이벤트 라인(B1) — 말풍선이 아닌 중앙 회색 시스템 라인.
+                <div key={i} className="flex justify-center">
+                  <div className="rounded-full bg-black/5 px-3 py-1 font-nunito text-xs text-secondary">
+                    {b.text}
+                  </div>
+                </div>
+              ) : (
               <div key={i} className={clsx("flex", b.role === "user" ? "justify-end" : "justify-start")}>
                 <div className={clsx("max-w-[80%] rounded-2xl px-4 py-2 font-nunito text-sm shadow", b.role === "user" ? "bg-primary-to text-white whitespace-pre-wrap" : "bg-white text-ink")}>
                   {b.role === "orchestrator"
@@ -584,6 +609,7 @@ function OrchestratorChat({ focused, setFocused, onSend, projectId }: {
                     : b.text}
                 </div>
               </div>
+              )
             ))}
             {sending && ( // typing 인디케이터(QA-03-3)
               <div className="flex justify-start">
