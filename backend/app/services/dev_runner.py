@@ -50,6 +50,23 @@ DEV_TOOLS = [
             "path": {"type": "string"}, "content": {"type": "string"},
         }, "required": ["path", "content"]},
     }},
+    # 문자열 치환 편집(Claude Code의 Edit 계약) — 파일 전체 재작성(write_file)은 몇 줄 고치는 데도
+    # 파일 전체를 출력 토큰(최고가)으로 다시 뱉는다: 느리고 비싸고 기존 코드 유실 위험.
+    {"type": "function", "function": {
+        "name": "edit_file",
+        "description": (
+            "Replace an exact text snippet in an existing file. old_string must match the file "
+            "content EXACTLY (including whitespace) and appear exactly once — include a few "
+            "surrounding lines to make it unique, or set replace_all to change every occurrence. "
+            "ALWAYS prefer this over write_file when modifying an existing file."
+        ),
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string"},
+            "old_string": {"type": "string"},
+            "new_string": {"type": "string"},
+            "replace_all": {"type": "boolean", "description": "replace every occurrence (default false)"},
+        }, "required": ["path", "old_string", "new_string"]},
+    }},
     {"type": "function", "function": {
         "name": "read_file",
         "description": (
@@ -108,12 +125,15 @@ def _sanitize_plan(steps) -> list[dict]:
 
 _WORKSPACE_CONVENTIONS = (
     "# Workspace conventions\n"
-    "You are working inside a sandbox. Use the bash/write_file/read_file tools to build and "
-    "verify real software. Verify by RUNNING — a passing build is not success; the feature must "
-    "work as expected. When you start a dev server, run it in the background. When you are done "
+    "You are working inside a sandbox. Use the bash/write_file/edit_file/read_file tools to build "
+    "and verify real software. Verify by RUNNING — a passing build is not success; the feature must "
+    "work as expected. When you start a dev server, run it in the background "
+    "(append ' > /tmp/dev.log 2>&1 &' so the command returns immediately). When you are done "
     "and everything works, give a short final summary. If you are a reviewer and the work meets "
     "the bar, include the word APPROVED. If you cannot proceed without information only the user "
     "can give, reply with a single line 'AWAITING_INPUT: <question>'.\n"
+    "To MODIFY an existing file, use edit_file (exact-snippet replacement) — never rewrite a "
+    "whole file with write_file to change a few lines. write_file is for NEW files.\n"
     "Start by calling update_plan with a short checklist (3-6 steps) of how you'll approach the "
     "task, and call it again (full list) each time you finish a step — the user watches this "
     "checklist to follow your progress.\n"
@@ -137,10 +157,31 @@ class DevOutcome:
     tokens_cache_write: int = 0
 
 
+def _workspace_snapshot(provider: SandboxProvider, sandbox_id: str) -> str:
+    """워크스페이스 파일 목록 스냅샷(최대 200개) — 시작 프롬프트에 깔아 첫 `ls` 스텝을 없앤다.
+
+    Claude Code가 시스템 프롬프트에 환경 정보(cwd/파일)를 까는 것과 같은 계약. 베스트에포트 —
+    실패해도 태스크는 정상 진행(에이전트가 직접 둘러보면 됨).
+    """
+    try:
+        res = provider.exec(
+            sandbox_id,
+            "find . -type f -not -path './node_modules/*' -not -path './.git/*' "
+            "-not -path './.next/*' -not -path './dist/*' | head -200",
+            timeout=30,
+        )
+        listing = (res.stdout or "").strip()
+    except Exception:  # noqa: BLE001 — 관측용, 본 루프를 못 깨뜨림
+        return ""
+    return listing or "(workspace is empty)"
+
+
 def _step_label(call: ToolCall) -> str:
     """도구 호출 → 사람이 읽을 진행 한 줄(QA-01). 예: 'Writing src/App.tsx', 'Running: npm test'."""
     if call.name == "write_file":
         return f"Writing {call.args.get('path', '?')}"
+    if call.name == "edit_file":
+        return f"Editing {call.args.get('path', '?')}"
     if call.name == "read_file":
         return f"Reading {call.args.get('path', '?')}"
     if call.name == "bash":
@@ -169,6 +210,26 @@ def _exec_tool(provider: SandboxProvider, sandbox_id: str, call: ToolCall, verif
     if name == "write_file":
         provider.write_file(sandbox_id, args["path"], args.get("content", "").encode("utf-8"))
         return {"ok": True}
+    if name == "edit_file":
+        # 문자열 치환 편집 — old_string이 정확히 1회(또는 replace_all) 나타나야 안전하게 적용.
+        try:
+            text = provider.read_file(sandbox_id, args["path"]).decode("utf-8", errors="replace")
+        except Exception as exc:  # noqa: BLE001
+            return {"error": f"cannot read {args.get('path')}: {exc}"}
+        old = args.get("old_string", "")
+        new = args.get("new_string", "")
+        if not old:
+            return {"error": "old_string is required"}
+        count = text.count(old)
+        if count == 0:
+            return {"error": "old_string not found — it must match the file content exactly "
+                             "(read the file first and copy the exact text)"}
+        if count > 1 and not args.get("replace_all"):
+            return {"error": f"old_string appears {count} times — include more surrounding lines "
+                             "to make it unique, or set replace_all:true"}
+        updated = text.replace(old, new) if args.get("replace_all") else text.replace(old, new, 1)
+        provider.write_file(sandbox_id, args["path"], updated.encode("utf-8"))
+        return {"ok": True, "replacements": count if args.get("replace_all") else 1}
     if name == "read_file":
         try:
             text = provider.read_file(sandbox_id, args["path"]).decode("utf-8", errors="replace")
@@ -221,9 +282,14 @@ def run_dev_task(
         (client=LLM 두뇌는 주입형 — 테스트는 스크립트, 프로덕션은 LiteLLM)
     """
     system = (role_instructions.strip() + "\n\n" + _WORKSPACE_CONVENTIONS).strip()
+    # 시작 시 파일 목록을 깔아준다(A5) — 없으면 에이전트가 첫 스텝을 `ls`에 낭비한다.
+    snapshot = _workspace_snapshot(provider, sandbox_id)
+    user_prompt = task_prompt
+    if snapshot:
+        user_prompt += f"\n\n# Workspace files (snapshot)\n{snapshot}"
     messages = [
         {"role": "system", "content": system},
-        {"role": "user", "content": task_prompt},
+        {"role": "user", "content": user_prompt},
     ]
     verification: list = []
     tokens_in = tokens_out = cache_read = cache_write = 0
