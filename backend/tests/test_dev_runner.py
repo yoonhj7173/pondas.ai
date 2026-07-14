@@ -194,3 +194,93 @@ def test_update_plan_sanitizes_model_output(sandbox):
     assert len(out) <= PLAN_MAX_STEPS
     assert len(out[0]["title"]) == 80 and out[0]["done"] is True
     assert all(isinstance(s["done"], bool) and s["title"] for s in out)
+
+
+# --- PR harness-cost-stability: 툴결과 캡/tail 보존 + read_file range + LLM 재시도 ---
+
+from app.services import dev_runner as dr  # noqa: E402
+
+
+def test_clip_preserves_tail():
+    # 빌드 에러의 실제 원인은 로그 끝에 있다 — head-only 절단 회귀 방지.
+    s = "x" * 1000 + "ERROR: the real cause"
+    out = dr._clip(s, 200)
+    assert "ERROR: the real cause" in out
+    assert "truncated" in out
+    assert len(out) <= 200 + 60  # 마커 여유
+
+
+def test_bash_long_output_tail_visible(sandbox):
+    provider, sid = sandbox
+    py = sys.executable
+    verification = []
+    call = ToolCall(id="1", name="bash",
+                    args={"cmd": f'{py} -c "print(\'x\'*5000); print(\'THE_REAL_ERROR\')"'})
+    res = dr._exec_tool(provider, sid, call, verification)
+    assert "THE_REAL_ERROR" in res["stdout"]              # 모델에게 꼬리(진짜 에러)가 보인다
+    assert "THE_REAL_ERROR" in verification[0]["summary"]  # UI 요약(2000캡)도 꼬리 보존
+
+
+def test_read_file_offset_limit(sandbox):
+    provider, sid = sandbox
+    content = "\n".join(f"line{i}" for i in range(1, 101))
+    provider.write_file(sid, "big.txt", content.encode())
+    res = dr._exec_tool(provider, sid, ToolCall(id="1", name="read_file",
+                        args={"path": "big.txt", "offset": 10, "limit": 5}), [])
+    assert res["content"].splitlines() == [f"line{i}" for i in range(10, 15)]
+    assert res["total_lines"] == 100
+    assert "lines 10-14 of 100" in res["note"]
+
+
+def test_read_file_large_clipped(sandbox):
+    provider, sid = sandbox
+    provider.write_file(sid, "huge.txt", ("A" * 100 + "\n").encode() * 500)  # ~50k chars
+    res = dr._exec_tool(provider, sid, ToolCall(id="1", name="read_file", args={"path": "huge.txt"}), [])
+    assert len(res["content"]) <= dr._READ_FILE_CAP + 60
+    assert "clipped" in res["note"]
+
+
+class FlakyAgent:
+    """앞 n회는 예외, 이후엔 정상 응답 — 스텝 재시도 검증용."""
+
+    def __init__(self, fails: int, then: LLMResponse):
+        self.fails, self.then, self.calls = fails, then, 0
+
+    def complete(self, messages, tools):
+        self.calls += 1
+        if self.calls <= self.fails:
+            raise RuntimeError("transient provider error")
+        return self.then
+
+
+def test_llm_retry_recovers(sandbox, monkeypatch):
+    # API가 2번 딸꾹질해도 태스크는 살아야 한다(총 3회 시도).
+    monkeypatch.setattr(dr, "_retry_sleep", lambda s: None)
+    provider, sid = sandbox
+    agent = FlakyAgent(2, LLMResponse(content="Done."))
+    outcome = run_dev_task("do it", provider, sid, client=agent)
+    assert outcome.status == "done"
+    assert agent.calls == 3
+
+
+def test_llm_retry_exhausted_fails(sandbox, monkeypatch):
+    monkeypatch.setattr(dr, "_retry_sleep", lambda s: None)
+    provider, sid = sandbox
+    agent = FlakyAgent(99, LLMResponse(content="never"))
+    outcome = run_dev_task("do it", provider, sid, client=agent)
+    assert outcome.status == "failed"
+    assert "agent error" in outcome.error_summary
+    assert agent.calls == 3  # _LLM_RETRIES+1
+
+
+def test_cache_tokens_accumulate(sandbox):
+    provider, sid = sandbox
+    agent = ScriptedAgent([
+        LLMResponse(tool_calls=[ToolCall(id="1", name="update_plan", args={"steps": [{"title": "t"}]})],
+                    tokens_in=10, tokens_out=5, tokens_cache_read=100, tokens_cache_write=7),
+        LLMResponse(content="Done.", tokens_in=3, tokens_out=2, tokens_cache_read=50),
+    ])
+    outcome = run_dev_task("do it", provider, sid, client=agent)
+    assert outcome.status == "done"
+    assert (outcome.tokens_in, outcome.tokens_out) == (13, 7)
+    assert (outcome.tokens_cache_read, outcome.tokens_cache_write) == (150, 7)
