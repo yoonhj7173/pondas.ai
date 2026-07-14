@@ -469,7 +469,6 @@ class LiteLLMClient:
         누가 부르나: run_chat의 툴루프 / dev_runner의 코딩루프가 매 반복마다 부른다.
         연결: 반환된 LLMResponse를 호출부가 보고 도구 실행 여부를 결정한다.
         """
-        import litellm
         from litellm import completion
 
         # timeout/num_retries 필수 — 없으면 프로바이더 행이 chat 요청/Celery 워커를 무한 점유(감사 P0).
@@ -482,11 +481,12 @@ class LiteLLMClient:
             num_retries=settings.llm_num_retries,
         )
         if self.stream:
-            # 스트리밍: 청크를 모아 stream_chunk_builder로 완성 응답으로 재조립(파싱 로직 불변).
-            chunks = list(completion(**kwargs, stream=True))
-            resp = litellm.stream_chunk_builder(chunks, messages=kwargs["messages"])
-        else:
-            resp = completion(**kwargs)
+            # 스트리밍: 청크를 직접 재조립한다. litellm.stream_chunk_builder는 tool_call arguments
+            # 조각을 합칠 때 JSON을 깨뜨려("Expecting ',' delimiter") json.loads가 터졌다(실사례).
+            # Anthropic은 arguments 조각들의 단순 연결이 유효한 JSON임을 보장하므로, index별로
+            # 직접 이어 붙이면 파싱 위험이 비스트리밍과 동일해진다.
+            return self._collect_stream(list(completion(**kwargs, stream=True)))
+        resp = completion(**kwargs)
         msg = resp.choices[0].message
         tcs = getattr(msg, "tool_calls", None)
         if tcs:
@@ -495,3 +495,39 @@ class LiteLLMClient:
                 for tc in tcs
             ])
         return LLMResponse(content=msg.content or "")
+
+    @staticmethod
+    def _collect_stream(chunks: list) -> LLMResponse:
+        """스트리밍 청크를 직접 재조립 — content는 이어 붙이고, tool_call은 index별로
+        id/name/arguments 조각을 모은 뒤 arguments를 마지막에 한 번만 json.loads 한다.
+        (litellm.stream_chunk_builder의 tool-call 재조립 버그 회피.)
+        """
+        content_parts: list[str] = []
+        frags: dict[int, dict] = {}  # index -> {"id","name","args"}
+        for ch in chunks:
+            choices = getattr(ch, "choices", None)
+            if not choices:
+                continue
+            delta = getattr(choices[0], "delta", None)
+            if delta is None:
+                continue
+            if getattr(delta, "content", None):
+                content_parts.append(delta.content)
+            for tc in (getattr(delta, "tool_calls", None) or []):
+                idx = getattr(tc, "index", 0) or 0
+                slot = frags.setdefault(idx, {"id": None, "name": None, "args": ""})
+                if getattr(tc, "id", None):
+                    slot["id"] = tc.id
+                fn = getattr(tc, "function", None)
+                if fn is not None:
+                    if getattr(fn, "name", None):
+                        slot["name"] = fn.name
+                    if getattr(fn, "arguments", None):
+                        slot["args"] += fn.arguments
+        calls = [
+            ToolCall(id=f["id"] or "", name=f["name"], args=json.loads(f["args"] or "{}"))
+            for _, f in sorted(frags.items()) if f["name"]
+        ]
+        if calls:
+            return LLMResponse(tool_calls=calls)
+        return LLMResponse(content="".join(content_parts))
