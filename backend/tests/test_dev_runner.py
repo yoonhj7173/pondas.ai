@@ -284,3 +284,59 @@ def test_cache_tokens_accumulate(sandbox):
     assert outcome.status == "done"
     assert (outcome.tokens_in, outcome.tokens_out) == (13, 7)
     assert (outcome.tokens_cache_read, outcome.tokens_cache_write) == (150, 7)
+
+
+# --- PR harness-tools: edit_file(문자열 치환) + 워크스페이스 스냅샷 ---
+
+
+def test_edit_file_replaces_snippet(sandbox):
+    provider, sid = sandbox
+    provider.write_file(sid, "app.py", b"def greet():\n    return 'hello'\n\nprint(greet())\n")
+    res = dr._exec_tool(provider, sid, ToolCall(id="1", name="edit_file", args={
+        "path": "app.py", "old_string": "return 'hello'", "new_string": "return 'world'"}), [])
+    assert res == {"ok": True, "replacements": 1}
+    content = provider.read_file(sid, "app.py").decode()
+    assert "return 'world'" in content
+    assert "print(greet())" in content  # 나머지 내용 보존 — whole-file rewrite가 아님
+
+
+def test_edit_file_not_found_error(sandbox):
+    provider, sid = sandbox
+    provider.write_file(sid, "a.txt", b"actual content")
+    res = dr._exec_tool(provider, sid, ToolCall(id="1", name="edit_file", args={
+        "path": "a.txt", "old_string": "no such text", "new_string": "x"}), [])
+    assert "not found" in res["error"]
+
+
+def test_edit_file_ambiguous_requires_replace_all(sandbox):
+    provider, sid = sandbox
+    provider.write_file(sid, "b.txt", b"dup\ndup\n")
+    res = dr._exec_tool(provider, sid, ToolCall(id="1", name="edit_file", args={
+        "path": "b.txt", "old_string": "dup", "new_string": "x"}), [])
+    assert "2 times" in res["error"]
+    res2 = dr._exec_tool(provider, sid, ToolCall(id="1", name="edit_file", args={
+        "path": "b.txt", "old_string": "dup", "new_string": "x", "replace_all": True}), [])
+    assert res2 == {"ok": True, "replacements": 2}
+    assert provider.read_file(sid, "b.txt") == b"x\nx\n"
+
+
+class CapturingAgent:
+    """messages를 캡처하고 즉시 종료 — 프롬프트 조립 검증용."""
+
+    def __init__(self):
+        self.seen = None
+
+    def complete(self, messages, tools):
+        self.seen = [dict(m) for m in messages]
+        return LLMResponse(content="Done.")
+
+
+def test_workspace_snapshot_in_first_prompt(sandbox):
+    # A5: 기존 파일 목록이 첫 user 메시지에 깔린다 — 첫 스텝 `ls` 낭비 제거.
+    provider, sid = sandbox
+    provider.write_file(sid, "src/main.py", b"print('x')\n")
+    agent = CapturingAgent()
+    run_dev_task("continue the work", provider, sid, client=agent)
+    user_msg = agent.seen[1]["content"]
+    assert "# Workspace files (snapshot)" in user_msg
+    assert "src/main.py" in user_msg
