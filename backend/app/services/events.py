@@ -17,7 +17,7 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.db import redis_client
-from app.models import Agent, Notification, Task
+from app.models import Agent, Notification, OrchestratorMessage, Task
 
 log = logging.getLogger("app.events")
 
@@ -129,6 +129,15 @@ def emit_terminal_notification(db: Session, task: Task) -> None:
         task_id=task.id, type=task.status, message=msgs.get(task.status, name),
     )
     db.add(notif)
+    # 오케스트레이터 컨텍스트 허브(B1) — 태스크 종결을 지휘자 대화 이력에도 이벤트로 남긴다.
+    # 여태 완료가 벨(Activity)로만 가고 지휘자는 아무것도 몰라, "누가 뭘 끝냈어?"에 깜깜했고
+    # 채팅창에도 흔적이 없었다. 이 행은 ① 다음 지휘자 턴의 히스토리로 주입되고(_load_history)
+    # ② 채팅창에 회색 이벤트 라인으로 렌더된다(canned — LLM 호출 없음).
+    snippet = " ".join(((task.result_markdown or task.error_summary or "")[:300]).split())
+    db.add(OrchestratorMessage(
+        project_id=task.project_id, role="event",
+        content=f"[event] {notif.message}" + (f" — {snippet}" if snippet else ""),
+    ))
     db.flush()
     _publish(task.project_id, {
         "type": "notification",

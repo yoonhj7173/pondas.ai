@@ -55,6 +55,8 @@ interface StoreState {
   notifs: NotifRow[]; // 영속 알림(QA-04) — 통합 Activity 타임라인의 뼈대
   // 에이전트별 서브태스크 체크리스트(QA-06) — SSE plan 이벤트의 투영. [{title, done}]
   plans: Record<string, { title: string; done: boolean }[]>;
+  // 채팅창 라이브 이벤트 라인(B1) — 태스크 종결을 채팅에도 회색 한 줄로. LLM 없는 canned 브리핑.
+  chatEvents: { id: number; text: string }[];
 
   setSnapshot: (data: MapData) => void;
   applyStatus: (agentId: string, status: AgentStatus) => void;
@@ -63,6 +65,7 @@ interface StoreState {
   applyProgress: (agentId: string, label: string) => void;
   applyPlan: (agentId: string, steps: { title: string; done: boolean }[]) => void;
   pushChatEvent: (preview: string) => void; // 채팅 닫힘 중 오케 답변 도착 → 피드+벨(QA-06)
+  applyChatEvent: (text: string) => void; // 태스크 종결 → 채팅 이벤트 라인 append(B1)
   setNotifications: (rows: NotifRow[]) => void; // GET /notifications 결과 반영(마운트 시)
   triggerPaywall: () => void;
   clearPaywall: () => void;
@@ -99,6 +102,7 @@ export const useStore = create<StoreState>((set) => ({
   progress: {},
   notifs: [],
   plans: {},
+  chatEvents: [],
 
   // /map 스냅샷으로 교체(초기 + 재연결 reconcile).
   setSnapshot: (data) =>
@@ -152,6 +156,11 @@ export const useStore = create<StoreState>((set) => ({
       };
       return { events: [ev, ...s.events].slice(0, FEED_CAP), unread: s.unread + 1 };
     }),
+
+  // 태스크 종결 이벤트 → 채팅 라인(B1). 열려 있으면 즉시 보이고, 닫혀 있으면 다음 오픈 때
+  // 히스토리(role=event 행)로도 어차피 온다 — 여기는 라이브 표시만 담당.
+  applyChatEvent: (text) =>
+    set((s) => ({ chatEvents: [...s.chatEvents, { id: ++_eventId, text }].slice(-50) })),
 
   applyUsage: (agentId, tin, tout, cost) =>
     set((s) => {
