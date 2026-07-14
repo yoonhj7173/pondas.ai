@@ -49,6 +49,8 @@ export function connectSSE(projectId: string, token: string): () => void {
       else if (data.type === "usage") s.applyUsage(data.agent_id, data.tokens_in ?? 0, data.tokens_out ?? 0, data.cost_usd ?? 0);
       else if (data.type === "notification") {
         s.applyNotification(data.agent_id, data.notif_type, data.message, data.notification_id);
+        // 태스크 종결을 채팅창에도 회색 이벤트 라인으로(B1) — LLM 없는 canned 브리핑.
+        if (data.message) s.applyChatEvent(data.message);
         // 유저 액션 필요 이벤트만 소리(QA-04 합의: needs-input/failed. done은 무음).
         if (data.notif_type === "needs-input" || data.notif_type === "failed") ding("attention");
       }

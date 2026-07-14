@@ -297,3 +297,85 @@ def test_system_prompt_split_for_caching(env):
     assert blocks[0]["cache_control"] == {"type": "ephemeral"}   # 안정 규칙 → 캐시 breakpoint
     assert "cache_control" not in blocks[1]                       # 가변 로스터 → 캐시 밖
     assert "Current agents" in blocks[1]["text"] and "SWE" in blocks[1]["text"]
+
+
+# --- PR orch-context: B1(종결 이벤트→히스토리) + B2(결과 접근 도구) ---
+
+from app.models import Output, ProjectFile  # noqa: E402
+from app.services import events as _events  # noqa: E402
+from app.services.orchestrator import _merge_consecutive  # noqa: E402
+
+
+def test_merge_consecutive_same_role():
+    msgs = [
+        {"role": "user", "content": "a"},
+        {"role": "user", "content": "b"},
+        {"role": "assistant", "content": "c"},
+        {"role": "user", "content": "d"},
+    ]
+    merged = _merge_consecutive(msgs)
+    assert [m["role"] for m in merged] == ["user", "assistant", "user"]
+    assert merged[0]["content"] == "a\n\nb"
+    assert msgs[0]["content"] == "a"  # 원본 불변
+
+
+def test_terminal_event_lands_in_orch_history(env):
+    """B1: 태스크 종결 → role=event 행 생성 → 다음 지휘자 턴 히스토리에 user-role로 주입(교대 보장)."""
+    db, uid, pid, swe, qa = env
+    agent = db.get(Agent, swe)
+    task = ts.create_task(db, user_id=uid, project_id=pid, agent=agent, instructions="x", origin="chat")
+    db.flush()
+    task.status = "done"
+    task.result_markdown = "Built the landing page"
+    _events.emit_terminal_notification(db, task)
+    db.commit()
+
+    row = (db.query(OrchestratorMessage)
+           .filter_by(project_id=pid, role="event").order_by(OrchestratorMessage.created_at.desc()).first())
+    assert row is not None
+    assert "finished" in row.content and "Built the landing page" in row.content
+
+    c = ScriptedClient([LLMResponse(content="ok")])
+    run_chat(db, pid, uid, "what happened?", client=c, enqueue=lambda x: None)
+    msgs = c.seen_messages[0]
+    users = [m["content"] for m in msgs if m["role"] == "user" and isinstance(m["content"], str)]
+    assert any("[event]" in u for u in users)  # 이벤트가 지휘자 컨텍스트에 실제 주입됨
+    roles = [m["role"] for m in msgs[1:]]      # system 제외 교대 보장(Anthropic 규약)
+    assert all(roles[i] != roles[i + 1] for i in range(len(roles) - 1))
+
+
+def test_get_task_result_and_read_output_tools(env):
+    """B2: 지휘자가 결과 요약+파일 목록과 파일 '내용'에 실제 접근한다 — 리뷰 가능해짐."""
+    db, uid, pid, swe, qa = env
+    agent = db.get(Agent, swe)
+    task = ts.create_task(db, user_id=uid, project_id=pid, agent=agent, instructions="x", origin="chat")
+    db.flush()
+    task.status = "done"
+    task.result_markdown = "did stuff"
+    out = Output(project_id=pid, agent_id=swe, task_id=task.id, path="index.html",
+                 mime="text/html", size_bytes=21, content="<h1>hello mockup</h1>")
+    db.add(out); db.flush()
+    db.add(ProjectFile(project_id=pid, path="index.html", output_id=out.id))
+    db.commit()
+
+    c = ScriptedClient([
+        _calls(("get_task_result", {"agent_name": "SWE"})),
+        _calls(("read_output", {"path": "index.html"})),
+        LLMResponse(content="reviewed"),
+    ])
+    res = run_chat(db, pid, uid, "review SWE's output", client=c, enqueue=lambda x: None)
+    assert res["reply"] == "reviewed"
+    tool_msgs = [m["content"] for m in c.seen_messages[-1] if m["role"] == "tool"]
+    assert any("did stuff" in t and "index.html" in t for t in tool_msgs)   # 요약+파일 목록
+    assert any("hello mockup" in t for t in tool_msgs)                      # 파일 내용
+
+
+def test_read_output_unknown_path_error(env):
+    db, uid, pid, swe, qa = env
+    c = ScriptedClient([
+        _calls(("read_output", {"path": "nope.txt"})),
+        LLMResponse(content="ok"),
+    ])
+    run_chat(db, pid, uid, "read it", client=c, enqueue=lambda x: None)
+    tool_msgs = [m["content"] for m in c.seen_messages[-1] if m["role"] == "tool"]
+    assert any("no file at" in t for t in tool_msgs)

@@ -47,7 +47,7 @@ PREVIEW_STATUSES = ("none", "starting", "ready", "error", "paused")
 EDGE_TYPES = ("handoff", "review_loop")
 TASK_STATUSES = ("idle", "queued", "working", "blocked", "needs-input", "done", "failed")
 TASK_ORIGINS = ("chat", "edge", "panel")
-ORCH_ROLES = ("user", "orchestrator")
+ORCH_ROLES = ("user", "orchestrator", "event")  # event = task 종결 시스템 라인(B1, LLM 아님)
 # 빌링(D46) — 구독 플랜 + 크레딧 원장 사유. plan=free는 무료크레딧만.
 BILLING_PLANS = ("free", "starter", "pro", "studio")
 LEDGER_REASONS = (
