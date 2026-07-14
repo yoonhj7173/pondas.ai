@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     # dev/design 코딩루프 성능(프롬프트 캐싱 + 스트리밍). 로컬에서 실 Anthropic 경로 검증 불가라
     # kill switch로 둔다 — 문제 시 Railway에서 DEV_FAST_MODE=false로 재배포 없이 즉시 원복.
     dev_fast_mode: bool = Field(default=True, alias="DEV_FAST_MODE")
+    # dev/design 코딩루프 출력 상한. max_tokens 미지정 시 litellm이 Anthropic 기본 저용량 캡을
+    # 적용해, 디자이너가 큰 HTML/여러 파일을 한 턴에 뱉으면 마지막 tool-call arguments가 중간에
+    # 잘려 invalid JSON("Expecting ',' delimiter")으로 태스크 전체가 죽었다(실사례, 재현 확인).
+    dev_max_tokens: int = Field(default=32000, alias="DEV_MAX_TOKENS")
 
     # --- Auth ---
     clerk_secret_key: str = Field(default="", alias="CLERK_SECRET_KEY")

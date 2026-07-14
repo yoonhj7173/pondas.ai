@@ -273,7 +273,10 @@ def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_cl
         # (긴 파일 생성이 타임아웃 재시도로 낭비되던 것 방지 + TTFT 단축). 오케 챗과 달리 여기만 on.
         # DEV_FAST_MODE kill switch — 문제 시 즉시 원복(로컬에서 실 Anthropic 경로 검증 불가).
         fast = settings.dev_fast_mode
-        dev_client = LiteLLMClient(db, model=model, stream=fast, cache=fast)
+        # max_tokens 필수 — 미지정이면 litellm의 Anthropic 기본 캡에 걸려 큰 파일 생성 턴이
+        # 잘리고, 마지막 tool-call arguments가 invalid JSON이 돼 태스크가 죽는다(실사례).
+        dev_client = LiteLLMClient(db, model=model, stream=fast, cache=fast,
+                                   max_tokens=settings.dev_max_tokens)
 
     # mtime 여유 2초 — 파일시스템 mtime이 초 단위로 truncate되면(일부 FS/타이밍) task 시작과
     # 같은 초에 쓰인 파일이 since_mtime보다 작아져 수집에서 누락될 수 있다(간헐 flake). 살짝 과수집이

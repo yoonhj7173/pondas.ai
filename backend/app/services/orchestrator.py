@@ -446,6 +446,29 @@ def _inject_cache_control(messages: list[dict]) -> list[dict]:
     return out
 
 
+def _parse_tool_calls(raw: list[tuple], truncated: bool) -> list[ToolCall]:
+    """(id, name, arguments) 목록을 ToolCall로 파싱한다.
+
+    truncated(finish_reason=="length")면 max_tokens에서 응답이 잘린 것 — 마지막 tool-call의
+    arguments가 불완전 JSON일 수 있다. 이때 파싱 실패한 콜만 버리고 완성된 콜은 살린다
+    (태스크 전체 실패 대신 다음 턴에서 이어감). 잘리지 않았는데 JSON이 깨졌다면 예상 밖
+    손상이므로 그대로 예외를 올린다(숨기면 안 되는 버그).
+    """
+    calls: list[ToolCall] = []
+    for tc_id, name, args_raw in raw:
+        try:
+            args = json.loads(args_raw or "{}")
+        except ValueError:
+            if truncated:
+                continue  # 잘려서 불완전한 마지막 콜 — 완성된 것만 적용
+            raise
+        calls.append(ToolCall(id=tc_id, name=name, args=args))
+    if not calls and raw and truncated:
+        # 완성된 콜이 하나도 없이 잘림 — 빈 content로 "done" 처리되는 것보다 명확한 실패가 낫다.
+        raise ValueError("LLM output truncated at max_tokens before any complete tool call")
+    return calls
+
+
 class LiteLLMClient:
     """litellm.completion 호출(프롬프트 캐싱 passthrough, D26/D32). model 미지정 시 strong.
 
@@ -455,11 +478,15 @@ class LiteLLMClient:
       타임아웃(120s)에 걸려 재시도로 낭비되던 것 방지 + TTFT 단축.
     """
 
-    def __init__(self, db: Session, model: str | None = None, *, stream: bool = False, cache: bool = False):
+    def __init__(self, db: Session, model: str | None = None, *, stream: bool = False,
+                 cache: bool = False, max_tokens: int | None = None):
         cfg = load_config(db)
         self.model = model or model_for_tier(cfg, "strong")
         self.stream = stream
         self.cache = cache
+        # dev/design 전용 출력 상한. None(오케 챗)이면 litellm 기본 캡 유지 — 챗은 짧아서 무관.
+        # 미지정 캡에 큰 파일 생성이 걸리면 마지막 tool-call arguments가 잘려 invalid JSON이 됐다.
+        self.max_tokens = max_tokens
 
     def complete(self, messages: list[dict], tools: list[dict]) -> LLMResponse:
         """실제 LLM 1회 호출 — 대화내역+도구목록을 보내고, 도구호출 또는 답변문장을 받아온다.
@@ -480,6 +507,10 @@ class LiteLLMClient:
             timeout=settings.llm_request_timeout_sec,
             num_retries=settings.llm_num_retries,
         )
+        if self.max_tokens is not None:
+            # 미지정 시 litellm이 Anthropic 기본 저용량 캡 적용 → 큰 파일 생성 턴이 중간에 잘려
+            # 마지막 tool-call arguments가 invalid JSON("Expecting ',' delimiter")이 됐다(근본 원인).
+            kwargs["max_tokens"] = self.max_tokens
         if self.stream:
             # 스트리밍: 청크를 직접 재조립한다. litellm.stream_chunk_builder는 tool_call arguments
             # 조각을 합칠 때 JSON을 깨뜨려("Expecting ',' delimiter") json.loads가 터졌다(실사례).
@@ -487,13 +518,16 @@ class LiteLLMClient:
             # 직접 이어 붙이면 파싱 위험이 비스트리밍과 동일해진다.
             return self._collect_stream(list(completion(**kwargs, stream=True)))
         resp = completion(**kwargs)
-        msg = resp.choices[0].message
+        choice = resp.choices[0]
+        msg = choice.message
         tcs = getattr(msg, "tool_calls", None)
         if tcs:
-            return LLMResponse(tool_calls=[
-                ToolCall(id=tc.id, name=tc.function.name, args=json.loads(tc.function.arguments or "{}"))
-                for tc in tcs
-            ])
+            truncated = getattr(choice, "finish_reason", None) == "length"
+            calls = _parse_tool_calls(
+                [(tc.id, tc.function.name, tc.function.arguments) for tc in tcs], truncated
+            )
+            if calls:
+                return LLMResponse(tool_calls=calls)
         return LLMResponse(content=msg.content or "")
 
     @staticmethod
@@ -504,10 +538,13 @@ class LiteLLMClient:
         """
         content_parts: list[str] = []
         frags: dict[int, dict] = {}  # index -> {"id","name","args"}
+        finish_reason = None
         for ch in chunks:
             choices = getattr(ch, "choices", None)
             if not choices:
                 continue
+            if getattr(choices[0], "finish_reason", None):
+                finish_reason = choices[0].finish_reason
             delta = getattr(choices[0], "delta", None)
             if delta is None:
                 continue
@@ -524,10 +561,10 @@ class LiteLLMClient:
                         slot["name"] = fn.name
                     if getattr(fn, "arguments", None):
                         slot["args"] += fn.arguments
-        calls = [
-            ToolCall(id=f["id"] or "", name=f["name"], args=json.loads(f["args"] or "{}"))
-            for _, f in sorted(frags.items()) if f["name"]
-        ]
+        calls = _parse_tool_calls(
+            [(f["id"] or "", f["name"], f["args"]) for _, f in sorted(frags.items()) if f["name"]],
+            truncated=finish_reason == "length",
+        )
         if calls:
             return LLMResponse(tool_calls=calls)
         return LLMResponse(content="".join(content_parts))

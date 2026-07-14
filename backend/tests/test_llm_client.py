@@ -37,7 +37,7 @@ def test_inject_cache_control_system_and_last():
 
 def test_complete_non_stream_parses_tool_calls(monkeypatch):
     client = LiteLLMClient.__new__(LiteLLMClient)
-    client.model, client.stream, client.cache = "claude-x", False, True
+    client.model, client.stream, client.cache, client.max_tokens = "claude-x", False, True, None
     captured = {}
 
     def fake_completion(**kwargs):
@@ -54,10 +54,11 @@ def test_complete_non_stream_parses_tool_calls(monkeypatch):
     assert "stream" not in captured  # 비스트리밍 경로
 
 
-def _delta_chunk(*, content=None, tool_calls=None):
+def _delta_chunk(*, content=None, tool_calls=None, finish_reason=None):
     """스트리밍 청크 흉내 — choices[0].delta에 content / tool_calls delta를 담는다."""
     delta = types.SimpleNamespace(content=content, tool_calls=tool_calls)
-    return types.SimpleNamespace(choices=[types.SimpleNamespace(delta=delta)])
+    return types.SimpleNamespace(
+        choices=[types.SimpleNamespace(delta=delta, finish_reason=finish_reason)])
 
 
 def _tc_delta(index, *, id=None, name=None, arguments=None):
@@ -67,7 +68,7 @@ def _tc_delta(index, *, id=None, name=None, arguments=None):
 
 def test_complete_stream_content_only(monkeypatch):
     client = LiteLLMClient.__new__(LiteLLMClient)
-    client.model, client.stream, client.cache = "claude-x", True, False
+    client.model, client.stream, client.cache, client.max_tokens = "claude-x", True, False, None
     seen = {}
 
     def fake_completion(**kwargs):
@@ -85,7 +86,7 @@ def test_complete_stream_reassembles_split_tool_args(monkeypatch):
     """핵심 회귀 방지: arguments JSON이 여러 청크로 쪼개져 와도 index별로 이어붙여 파싱한다.
     (stream_chunk_builder가 이 지점에서 JSON을 깨뜨려 'Expecting , delimiter'로 터졌었다.)"""
     client = LiteLLMClient.__new__(LiteLLMClient)
-    client.model, client.stream, client.cache = "claude-x", True, False
+    client.model, client.stream, client.cache, client.max_tokens = "claude-x", True, False, None
 
     def fake_completion(**kwargs):
         # tool_call 하나가 여러 청크에 걸쳐 도착: id/name 먼저, arguments는 조각조각.
@@ -108,7 +109,7 @@ def test_complete_stream_reassembles_split_tool_args(monkeypatch):
 def test_complete_stream_multiple_tool_calls(monkeypatch):
     """여러 tool_call이 index로 구분되어 병렬 도착 → 각각 올바르게 재조립."""
     client = LiteLLMClient.__new__(LiteLLMClient)
-    client.model, client.stream, client.cache = "claude-x", True, False
+    client.model, client.stream, client.cache, client.max_tokens = "claude-x", True, False, None
 
     def fake_completion(**kwargs):
         return iter([
@@ -123,3 +124,79 @@ def test_complete_stream_multiple_tool_calls(monkeypatch):
     resp = client.complete([{"role": "user", "content": "x"}], [])
     calls = {c.name: c.args for c in resp.tool_calls}
     assert calls == {"bash": {"cmd": "ls"}, "write_file": {"path": "a"}}
+
+
+def test_complete_passes_max_tokens(monkeypatch):
+    """max_tokens 설정 시 litellm에 전달 — 미지정이면 Anthropic 기본 캡에 걸려 큰 턴이 잘린다(근본 원인)."""
+    captured = {}
+
+    def fake_completion(**kwargs):
+        captured.update(kwargs)
+        msg = types.SimpleNamespace(tool_calls=None, content="ok")
+        return types.SimpleNamespace(
+            choices=[types.SimpleNamespace(message=msg, finish_reason="stop")])
+
+    monkeypatch.setattr("litellm.completion", fake_completion)
+    client = LiteLLMClient.__new__(LiteLLMClient)
+    client.model, client.stream, client.cache, client.max_tokens = "claude-x", False, False, 32000
+    client.complete([{"role": "user", "content": "hi"}], [])
+    assert captured["max_tokens"] == 32000
+    # None(오케 챗 기본)이면 넘기지 않음 — 기존 동작 무변경.
+    captured.clear()
+    client.max_tokens = None
+    client.complete([{"role": "user", "content": "hi"}], [])
+    assert "max_tokens" not in captured
+
+
+def test_stream_truncated_last_call_dropped(monkeypatch):
+    """finish_reason=length로 잘린 마지막 tool-call(불완전 JSON)은 버리고 완성된 콜만 살린다.
+    (실사례: 디자이너가 큰 파일 여러 개를 한 턴에 뱉다 캡에 걸려 태스크 전체가 죽었다.)"""
+    client = LiteLLMClient.__new__(LiteLLMClient)
+    client.model, client.stream, client.cache, client.max_tokens = "claude-x", True, False, 32000
+
+    def fake_completion(**kwargs):
+        return iter([
+            _delta_chunk(tool_calls=[_tc_delta(0, id="a", name="update_plan", arguments='{"steps": []}')]),
+            _delta_chunk(tool_calls=[_tc_delta(1, id="b", name="write_file", arguments='{"path": "styles.css"')]),
+            _delta_chunk(finish_reason="length"),  # 여기서 잘림 → idx1 args 불완전
+        ])
+
+    monkeypatch.setattr("litellm.completion", fake_completion)
+    resp = client.complete([{"role": "user", "content": "x"}], [])
+    assert [c.name for c in resp.tool_calls] == ["update_plan"]  # 잘린 write_file만 드롭
+
+
+def test_stream_truncated_no_complete_call_raises(monkeypatch):
+    """잘렸는데 완성된 콜이 0개면 빈 content로 'done' 처리되지 말고 명확히 실패해야 한다."""
+    import pytest
+
+    client = LiteLLMClient.__new__(LiteLLMClient)
+    client.model, client.stream, client.cache, client.max_tokens = "claude-x", True, False, 32000
+
+    def fake_completion(**kwargs):
+        return iter([
+            _delta_chunk(tool_calls=[_tc_delta(0, id="a", name="write_file", arguments='{"path": "index.htm')]),
+            _delta_chunk(finish_reason="length"),
+        ])
+
+    monkeypatch.setattr("litellm.completion", fake_completion)
+    with pytest.raises(ValueError, match="truncated at max_tokens"):
+        client.complete([{"role": "user", "content": "x"}], [])
+
+
+def test_stream_malformed_without_truncation_raises(monkeypatch):
+    """잘리지 않았는데 JSON이 깨졌다면 예상 밖 손상 — 숨기지 않고 예외를 올린다."""
+    import pytest
+
+    client = LiteLLMClient.__new__(LiteLLMClient)
+    client.model, client.stream, client.cache, client.max_tokens = "claude-x", True, False, 32000
+
+    def fake_completion(**kwargs):
+        return iter([
+            _delta_chunk(tool_calls=[_tc_delta(0, id="a", name="bash", arguments='{"cmd": broken')]),
+            _delta_chunk(finish_reason="tool_calls"),
+        ])
+
+    monkeypatch.setattr("litellm.completion", fake_completion)
+    with pytest.raises(ValueError):
+        client.complete([{"role": "user", "content": "x"}], [])
