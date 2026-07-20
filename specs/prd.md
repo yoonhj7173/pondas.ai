@@ -1,7 +1,8 @@
-# PRD v2.1 — Office-Sim Multi-Agent Orchestration Platform
+# PRD v3 — Office-Sim Multi-Agent Orchestration Platform
 
-> Status: APPROVED v2 (2026-06-11) + **Phase 2 amendment v2.1 (2026-07-07, D47–D52)** — post-launch closure revamp: live preview, result-in-flow, iteration loop (§16). Supersedes the v1 StarCraft-HUD PRD.
-> Source of truth for every change: `decision-log.md` (D1–D52). Visuals/interactions: `claude-design-handoff/product/README.md` is the single source of truth (D36) — behavior conflicts resolve to this PRD, visual conflicts to the handoff. Phase 2 UX reference: `mockups/mvp-closure-mockup.html` (D51).
+> Status: APPROVED v2 (2026-06-11) + Phase 2 amendment v2.1 (2026-07-07, D47–D52, §16) + **Phase 3 MLP amendment v3.0 (2026-07-20, D54–D62, §17)** — wedge 재정의, 합격 기준(북극성 테스트), 소유권(GitHub)·출시(배포)·반복·감독·비동기 5버킷, G-Clay 리스킨.
+> Source of truth for every change: `decision-log.md` (D1–D62). MLP 스코프 상세: **`specs/mlp-spec.md`**. 테스트 전략: `specs/test-plan.md`.
+> Visuals: **`mockups/g-clay-reference.html`이 스타일 기준 (D59)** — `claude-design-handoff/product/README.md`는 인터랙션 패턴 참고로 격하(스타일 충돌 시 g-clay-reference 우선). Phase 2 UX reference: `mockups/mvp-closure-mockup.html` (D51).
 > Companion doc: `specs/user-flows.md` (detailed screen-by-screen flows + reference mockups note).
 
 ---
@@ -328,5 +329,45 @@ Idea in → watch the office plan/research/design/build → completion notificat
 - Preview auth proxy (P1 — unguessable URL is the Phase 2 bar, D49).
 - Version rollback/diff UI (P1); in-app file editing (P2+).
 - GitHub export/import (P1 — first step of the D47 expansion path).
-- Deploy of any kind (P1, D31 unchanged).
-- Office canvas changes, new teams, mobile.
+- Deploy of any kind (P1, D31 unchanged). *(→ Phase 3에서 폐기: §17)*
+- Office canvas changes, new teams, mobile. *(→ Phase 3에서 일부 폐기: 리스킨 D59, PWA D56⑤)*
+
+---
+
+## 17. Phase 3 — MLP (v3.0 amendment, 2026-07-20, D54–D62)
+
+> 드랍 검토까지 간 전략 세션의 결론(D54). 상세 source of truth = **`specs/mlp-spec.md`** — 본 절은 PRD 레벨 요약이며 충돌 시 mlp-spec 우선.
+
+### 17.1 무엇이 바뀌었나 (supersedes)
+
+| 항목 | 이전 (v2.1) | Phase 3 |
+|---|---|---|
+| 타겟 | Claude Code-aware builder (D47) | **"CC의 파워를 터미널 없이"** — Lovable 천장 졸업자 ∪ CC-aware builder. supervision 레이어 카테고리, 경영시뮬 판타지 (D54) |
+| 완성 기준 | MVP 개념 + P0 체크리스트 | **북극성 합격 테스트 (D55):** "비개발자 파운더가 CC를 한 번도 안 열고 pondas만으로 실도메인 SaaS를 출시하고 2주 운영한다" |
+| 배포 | 명시적 non-goal (§5, D31/D49) | **폐기 — 딸깍 배포 + 커스텀 도메인 + DB + 시크릿 = P0** (D56②, D60: Vercel+Neon 오케스트레이션) |
+| 산출물 소유 | Postgres FileStore + zip | **유저 소유 GitHub 리포 = source of truth** (D56①, D61) + 사람말 버전 히스토리/Restore |
+| 모바일 | out of scope | **PWA + 푸시 = P0** (D56⑤ — 비동기 감독) |
+| 비주얼 | Two Point Hospital + 핸드오프 | **G-Clay 벡터 디오라마** (D59) — `g-clay-reference.html` 기준, D54 필터(모든 게임 요소는 감독 정보를 나른다) |
+| 언어 | (혼재) | **100% 영어, US 출시** |
+
+### 17.2 Phase 3 P0 scope (5버킷, D56)
+
+1. **소유권** — GitHub App 연동(유저 계정에 리포 직접 생성, D61), 버전 스냅샷→커밋 파이프, 사람말 버전 히스토리 + Restore.
+2. **출시** — Grand Opening: Vercel+Neon 오케스트레이션 배포, 커스텀 도메인, env/시크릿, DB 프로비저닝 (D60). 신뢰 표면은 크롬 전용 (D59).
+3. **반복 신뢰성** — 40-step 벽 → 토큰/시간 예산제, 샌드박스 env 하드닝, "고쳐줘" 루프 표면화. (Joshua 3연속 실패 = 실측 churn 원인)
+4. **감독** — 프리뷰 **디자인 코멘트 모드**(요소 클릭→코멘트→프롬프트 주입), **열 수 있는 코드뷰**, G-Clay 리스킨.
+5. **비동기** — PWA + 웹푸시(needs-input/done), 모바일 감독 뷰.
+   \+ **활성화 (D58):** 사장님 프레이밍 온보딩 + 예시 목표 + 첫 태스크 유도; PostHog 퍼널 계측 (D62).
+
+### 17.3 Phase 3 컷 (D56)
+
+AI 관광객용 요소 · 정보 없는 장식(D54 필터 미통과) · 제품빌딩 외 팀 유형 확장 · 자체 하네스 자부심(매니지드 런타임 우선).
+
+### 17.4 대표 acceptance criteria
+
+- Given GitHub 연결된 프로젝트에서 dev task 2개가 완료되면, then 유저 리포에 사람말 메시지의 커밋 2개가 존재하고 히스토리 UI와 1:1 대응한다; Restore 클릭 시 해당 버전 내용으로 **새 버전이 컷**되고(히스토리 보존) 프리뷰가 갱신된다.
+- Given "Grand Opening" 실행, then 앱이 `*.vercel.app`에 서빙되고, 유저가 도메인을 연결하면 커스텀 도메인에서 HTTPS로 서빙된다 — 유저는 Vercel/Neon 계정·API키를 한 번도 만나지 않는다.
+- Given 과거 40-step에서 죽던 규모의 design/dev task, then 예산제(토큰/시간) 안에서 완주하거나, 초과 시 **부분 결과 + 사람말 사유 + "이어서 진행" 액션**으로 종료한다 (조용한 실패 금지).
+- Given 프리뷰에서 요소를 클릭해 "make this blue" 코멘트를 남기면, then 해당 요소 셀렉터/컨텍스트가 포함된 dev task가 디스패치되고 완료 시 프리뷰에 반영된다.
+- Given 앱을 닫은 모바일 유저, when 에이전트가 needs-input에 들어가면, then 웹푸시가 도착하고 모바일 웹에서 바로 응답해 태스크가 재개된다.
+- **최종 게이트 (D55):** 파운더가 pondas만으로 실도메인 SaaS를 출시하고 2주 운영(버그픽스+기능추가)에 성공 — 운영 로그가 `specs/acceptance-run.md`에 기록된다. 통과 전 GTM 없음.

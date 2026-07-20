@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>pondas — Bright Vector Office Feel Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#28243A; font-family:Inter,sans-serif; color:#33302A; padding:28px; }
+  .note { color:#B0AAC8; font-size:12px; max-width:1200px; margin:0 auto 14px; line-height:1.6; }
+  .app { position:relative; width:1200px; height:680px; margin:0 auto; border-radius:16px; overflow:hidden;
+         box-shadow:0 30px 70px rgba(0,0,0,0.5); background:#F4EDE0; }
+  svg { display:block; }
+  .pill { position:absolute; transform:translateX(-50%); display:flex; align-items:center; gap:7px;
+          background:rgba(24,22,36,0.88); color:#fff; font-size:13px; font-weight:600;
+          padding:6px 12px; border-radius:999px; white-space:nowrap; z-index:5; }
+  .pill .dot { width:9px; height:9px; border-radius:50%; }
+  .pill small { color:#A9A3C4; font-weight:500; }
+  .chrome { position:absolute; z-index:10; }
+  .proj { top:18px; left:18px; background:#FFFFFF; border:1px solid #E4DFEF; border-radius:10px;
+          padding:9px 16px; font-size:13px; font-weight:600; box-shadow:0 4px 14px rgba(60,50,110,0.14); }
+  .credits { top:18px; right:18px; background:#FFFFFF; border:1px solid #E4DFEF; border-radius:10px;
+             padding:8px 14px; font-family:'JetBrains Mono'; font-size:12px; color:#E06B4D;
+             box-shadow:0 4px 14px rgba(60,50,110,0.14); }
+  .credits small { display:block; font-size:9px; color:#8A8798; letter-spacing:1px; }
+  .hist { bottom:84px; right:18px; width:250px; background:#FFFFFF; border:1px solid #E4DFEF;
+          border-radius:14px; padding:16px; box-shadow:0 8px 24px rgba(60,50,110,0.18); }
+  .hist h4 { font-size:11px; font-weight:600; color:#8A8798; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; }
+  .hist .vrow { display:flex; justify-content:space-between; font-size:12px; padding:7px 0; border-bottom:1px solid #F0EDF6; }
+  .hist .vrow:last-child { border-bottom:none; }
+  .hist .undo { color:#E06B4D; font-weight:600; font-size:11px; cursor:pointer; }
+  .dock { bottom:18px; left:50%; transform:translateX(-50%); display:flex; gap:12px; align-items:center; z-index:10; position:absolute; }
+  .chat { display:flex; gap:8px; align-items:center; width:520px; background:#FFFFFF; border:1px solid #E4DFEF;
+          border-radius:12px; padding:10px 10px 10px 16px; box-shadow:0 8px 24px rgba(60,50,110,0.2); }
+  .chat input { flex:1; border:none; outline:none; background:transparent; font-size:13.5px; font-family:Inter; }
+  .send { background:#33304A; color:#fff; border:none; border-radius:9px; padding:8px 16px; font-weight:600; font-size:13px; }
+  .launch { background:#43B36A; color:#fff; border:none; border-radius:12px; padding:12px 22px;
+            font-weight:600; font-size:14px; box-shadow:0 8px 20px rgba(67,179,106,0.4); cursor:pointer; }
+</style>
+</head>
+<body>
+  <p class="note">Feel test v2 — 월드: 인라인 SVG (팩/라이선스/픽셀 깨짐 없음, 팔레트 = Gather풍 하이키 파스텔, 색은 전부 변수화 가능 → 다크모드=팔레트 스왑).
+     크롬: DOM 오버레이 동일.</p>
+  <div class="app">
+    <svg width="1200" height="680" viewBox="0 0 1200 680">
+      <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <rect width="40" height="40" fill="#F4EDE0"/>
+          <path d="M40 0H0V40" fill="none" stroke="#EAE1CF" stroke-width="2"/>
+        </pattern>
+        <pattern id="carpet" width="36" height="36" patternUnits="userSpaceOnUse">
+          <rect width="36" height="36" fill="#B7B1DC"/>
+          <path d="M18 4 L32 18 L18 32 L4 18 Z" fill="none" stroke="#C4BEE6" stroke-width="2.5"/>
+        </pattern>
+        <pattern id="carpet2" width="36" height="36" patternUnits="userSpaceOnUse">
+          <rect width="36" height="36" fill="#BFD3EA"/>
+          <circle cx="18" cy="18" r="3" fill="#CBDCEF"/>
+        </pattern>
+        <g id="plant">
+          <ellipse cx="0" cy="26" rx="14" ry="4" fill="rgba(60,50,30,0.10)"/>
+          <path d="M-9 12 h18 l-2.5 14 h-13 Z" fill="#CE8663"/>
+          <path d="M-9 12 h18 l-1 6 h-16 Z" fill="#B9744F"/>
+          <circle cx="-6" cy="2" r="7" fill="#6FBF6A"/>
+          <circle cx="6" cy="3" r="7" fill="#5FB35C"/>
+          <circle cx="0" cy="-5" r="8" fill="#7ECB77"/>
+        </g>
+        <g id="tree">
+          <ellipse cx="0" cy="34" rx="18" ry="5" fill="rgba(50,90,40,0.15)"/>
+          <rect x="-4" y="16" width="8" height="18" rx="2" fill="#A9744C"/>
+          <circle cx="-10" cy="6" r="13" fill="#7ECB77"/>
+          <circle cx="10" cy="8" r="12" fill="#6FBF6A"/>
+          <circle cx="0" cy="-6" r="14" fill="#8FD68A"/>
+        </g>
+        <!-- 데스크 세트: 의자(뒤) + 사람 + 흰 데스크(앞) + 모니터(스크린 = 상태색) -->
+        <g id="chair"><rect x="-16" y="-6" width="32" height="30" rx="9" fill="#4A7BD9"/><rect x="-16" y="16" width="32" height="8" rx="4" fill="#3D66B5"/></g>
+      </defs>
+
+      <!-- 바닥 -->
+      <rect width="1200" height="680" fill="url(#grid)"/>
+
+      <!-- 상단 벽 밴드 -->
+      <rect x="0" y="0" width="880" height="64" fill="#DEDAEC"/>
+      <rect x="0" y="0" width="880" height="14" fill="#CFCAE4"/>
+      <rect x="0" y="58" width="880" height="6" fill="#B9B3D6"/>
+      <!-- 벽 데코 -->
+      <rect x="96" y="16" width="60" height="36" rx="4" fill="#FFFFFF"/><rect x="102" y="22" width="48" height="24" rx="2" fill="#BFD3EA"/>
+      <rect x="190" y="16" width="44" height="36" rx="4" fill="#FFFFFF"/><rect x="196" y="22" width="32" height="24" rx="2" fill="#F2A3C0"/>
+      <rect x="640" y="14" width="120" height="40" rx="4" fill="#FFFFFF"/><rect x="646" y="20" width="108" height="28" rx="2" fill="#EFF3E6"/>
+      <path d="M652 42 l16 -14 l12 8 l18 -16 l14 12" stroke="#43B36A" stroke-width="3" fill="none"/>
+
+      <!-- 우상단 정원 -->
+      <rect x="880" y="0" width="320" height="200" fill="#CDEBC4"/>
+      <rect x="880" y="0" width="320" height="8" fill="#BFE2B4"/>
+      <rect x="874" y="0" width="6" height="200" fill="#B9B3D6"/>
+      <rect x="880" y="196" width="320" height="8" fill="#BFE2B4"/>
+      <use href="#tree" x="950" y="60"/>
+      <use href="#tree" x="1060" y="110"/>
+      <use href="#tree" x="1140" y="48"/>
+      <circle cx="920" cy="150" r="6" fill="#F2A3C0"/><circle cx="1000" cy="170" r="5" fill="#F6D35E"/><circle cx="1105" cy="176" r="5" fill="#F2A3C0"/>
+
+      <!-- ── 개발실: 라벤더 카펫 ── -->
+      <rect x="72" y="112" width="500" height="330" rx="10" fill="url(#carpet)"/>
+      <rect x="72" y="112" width="500" height="330" rx="10" fill="none" stroke="#A29AD1" stroke-width="5"/>
+      <!-- 데스크 3세트 -->
+      <g id="deskset1">
+        <use href="#chair" x="150" y="208"/>
+        <!-- 사람: working -->
+        <g transform="translate(150,196)">
+          <circle cx="0" cy="0" r="13" fill="#F2C79A"/>
+          <path d="M-13 -2 a13 13 0 0 1 26 0 l-4 -7 h-18 Z" fill="#6B4A32"/>
+          <rect x="-14" y="10" width="28" height="18" rx="8" fill="#4FB0A5"/>
+        </g>
+        <!-- 데스크 + 모니터 -->
+        <ellipse cx="150" cy="282" rx="56" ry="7" fill="rgba(60,50,110,0.10)"/>
+        <rect x="94" y="232" width="112" height="46" rx="8" fill="#FAFAF7"/>
+        <rect x="94" y="268" width="112" height="10" rx="5" fill="#DDD9CE"/>
+        <rect x="124" y="216" width="52" height="36" rx="5" fill="#33304A"/>
+        <rect x="128" y="220" width="44" height="26" rx="3" fill="#59D7FF"/>
+        <rect x="145" y="252" width="10" height="6" fill="#33304A"/>
+        <rect x="180" y="240" width="16" height="10" rx="2" fill="#F6D35E"/>
+        <circle cx="106" cy="244" r="6" fill="#6FBF6A"/>
+      </g>
+      <g id="deskset2">
+        <use href="#chair" x="322" y="208"/>
+        <g transform="translate(322,196)">
+          <circle cx="0" cy="0" r="13" fill="#E8B88C"/>
+          <path d="M-13 -3 a13 13 0 0 1 26 0 v6 l-5 -6 h-16 l-5 6 Z" fill="#2E2A26"/>
+          <rect x="-14" y="10" width="28" height="18" rx="8" fill="#E2795B"/>
+        </g>
+        <ellipse cx="322" cy="282" rx="56" ry="7" fill="rgba(60,50,110,0.10)"/>
+        <rect x="266" y="232" width="112" height="46" rx="8" fill="#FAFAF7"/>
+        <rect x="266" y="268" width="112" height="10" rx="5" fill="#DDD9CE"/>
+        <rect x="296" y="216" width="52" height="36" rx="5" fill="#33304A"/>
+        <rect x="300" y="220" width="44" height="26" rx="3" fill="#FFC848"/>
+        <rect x="317" y="252" width="10" height="6" fill="#33304A"/>
+        <rect x="352" y="240" width="14" height="14" rx="7" fill="#F2A3C0"/>
+      </g>
+      <g id="deskset3">
+        <use href="#chair" x="494" y="208"/>
+        <g transform="translate(494,196)">
+          <circle cx="0" cy="0" r="13" fill="#F2C79A"/>
+          <path d="M-13 0 a13 13 0 0 1 26 0 l2 8 h-6 l-2 -8 h-14 l-2 8 h-6 Z" fill="#B4552D"/>
+          <rect x="-14" y="10" width="28" height="18" rx="8" fill="#5B79D9"/>
+        </g>
+        <ellipse cx="494" cy="282" rx="56" ry="7" fill="rgba(60,50,110,0.10)"/>
+        <rect x="438" y="232" width="112" height="46" rx="8" fill="#FAFAF7"/>
+        <rect x="438" y="268" width="112" height="10" rx="5" fill="#DDD9CE"/>
+        <rect x="468" y="216" width="52" height="36" rx="5" fill="#33304A"/>
+        <rect x="472" y="220" width="44" height="26" rx="3" fill="#7FE8A2"/>
+        <rect x="489" y="252" width="10" height="6" fill="#33304A"/>
+        <rect x="524" y="238" width="18" height="12" rx="2" fill="#FFFFFF"/><rect x="524" y="238" width="18" height="4" rx="2" fill="#BFD3EA"/>
+      </g>
+      <!-- 개발실 소품 -->
+      <use href="#plant" x="104" y="140"/>
+      <use href="#plant" x="540" y="404"/>
+      <rect x="240" y="368" width="180" height="46" rx="23" fill="#C4BEE6"/>
+      <rect x="240" y="368" width="180" height="46" rx="23" fill="none" stroke="#B0A8DB" stroke-width="3"/>
+
+      <!-- ── 라운지 ── -->
+      <rect x="628" y="112" width="230" height="200" rx="10" fill="#F7F2E7"/>
+      <rect x="628" y="112" width="230" height="200" rx="10" fill="none" stroke="#E4DBC6" stroke-width="5"/>
+      <ellipse cx="700" cy="196" rx="40" ry="6" fill="rgba(60,50,30,0.08)"/>
+      <rect x="660" y="150" width="84" height="40" rx="12" fill="#F0C9A8"/>
+      <rect x="660" y="176" width="84" height="14" rx="7" fill="#E2B48E"/>
+      <rect x="652" y="146" width="14" height="44" rx="7" fill="#E2B48E"/>
+      <rect x="738" y="146" width="14" height="44" rx="7" fill="#E2B48E"/>
+      <circle cx="790" cy="230" r="26" fill="#D8A46F"/><circle cx="790" cy="226" r="22" fill="#E8BC85"/>
+      <circle cx="700" cy="248" r="15" fill="#A5D3F0"/><circle cx="700" cy="244" r="12" fill="#BCE0F7"/>
+      <use href="#plant" x="838" y="140"/>
+      <use href="#plant" x="648" y="284"/>
+
+      <!-- ── 미팅룸: 블루 카펫 ── -->
+      <rect x="628" y="360" width="512" height="260" rx="10" fill="url(#carpet2)"/>
+      <rect x="628" y="360" width="512" height="260" rx="10" fill="none" stroke="#A8C0DE" stroke-width="5"/>
+      <ellipse cx="884" cy="520" rx="120" ry="10" fill="rgba(60,80,110,0.10)"/>
+      <rect x="764" y="452" width="240" height="64" rx="14" fill="#FAFAF7"/>
+      <rect x="764" y="502" width="240" height="14" rx="7" fill="#DDD9CE"/>
+      <rect x="794" y="468" width="30" height="20" rx="3" fill="#C8C4D8"/>
+      <rect x="944" y="468" width="30" height="20" rx="3" fill="#C8C4D8"/>
+      <rect x="874" y="464" width="24" height="16" rx="3" fill="#33304A"/><rect x="877" y="467" width="18" height="10" rx="2" fill="#59D7FF"/>
+      <use href="#chair" x="810" y="418"/>
+      <use href="#chair" x="884" y="418"/>
+      <use href="#chair" x="958" y="418"/>
+      <g transform="translate(810,548) scale(1,-1)"><use href="#chair"/></g>
+      <g transform="translate(958,548) scale(1,-1)"><use href="#chair"/></g>
+      <!-- 스탠딩 화이트보드 -->
+      <rect x="1052" y="404" width="66" height="46" rx="4" fill="#FFFFFF"/>
+      <rect x="1052" y="404" width="66" height="46" rx="4" fill="none" stroke="#C8C4D8" stroke-width="3"/>
+      <path d="M1060 438 l14 -16 l10 8 l16 -18" stroke="#E2795B" stroke-width="3" fill="none"/>
+      <rect x="1078" y="450" width="6" height="16" fill="#C8C4D8"/>
+      <use href="#plant" x="660" y="392"/>
+      <use href="#plant" x="1112" y="592"/>
+
+      <!-- 바닥 러너 러그 -->
+      <rect x="90" y="500" width="420" height="60" rx="30" fill="#F2D9A8"/>
+      <rect x="90" y="500" width="420" height="60" rx="30" fill="none" stroke="#E5C98F" stroke-width="3"/>
+      <circle cx="150" cy="530" r="6" fill="#E2795B"/><circle cx="230" cy="530" r="6" fill="#4FB0A5"/><circle cx="310" cy="530" r="6" fill="#F2A3C0"/><circle cx="390" cy="530" r="6" fill="#5B79D9"/>
+    </svg>
+
+    <!-- 글로우 (감독 정보) -->
+    <div style="position:absolute; left:150px; top:238px; width:90px; height:70px; transform:translate(-50%,-50%); background:radial-gradient(closest-side, rgba(89,215,255,0.45), transparent); z-index:4;"></div>
+    <div style="position:absolute; left:322px; top:238px; width:90px; height:70px; transform:translate(-50%,-50%); background:radial-gradient(closest-side, rgba(255,200,72,0.5), transparent); z-index:4;"></div>
+    <div style="position:absolute; left:494px; top:238px; width:90px; height:70px; transform:translate(-50%,-50%); background:radial-gradient(closest-side, rgba(127,232,162,0.4), transparent); z-index:4;"></div>
+
+    <!-- 네임 필 -->
+    <div class="pill" style="left:150px; top:148px;"><span class="dot" style="background:#59D7FF"></span>SWE <small>· Writing checkout.tsx</small></div>
+    <div class="pill" style="left:322px; top:148px;"><span class="dot" style="background:#FFC848"></span>Architect <small>· needs your input</small></div>
+    <div class="pill" style="left:494px; top:148px;"><span class="dot" style="background:#7FE8A2"></span>QA <small>· tests passed</small></div>
+    <div class="pill" style="left:742px; top:126px;"><span class="dot" style="background:#A8A294"></span>Lounge</div>
+    <div class="pill" style="left:884px; top:374px;"><span class="dot" style="background:#A8A294"></span>Planning</div>
+
+    <!-- 크롬 -->
+    <div class="chrome proj">🏢 Habit App ▾</div>
+    <div class="chrome credits">🪙 420<small>CREDITS</small></div>
+    <div class="chrome hist">
+      <h4>Version history</h4>
+      <div class="vrow"><span>v3 · Added checkout page</span><span class="undo">Restore</span></div>
+      <div class="vrow"><span>v2 · Connected login</span><span class="undo">Restore</span></div>
+      <div class="vrow"><span>v1 · First screens done</span><span class="undo">Restore</span></div>
+    </div>
+    <div class="dock">
+      <div class="chat"><input placeholder="What should we build today?"><button class="send">Send</button></div>
+      <button class="launch">🎉 Grand Opening →</button>
+    </div>
+  </div>
+</body>
+</html>

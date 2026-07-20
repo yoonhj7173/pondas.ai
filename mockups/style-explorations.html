@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pondas — Visual Style Explorations (2026-07-20)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Quicksand:wght@500;600;700&family=JetBrains+Mono:wght@400;500&family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#191C22; color:#E8E6E1; font-family:Inter,sans-serif; }
+  .frame { max-width:1240px; margin:0 auto; padding:36px 24px 80px; }
+  .intro h1 { font-family:'Space Grotesk'; font-size:26px; letter-spacing:-0.5px; }
+  .intro p { color:#9AA0AB; font-size:13.5px; margin-top:8px; line-height:1.6; max-width:760px; }
+  .intro .meta { font-family:'JetBrains Mono'; font-size:11px; color:#6B7280; margin-top:6px; }
+
+  /* 스타일 섹션 공통 껍데기 */
+  .style-block { margin-top:44px; }
+  .style-head { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .style-head .tag { font-family:'JetBrains Mono'; font-size:11px; color:#0F1115; background:#F4C84A; padding:3px 8px; border-radius:4px; font-weight:700; }
+  .style-head h2 { font-family:'Space Grotesk'; font-size:20px; }
+  .style-head .hyp { color:#9AA0AB; font-size:12.5px; }
+  .style-risk { color:#6B7280; font-size:12px; margin-top:4px; }
+  .stage { margin-top:14px; border-radius:18px; overflow:hidden; border:1px solid rgba(255,255,255,0.08); }
+
+  /* ============ 공통 장면 레이아웃 (각 스타일이 스킨만 바꿈) ============ */
+  .scene { position:relative; height:460px; padding:20px 24px; display:flex; flex-direction:column; }
+  .hud-top { display:flex; justify-content:space-between; align-items:center; }
+  .hud-bottom { margin-top:auto; display:flex; align-items:flex-end; gap:14px; }
+  .chat { flex:1; max-width:560px; display:flex; gap:8px; align-items:center; }
+  .chat input { flex:1; border:none; outline:none; font-size:13.5px; background:transparent; }
+  .world { flex:1; display:flex; gap:22px; align-items:center; justify-content:center; padding:18px 0; }
+  .room { position:relative; width:330px; }
+  .room .agents { display:flex; gap:16px; justify-content:center; }
+  .agent { position:relative; text-align:center; }
+  .badge { position:absolute; top:-9px; right:-6px; width:22px; height:22px; border-radius:50%;
+           display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; }
+  .sidecard { width:250px; }
+  .sidecard .vrow { display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:7px 0; }
+
+  /* ============ A. Cozy Sim (현행 진화) ============ */
+  .A .scene { background:#C6C9BC;
+    background-image:linear-gradient(rgba(90,95,80,0.06) 1px, transparent 1px),
+                     linear-gradient(90deg, rgba(90,95,80,0.06) 1px, transparent 1px);
+    background-size:42px 42px; font-family:Nunito; color:#2C2925; }
+  .A .pill { font-family:'Baloo 2'; font-weight:700; border-radius:999px; }
+  .A .proj { background:linear-gradient(#67D2F2,#3FB4DC); color:#fff; padding:9px 18px; font-size:14px;
+             border:2.5px solid #fff; box-shadow:0 6px 14px rgba(63,180,220,0.45); }
+  .A .credits { background:rgba(36,46,66,0.92); color:#F4C84A; padding:9px 16px; border-radius:14px;
+                font-family:'Baloo 2'; font-size:13px; }
+  .A .credits small { color:#9BA3B5; font-size:9px; display:block; letter-spacing:1px; font-family:'JetBrains Mono'; }
+  .A .room-inner { background:#F2EFE3; border-radius:14px; padding:38px 20px 20px;
+    background-image:linear-gradient(45deg,#E2E4D0 25%,transparent 25%,transparent 75%,#E2E4D0 75%),
+                     linear-gradient(45deg,#E2E4D0 25%,transparent 25%,transparent 75%,#E2E4D0 75%);
+    background-size:32px 32px; background-position:0 0,16px 16px;
+    filter:drop-shadow(0 14px 16px rgba(60,65,50,0.3)); }
+  .A .sign { position:absolute; top:-12px; left:50%; transform:translateX(-50%) rotate(-1.2deg);
+             background:#2E3A52; color:#fff; font-family:'Baloo 2'; font-size:12px; padding:4px 14px;
+             border-radius:8px; border:2px solid #fff; }
+  .A .desk { width:78px; height:56px; background:#FFFDF6; border-radius:10px; box-shadow:0 3px 0 #C9BC9A; position:relative; }
+  .A .mon { position:absolute; top:8px; left:50%; transform:translateX(-50%); width:34px; height:24px;
+            background:#2E3A52; border-radius:4px; }
+  .A .working .mon { box-shadow:-4px 0 16px 5px rgba(79,195,232,0.55); }
+  .A .needs .mon { box-shadow:-4px 0 16px 5px rgba(247,183,49,0.5); }
+  .A .done .mon { box-shadow:-4px 0 16px 5px rgba(95,201,110,0.5); }
+  .A .badge { border:3px solid #fff; color:#fff; font-family:'Baloo 2'; }
+  .A .needs .badge { background:#F7B731; }
+  .A .done .badge { background:#5FC96E; }
+  .A .aname { font-size:11px; font-weight:800; margin-top:7px; }
+  .A .chip { display:inline-block; font-size:10px; font-weight:800; padding:2px 9px; border-radius:999px; margin-top:3px; }
+  .A .c-working { background:#DCEEF8; color:#2C6FA0; } .A .c-needs { background:#FBEFCB; color:#8A6200; } .A .c-done { background:#E0F2E5; color:#2C7A4A; }
+  .A .sidecard { background:rgba(253,253,251,0.4); backdrop-filter:blur(10px); border-radius:18px; padding:16px;
+                 border:2px solid rgba(255,255,255,0.6); }
+  .A .sidecard h4 { font-family:'Baloo 2'; font-size:13px; margin-bottom:4px; }
+  .A .vrow { border-bottom:1px dashed rgba(90,85,75,0.2); }
+  .A .vrow .undo { color:#3FB4DC; font-weight:800; font-size:11px; cursor:pointer; }
+  .A .chat { background:#fff; border-radius:999px; padding:10px 10px 10px 20px; border:2.5px solid #fff;
+             box-shadow:0 10px 24px rgba(50,55,45,0.2); }
+  .A .chat input { font-family:Nunito; font-weight:700; color:#2C2925; }
+  .A .send { background:linear-gradient(#67D2F2,#3FB4DC); color:#fff; border:none; border-radius:999px;
+             padding:8px 18px; font-family:'Baloo 2'; font-weight:700; font-size:13px; }
+  .A .launch { background:linear-gradient(#74D982,#4DBB5C); color:#fff; border:2.5px solid #fff; border-radius:999px;
+               padding:12px 22px; font-family:'Baloo 2'; font-weight:800; font-size:15px;
+               box-shadow:0 8px 18px rgba(77,187,92,0.5); }
+
+  /* ============ B. Toy-Brutalism (인디 볼드) ============ */
+  .B .scene { background:#FFF6E9; font-family:Inter; color:#141414; }
+  .B .proj { background:#141414; color:#FFF6E9; padding:10px 18px; font-family:'Space Grotesk'; font-weight:700;
+             font-size:14px; border-radius:12px; }
+  .B .credits { background:#FFDD55; border:3px solid #141414; border-radius:12px; padding:8px 14px;
+                font-family:'Space Grotesk'; font-weight:700; font-size:13px; box-shadow:4px 4px 0 #141414; }
+  .B .credits small { display:block; font-size:9px; letter-spacing:1px; font-weight:600; }
+  .B .room-inner { background:#fff; border:3px solid #141414; border-radius:16px; padding:34px 20px 18px;
+                   box-shadow:8px 8px 0 #141414; }
+  .B .sign { position:absolute; top:-14px; left:18px; background:#FF6B4A; color:#fff; font-family:'Space Grotesk';
+             font-weight:700; font-size:12px; padding:4px 12px; border:3px solid #141414; border-radius:8px;
+             box-shadow:3px 3px 0 #141414; }
+  .B .desk { width:76px; height:54px; border:3px solid #141414; border-radius:10px; position:relative; background:#F6F1E7; }
+  .B .working .desk { background:#BDE8FF; } .B .needs .desk { background:#FFE9A8; } .B .done .desk { background:#C9F2C7; }
+  .B .mon { position:absolute; top:7px; left:50%; transform:translateX(-50%); width:32px; height:22px;
+            background:#141414; border-radius:3px; }
+  .B .badge { background:#141414; color:#FFDD55; border:none; }
+  .B .aname { font-size:11px; font-weight:700; margin-top:7px; }
+  .B .chip { display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border:2px solid #141414;
+             border-radius:6px; margin-top:3px; background:#fff; }
+  .B .sidecard { background:#fff; border:3px solid #141414; border-radius:16px; padding:16px; box-shadow:6px 6px 0 #141414; }
+  .B .sidecard h4 { font-family:'Space Grotesk'; font-size:13px; font-weight:700; margin-bottom:4px; }
+  .B .vrow { border-bottom:2px solid #EDE6D8; }
+  .B .vrow .undo { font-weight:700; font-size:11px; color:#FF6B4A; cursor:pointer; }
+  .B .chat { background:#fff; border:3px solid #141414; border-radius:14px; padding:10px 10px 10px 16px;
+             box-shadow:5px 5px 0 #141414; }
+  .B .chat input { font-family:Inter; font-weight:600; }
+  .B .send { background:#141414; color:#fff; border:none; border-radius:10px; padding:8px 16px;
+             font-family:'Space Grotesk'; font-weight:700; font-size:13px; }
+  .B .launch { background:#FF6B4A; color:#fff; border:3px solid #141414; border-radius:14px; padding:12px 22px;
+               font-family:'Space Grotesk'; font-weight:700; font-size:15px; box-shadow:5px 5px 0 #141414; }
+
+  /* ============ C. Clay Premium (소프트 3D) ============ */
+  .C .scene { background:linear-gradient(160deg,#E9E4F5 0%,#DCE9F2 55%,#E6F0E4 100%); font-family:Quicksand; color:#3A3550; }
+  .C .proj { background:rgba(255,255,255,0.75); color:#4A4468; padding:10px 20px; border-radius:999px;
+             font-weight:700; font-size:14px; box-shadow:0 8px 20px rgba(90,80,140,0.18), inset 0 -3px 6px rgba(120,110,170,0.12); }
+  .C .credits { background:linear-gradient(145deg,#FFE9B8,#FFD98F); color:#7A5A12; padding:10px 18px; border-radius:20px;
+                font-weight:700; font-size:13px; box-shadow:0 10px 22px rgba(200,160,60,0.28), inset 0 2px 4px #FFF4D8; }
+  .C .credits small { display:block; font-size:9px; letter-spacing:1px; opacity:0.75; }
+  .C .room-inner { background:linear-gradient(150deg,#FDFCFA,#F0EDF6); border-radius:28px; padding:40px 22px 22px;
+                   box-shadow:0 24px 44px rgba(100,90,150,0.22), inset 0 2px 6px #fff; }
+  .C .sign { position:absolute; top:-16px; left:50%; transform:translateX(-50%);
+             background:linear-gradient(145deg,#8F84E8,#7266D6); color:#fff; font-weight:700; font-size:12px;
+             padding:6px 18px; border-radius:999px; box-shadow:0 8px 16px rgba(110,100,210,0.4); }
+  .C .desk { width:80px; height:58px; background:linear-gradient(150deg,#FFFFFF,#EAE6F2); border-radius:18px;
+             position:relative; box-shadow:0 10px 18px rgba(100,90,150,0.2), inset 0 2px 4px #fff; }
+  .C .mon { position:absolute; top:9px; left:50%; transform:translateX(-50%); width:34px; height:24px;
+            background:#4A4468; border-radius:8px; }
+  .C .working .mon { box-shadow:0 0 18px 5px rgba(110,180,255,0.6); }
+  .C .needs .mon { box-shadow:0 0 18px 5px rgba(255,190,80,0.65); }
+  .C .done .mon { box-shadow:0 0 18px 5px rgba(120,220,150,0.6); }
+  .C .badge { border:none; color:#fff; box-shadow:0 5px 10px rgba(80,70,120,0.3); }
+  .C .needs .badge { background:linear-gradient(145deg,#FFC85C,#F5A623); }
+  .C .done .badge { background:linear-gradient(145deg,#7EDD96,#54C271); }
+  .C .aname { font-size:11px; font-weight:700; margin-top:8px; }
+  .C .chip { display:inline-block; font-size:10px; font-weight:700; padding:3px 10px; border-radius:999px; margin-top:3px;
+             background:rgba(255,255,255,0.8); box-shadow:0 3px 8px rgba(100,90,150,0.12); }
+  .C .sidecard { background:rgba(255,255,255,0.65); backdrop-filter:blur(14px); border-radius:24px; padding:18px;
+                 box-shadow:0 16px 32px rgba(100,90,150,0.18); }
+  .C .sidecard h4 { font-size:13px; font-weight:700; margin-bottom:4px; }
+  .C .vrow { border-bottom:1px solid rgba(120,110,170,0.15); }
+  .C .vrow .undo { color:#7266D6; font-weight:700; font-size:11px; cursor:pointer; }
+  .C .chat { background:rgba(255,255,255,0.85); border-radius:999px; padding:11px 11px 11px 20px;
+             box-shadow:0 14px 30px rgba(100,90,150,0.22), inset 0 2px 4px #fff; }
+  .C .chat input { font-family:Quicksand; font-weight:600; color:#3A3550; }
+  .C .send { background:linear-gradient(145deg,#8F84E8,#7266D6); color:#fff; border:none; border-radius:999px;
+             padding:9px 18px; font-weight:700; font-size:13px; box-shadow:0 8px 16px rgba(110,100,210,0.35); }
+  .C .launch { background:linear-gradient(145deg,#7EDD96,#54C271); color:#fff; border:none; border-radius:999px;
+               padding:13px 24px; font-weight:700; font-size:15px; box-shadow:0 12px 24px rgba(84,194,113,0.4), inset 0 2px 4px rgba(255,255,255,0.5); }
+
+  /* ============ D. Ops Console (감독 퍼스트 미니멀) ============ */
+  .D .scene { background:#0E1013; font-family:Inter; color:#E6E8EB; }
+  .D .proj { background:#17191E; color:#E6E8EB; padding:9px 16px; border-radius:8px; font-size:13px; font-weight:600;
+             border:1px solid #24272E; }
+  .D .credits { background:#17191E; border:1px solid #24272E; border-radius:8px; padding:8px 14px;
+                font-family:'JetBrains Mono'; font-size:12px; color:#F4C84A; }
+  .D .credits small { display:block; font-size:9px; color:#6B7280; letter-spacing:1px; }
+  .D .room-inner { background:#15171C; border:1px solid #24272E; border-radius:12px; padding:18px 20px; }
+  .D .sign { position:static; display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:600;
+             color:#9AA0AB; margin-bottom:14px; }
+  .D .sign::before { content:""; width:8px; height:8px; border-radius:2px; background:#5B8DEF; }
+  .D .agents { justify-content:flex-start; }
+  .D .agent { display:flex; align-items:center; gap:10px; text-align:left; background:#191C22; border:1px solid #24272E;
+              border-radius:10px; padding:10px 14px; }
+  .D .desk { width:34px; height:34px; border-radius:50%; background:#242B38; display:flex; align-items:center;
+             justify-content:center; font-weight:600; font-size:13px; color:#B9C2D0; position:relative; }
+  .D .desk::after { content:""; position:absolute; bottom:0; right:0; width:10px; height:10px; border-radius:50%;
+                    border:2px solid #15171C; }
+  .D .working .desk::after { background:#4FC3E8; } .D .needs .desk::after { background:#F7B731; } .D .done .desk::after { background:#5FC96E; }
+  .D .mon { display:none; }
+  .D .badge { display:none; }
+  .D .aname { font-size:12.5px; font-weight:600; margin:0; }
+  .D .chip { font-size:11px; color:#9AA0AB; display:block; margin-top:2px; }
+  .D .working .chip { color:#4FC3E8; } .D .needs .chip { color:#F7B731; } .D .done .chip { color:#5FC96E; }
+  .D .sidecard { background:#15171C; border:1px solid #24272E; border-radius:12px; padding:16px; }
+  .D .sidecard h4 { font-size:12px; font-weight:600; color:#9AA0AB; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; }
+  .D .vrow { border-bottom:1px solid #1E2127; }
+  .D .vrow .undo { color:#5B8DEF; font-size:11px; font-weight:600; cursor:pointer; }
+  .D .chat { background:#15171C; border:1px solid #2A2E36; border-radius:10px; padding:11px 11px 11px 16px; }
+  .D .chat input { color:#E6E8EB; font-family:Inter; }
+  .D .send { background:#E6E8EB; color:#0E1013; border:none; border-radius:8px; padding:8px 16px; font-weight:600; font-size:13px; }
+  .D .launch { background:#2E6BE6; color:#fff; border:none; border-radius:10px; padding:12px 22px; font-weight:600; font-size:14px; }
+
+  /* ============ E. Pixel Office (레트로 게임) ============ */
+  .E .scene { background:#2B3A46; font-family:VT323; color:#E8F0E0; image-rendering:pixelated;
+    background-image:linear-gradient(rgba(255,255,255,0.04) 2px, transparent 2px),
+                     linear-gradient(90deg, rgba(255,255,255,0.04) 2px, transparent 2px);
+    background-size:16px 16px; }
+  .E .proj { background:#141C24; color:#7FE8A2; padding:8px 16px; font-family:Silkscreen; font-size:11px;
+             border:3px solid #7FE8A2; box-shadow:4px 4px 0 #0B1116; }
+  .E .credits { background:#141C24; color:#FFD948; padding:8px 14px; font-family:Silkscreen; font-size:11px;
+                border:3px solid #FFD948; box-shadow:4px 4px 0 #0B1116; }
+  .E .credits small { display:block; font-size:8px; }
+  .E .room-inner { background:#3D4F42; border:4px solid #141C24; padding:34px 20px 18px;
+                   box-shadow:6px 6px 0 #0B1116, inset 0 0 0 3px #56705C; }
+  .E .sign { position:absolute; top:-13px; left:16px; background:#141C24; color:#FFD948; font-family:Silkscreen;
+             font-size:10px; padding:3px 10px; border:3px solid #FFD948; }
+  .E .desk { width:72px; height:52px; background:#8A6E4B; border:3px solid #141C24; position:relative;
+             box-shadow:inset 0 -8px 0 #6E5638; }
+  .E .mon { position:absolute; top:6px; left:50%; transform:translateX(-50%); width:30px; height:22px;
+            background:#141C24; border:3px solid #0B1116; }
+  .E .working .mon { background:#4FC3E8; box-shadow:0 0 12px #4FC3E8; }
+  .E .needs .mon { background:#FFD948; box-shadow:0 0 12px #FFD948; }
+  .E .done .mon { background:#7FE8A2; box-shadow:0 0 12px #7FE8A2; }
+  .E .badge { border-radius:0; border:3px solid #141C24; font-family:Silkscreen; font-size:10px; color:#141C24; }
+  .E .needs .badge { background:#FFD948; } .E .done .badge { background:#7FE8A2; }
+  .E .aname { font-family:Silkscreen; font-size:9px; margin-top:8px; }
+  .E .chip { display:inline-block; font-size:14px; margin-top:2px; }
+  .E .working .chip { color:#4FC3E8; } .E .needs .chip { color:#FFD948; } .E .done .chip { color:#7FE8A2; }
+  .E .sidecard { background:#141C24; border:3px solid #56705C; padding:14px; box-shadow:5px 5px 0 #0B1116; }
+  .E .sidecard h4 { font-family:Silkscreen; font-size:10px; color:#7FE8A2; margin-bottom:6px; }
+  .E .vrow { border-bottom:2px dotted #2B3A46; font-size:15px; }
+  .E .vrow .undo { color:#4FC3E8; cursor:pointer; font-size:14px; }
+  .E .chat { background:#141C24; border:3px solid #56705C; padding:10px 10px 10px 14px; box-shadow:4px 4px 0 #0B1116; }
+  .E .chat input { color:#E8F0E0; font-family:VT323; font-size:17px; }
+  .E .send { background:#7FE8A2; color:#141C24; border:3px solid #141C24; padding:6px 14px; font-family:Silkscreen;
+             font-size:10px; }
+  .E .launch { background:#FFD948; color:#141C24; border:4px solid #141C24; padding:10px 20px; font-family:Silkscreen;
+               font-size:11px; box-shadow:5px 5px 0 #0B1116; }
+
+  /* ============ F. Gather Hybrid — 픽셀 월드 + 모던 크롬 (4 variants) ============ */
+  .F .scene { font-family:Inter; background:var(--sbg); color:var(--ctext); }
+  /* 월드(픽셀) */
+  .F .proom { position:relative; width:340px; border:4px solid var(--outline); box-shadow:0 8px 0 rgba(0,0,0,0.12); image-rendering:pixelated; }
+  .F .pwall { height:36px; background:var(--wall); border-bottom:4px solid var(--outline); position:relative; }
+  .F .pwin { display:none; }
+  .F2 .pwin { display:block; position:absolute; top:7px; right:16px; width:26px; height:19px; background:#0B1120; border:3px solid var(--outline); }
+  .F2 .pwin::after { content:""; position:absolute; top:3px; right:4px; width:6px; height:6px; background:#FFE9A8; }
+  .F .psign { position:absolute; top:24px; left:50%; transform:translateX(-50%); background:var(--signbg); color:var(--signfg);
+              font-family:Silkscreen; font-size:9px; padding:3px 10px; border:3px solid var(--outline); z-index:6; }
+  .F .pfloor { background:repeating-conic-gradient(var(--floorAlt) 0% 25%, var(--floor) 0% 50%) 0 0 / var(--tile) var(--tile);
+               padding:26px 14px 34px; }
+  .F .pagents { display:flex; gap:18px; justify-content:center; }
+  .F .pagent { position:relative; width:88px; height:96px; }
+  .F .phead { position:absolute; left:35px; top:4px; width:18px; height:18px; background:var(--skin); border:3px solid var(--outline); z-index:1; }
+  .F .pbody { position:absolute; left:29px; top:25px; width:30px; height:18px; border:3px solid var(--outline); z-index:1; }
+  .F .pa1 .pbody { background:#4E8B80; } .F .pa2 .pbody { background:#C2755C; } .F .pa3 .pbody { background:#9A75A3; }
+  .F .pdesk { position:absolute; left:8px; top:52px; width:72px; height:18px; background:var(--desk); border:3px solid var(--outline); z-index:2; }
+  .F .pmon { position:absolute; left:29px; top:34px; width:30px; height:22px; background:#39415A; border:3px solid var(--outline); z-index:3; }
+  .F .working .pmon { background:#59D7FF; box-shadow:0 0 12px rgba(89,215,255,0.75); }
+  .F .needs .pmon { background:#FFC848; box-shadow:0 0 12px rgba(255,200,72,0.7); }
+  .F .done .pmon { background:#7FE8A2; box-shadow:0 0 12px rgba(127,232,162,0.7); }
+  .F .pbadge { position:absolute; top:-6px; right:6px; width:20px; height:20px; background:#FFC848; border:3px solid var(--outline);
+               color:#141414; font-family:Silkscreen; font-size:10px; display:flex; align-items:center; justify-content:center; z-index:4; }
+  .F .done .pbadge { background:#7FE8A2; }
+  .F .plabel { position:absolute; left:50%; transform:translateX(-50%); bottom:-8px; white-space:nowrap; background:var(--cbg);
+               border:1px solid var(--cborder); color:var(--ctext); font-size:10px; font-weight:600; padding:2px 8px;
+               border-radius:999px; z-index:5; }
+  .F2 .pfloor { position:relative; }
+  .F2 .pfloor::after { content:""; position:absolute; inset:0; pointer-events:none;
+                       background:radial-gradient(150px 95px at 50% 45%, rgba(89,215,255,0.10), transparent 70%); }
+  /* 크롬(모던 — "픽셀은 돈을 만지지 않는다") */
+  .F .proj { background:var(--cbg); border:1px solid var(--cborder); border-radius:10px; padding:9px 16px; font-size:13px; font-weight:600; }
+  .F .credits { background:var(--cbg); border:1px solid var(--cborder); border-radius:10px; padding:8px 14px;
+                font-family:'JetBrains Mono'; font-size:12px; color:var(--accent); }
+  .F .credits small { display:block; font-size:9px; color:var(--csub); letter-spacing:1px; }
+  .F .sidecard { background:var(--cbg); border:1px solid var(--cborder); border-radius:14px; padding:16px; }
+  .F .sidecard h4 { font-size:12px; font-weight:600; color:var(--csub); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; }
+  .F .vrow { border-bottom:1px solid var(--cborder); }
+  .F .vrow .undo { color:var(--accent); font-weight:600; font-size:11px; cursor:pointer; }
+  .F .chat { background:var(--cbg); border:1px solid var(--cborder); border-radius:12px; padding:10px 10px 10px 16px; }
+  .F .chat input { color:var(--ctext); font-family:Inter; }
+  .F .send { background:var(--ctext); color:var(--sbg); border:none; border-radius:9px; padding:8px 16px; font-weight:600; font-size:13px; }
+  .F .launch { background:var(--cta); color:#fff; border:none; border-radius:12px; padding:12px 22px; font-weight:600; font-size:14px; }
+  /* 변형 팔레트 */
+  .F1 { --sbg:#F3ECD9; --tile:24px; --floor:#E8D9B0; --floorAlt:#DFCFA1; --wall:#9DBF8E; --outline:#4A3B2A; --desk:#C98A4B;
+        --skin:#F2C79A; --signbg:#F7EBD2; --signfg:#4A3B2A; --cbg:#FFFDF8; --cborder:#E5DCC6; --ctext:#33302A; --csub:#8A8375;
+        --accent:#D8663F; --cta:#3FA968; }
+  .F2 { --sbg:#12151F; --tile:24px; --floor:#28304A; --floorAlt:#222941; --wall:#1A2136; --outline:#0A0E18; --desk:#6B5A46;
+        --skin:#E8B88C; --signbg:#0F1424; --signfg:#59D7FF; --cbg:#1A2030; --cborder:#2A3147; --ctext:#E6EAF2; --csub:#8B93A7;
+        --accent:#59D7FF; --cta:#3E7BFA; }
+  .F3 { --sbg:#F7F8FA; --tile:16px; --floor:#ECEEF1; --floorAlt:#E3E6EA; --wall:#D6DBE1; --outline:#59616E; --desk:#B9C0CB;
+        --skin:#EFC9A2; --signbg:#FFFFFF; --signfg:#59616E; --cbg:#FFFFFF; --cborder:#E7E9EE; --ctext:#23262B; --csub:#8A8F98;
+        --accent:#2E6BE6; --cta:#2E6BE6; }
+  .F4 { --sbg:#FFF1D0; --tile:32px; --floor:#59C1A8; --floorAlt:#4FB39B; --wall:#F4A94B; --outline:#20222B; --desk:#B4713D;
+        --skin:#F2C79A; --signbg:#FFE28A; --signfg:#20222B; --cbg:#FFFFFF; --cborder:#20222B; --ctext:#20222B; --csub:#6E6A5E;
+        --accent:#F45D8C; --cta:#F45D8C; }
+  .F3 .pmon, .F3 .phead, .F3 .pbody, .F3 .pdesk, .F3 .pbadge, .F3 .psign, .F3 .proom, .F3 .pwall { border-width:2px; }
+  .F4 .proj, .F4 .credits, .F4 .sidecard, .F4 .chat { border-width:2px; box-shadow:3px 3px 0 rgba(32,34,43,0.9); }
+  .F4 .pagent { transform:scale(1.12); }
+
+  /* 스코어카드 */
+  .score { margin-top:56px; border-top:1px solid rgba(255,255,255,0.1); padding-top:28px; }
+  .score h2 { font-family:'Space Grotesk'; font-size:18px; margin-bottom:12px; }
+  .score table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  .score th, .score td { text-align:left; padding:9px 12px; border-bottom:1px solid rgba(255,255,255,0.07); }
+  .score th { color:#9AA0AB; font-weight:600; font-size:11.5px; }
+  .score td:first-child { font-weight:600; }
+  .score .note { color:#6B7280; font-size:11.5px; margin-top:10px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="intro">
+    <h1>pondas — Visual Style Explorations</h1>
+    <p>같은 장면을 5가지 스타일로 렌더한 공정 비교. 장면 구성(모든 스타일 동일): 프로젝트 pill · 크레딧 카운터(D54 자원 표시) ·
+       개발팀 룸(working / needs-input "!" / done "✓" 에이전트) · 사람말 버전 히스토리 카드(버킷①) · 오케 챗 · 개업(배포) CTA(버킷②).</p>
+    <p class="meta">2026-07-20 · design pass step 0 · 근거: D54(경영시뮬 판타지, 게임요소 필터) + mlp-spec.md</p>
+  </div>
+
+  <!-- A -->
+  <div class="style-block A">
+    <div class="style-head"><span class="tag">A</span><h2>Cozy Sim — 현행 진화</h2>
+      <span class="hyp">가설: 검증된 몰입(Joshua)을 유지하며 다듬기만 한다</span></div>
+    <div class="style-risk">리스크: "장난감 같아서 진짜 SaaS를 맡기기 불안하다"는 신뢰 저항 가능</div>
+    <div class="stage"><div class="scene">
+      <div class="hud-top">
+        <div class="pill proj">🏢 Habit App ▾</div>
+        <div class="credits">🪙 420<small>CREDITS</small></div>
+      </div>
+      <div class="world">
+        <div class="room"><div class="room-inner">
+          <div class="sign">Development</div>
+          <div class="agents">
+            <div class="agent working"><div class="desk"><div class="mon"></div></div><div class="aname">SWE</div><span class="chip c-working">working</span></div>
+            <div class="agent needs"><div class="desk"><div class="mon"></div></div><div class="badge">!</div><div class="aname">Architect</div><span class="chip c-needs">needs input</span></div>
+            <div class="agent done"><div class="desk"><div class="mon"></div></div><div class="badge">✓</div><div class="aname">QA</div><span class="chip c-done">done</span></div>
+          </div>
+        </div></div>
+        <div class="sidecard">
+          <h4>📜 버전 히스토리</h4>
+          <div class="vrow"><span>v3 · 결제 페이지 추가</span><span class="undo">되돌리기</span></div>
+          <div class="vrow"><span>v2 · 로그인 연결</span><span class="undo">되돌리기</span></div>
+          <div class="vrow"><span>v1 · 첫 화면 완성</span><span class="undo">되돌리기</span></div>
+        </div>
+      </div>
+      <div class="hud-bottom">
+        <div class="chat"><input placeholder="무엇을 만들까요? 팀에게 지시하세요…"><button class="send">보내기</button></div>
+        <button class="launch">🎉 개업하기 →</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- B -->
+  <div class="style-block B">
+    <div class="style-head"><span class="tag">B</span><h2>Toy-Brutalism — 인디 볼드</h2>
+      <span class="hyp">가설: 인디 빌더 커뮤니티의 모국어 미학 — 데모 클립이 소셜에서 제일 잘 튄다</span></div>
+    <div class="style-risk">리스크: 유행 미학이라 수명 문제, 귀여움(판타지)은 약해짐</div>
+    <div class="stage"><div class="scene">
+      <div class="hud-top">
+        <div class="proj">🏢 Habit App ▾</div>
+        <div class="credits">🪙 420<small>CREDITS</small></div>
+      </div>
+      <div class="world">
+        <div class="room"><div class="room-inner">
+          <div class="sign">Development</div>
+          <div class="agents">
+            <div class="agent working"><div class="desk"><div class="mon"></div></div><div class="aname">SWE</div><span class="chip">working</span></div>
+            <div class="agent needs"><div class="desk"><div class="mon"></div></div><div class="badge">!</div><div class="aname">Architect</div><span class="chip">needs input</span></div>
+            <div class="agent done"><div class="desk"><div class="mon"></div></div><div class="badge">✓</div><div class="aname">QA</div><span class="chip">done</span></div>
+          </div>
+        </div></div>
+        <div class="sidecard">
+          <h4>📜 버전 히스토리</h4>
+          <div class="vrow"><span>v3 · 결제 페이지 추가</span><span class="undo">되돌리기</span></div>
+          <div class="vrow"><span>v2 · 로그인 연결</span><span class="undo">되돌리기</span></div>
+          <div class="vrow"><span>v1 · 첫 화면 완성</span><span class="undo">되돌리기</span></div>
+        </div>
+      </div>
+      <div class="hud-bottom">
+        <div class="chat"><input placeholder="무엇을 만들까요? 팀에게 지시하세요…"><button class="send">보내기</button></div>
+        <button class="launch">🎉 개업하기 →</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- C -->
+  <div class="style-block C">
+    <div class="style-head"><span class="tag">C</span><h2>Clay Premium — 소프트 3D</h2>
+      <span class="hyp">가설: "귀엽지만 비싸 보인다" — 대중(비게이머·모바일 세대) 접근성과 프리미엄 결제 의향의 균형</span></div>
+    <div class="style-risk">리스크: 정보 밀도가 낮아 감독(4번 버킷) 표면과 긴장, 흐릿하면 그냥 '예쁜 앱'</div>
+    <div class="stage"><div class="scene">
+      <div class="hud-top">
+        <div class="proj">🏢 Habit App ▾</div>
+        <div class="credits">🪙 420<small>CREDITS</small></div>
+      </div>
+      <div class="world">
+        <div class="room"><div class="room-inner">
+          <div class="sign">Development</div>
+          <div class="agents">
+            <div class="agent working"><div class="desk"><div class="mon"></div></div><div class="aname">SWE</div><span class="chip">working</span></div>
+            <div class="agent needs"><div class="desk"><div class="mon"></div></div><div class="badge">!</div><div class="aname">Architect</div><span class="chip">needs input</span></div>
+            <div class="agent done"><div class="desk"><div class="mon"></div></div><div class="badge">✓</div><div class="aname">QA</div><span class="chip">done</span></div>
+          </div>
+        </div></div>
+        <div class="sidecard">
+          <h4>📜 버전 히스토리</h4>
+          <div class="vrow"><span>v3 · 결제 페이지 추가</span><span class="undo">되돌리기</span></div>
+          <div class="vrow"><span>v2 · 로그인 연결</span><span class="undo">되돌리기</span></div>
+          <div class="vrow"><span>v1 · 첫 화면 완성</span><span class="undo">되돌리기</span></div>
+        </div>
+      </div>
+      <div class="hud-bottom">
+        <div class="chat"><input placeholder="무엇을 만들까요? 팀에게 지시하세요…"><button class="send">보내기</button></div>
+        <button class="launch">🎉 개업하기 →</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- D -->
+  <div class="style-block D">
+    <div class="style-head"><span class="tag">D</span><h2>Ops Console — 감독 퍼스트 미니멀</h2>
+      <span class="hyp">가설: "진짜 제품을 맡길 수 있어 보인다" — 신뢰 최대화. 판타지는 카피와 마이크로 일러스트로만</span></div>
+    <div class="style-risk">리스크: 차별점(사장님 판타지·바이럴 클립) 상실 — Vercel/Linear 아류로 보일 수 있음. 사실상 wedge 포기 실험군</div>
+    <div class="stage"><div class="scene">
+      <div class="hud-top">
+        <div class="proj">Habit App ▾</div>
+        <div class="credits">🪙 420<small>CREDITS</small></div>
+      </div>
+      <div class="world">
+        <div class="room"><div class="room-inner">
+          <div class="sign">Development</div>
+          <div class="agents" style="flex-direction:column; gap:8px;">
+            <div class="agent working"><div class="desk">S</div><div><div class="aname">SWE</div><span class="chip">Writing checkout.tsx…</span></div></div>
+            <div class="agent needs"><div class="desk">A</div><div><div class="aname">Architect</div><span class="chip">질문 대기 중 — 응답 필요</span></div></div>
+            <div class="agent done"><div class="desk">Q</div><div><div class="aname">QA</div><span class="chip">테스트 통과 · 완료</span></div></div>
+          </div>
+        </div></div>
+        <div class="sidecard">
+          <h4>Version history</h4>
+          <div class="vrow"><span>v3 · 결제 페이지 추가</span><span class="undo">되돌리기</span></div>
+          <div class="vrow"><span>v2 · 로그인 연결</span><span class="undo">되돌리기</span></div>
+          <div class="vrow"><span>v1 · 첫 화면 완성</span><span class="undo">되돌리기</span></div>
+        </div>
+      </div>
+      <div class="hud-bottom">
+        <div class="chat"><input placeholder="무엇을 만들까요? 팀에게 지시하세요…"><button class="send">보내기</button></div>
+        <button class="launch">개업하기 →</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- E -->
+  <div class="style-block E">
+    <div class="style-head"><span class="tag">E</span><h2>Pixel Office — 레트로 게임</h2>
+      <span class="hyp">가설: 게임 판타지 최대 베팅 — 노스탤지어 바이럴(클립 공유 최적), 스타크래프트 원류 감성</span></div>
+    <div class="style-risk">리스크: "장난감" 인식 최대치 — 진짜 SaaS 출시 도구라는 신뢰와 정면 충돌. 폰트 가독성(한글)도 문제</div>
+    <div class="stage"><div class="scene">
+      <div class="hud-top">
+        <div class="proj">HABIT APP ▾</div>
+        <div class="credits">🪙 420<small>CREDITS</small></div>
+      </div>
+      <div class="world">
+        <div class="room"><div class="room-inner">
+          <div class="sign">DEV TEAM</div>
+          <div class="agents">
+            <div class="agent working"><div class="desk"><div class="mon"></div></div><div class="aname">SWE</div><span class="chip">WORKING</span></div>
+            <div class="agent needs"><div class="desk"><div class="mon"></div></div><div class="badge">!</div><div class="aname">ARCH</div><span class="chip">INPUT!</span></div>
+            <div class="agent done"><div class="desk"><div class="mon"></div></div><div class="badge">✓</div><div class="aname">QA</div><span class="chip">DONE</span></div>
+          </div>
+        </div></div>
+        <div class="sidecard">
+          <h4>VERSION LOG</h4>
+          <div class="vrow"><span>v3 결제 페이지 추가</span><span class="undo">[undo]</span></div>
+          <div class="vrow"><span>v2 로그인 연결</span><span class="undo">[undo]</span></div>
+          <div class="vrow"><span>v1 첫 화면 완성</span><span class="undo">[undo]</span></div>
+        </div>
+      </div>
+      <div class="hud-bottom">
+        <div class="chat"><input placeholder="> 무엇을 만들까요?"><button class="send">SEND</button></div>
+        <button class="launch">★ 개업하기</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- F. Gather Hybrid × 4 -->
+  <div class="style-block F F1">
+    <div class="style-head"><span class="tag">F1</span><h2>Gather Hybrid — Daylight Cozy</h2>
+      <span class="hyp">가설: Gather의 검증된 대중 감성 그대로 — 따뜻한 픽셀 월드 + 웜톤 라이트 크롬</span></div>
+    <div class="style-risk">리스크: Gather 기시감 — "이거 개더타운 아니야?"가 될 수 있음. 차별화는 상태 글로우/감독 정보로 만들어야 함</div>
+    <div class="stage"><div class="scene">
+      <div class="hud-top">
+        <div class="proj">🏢 Habit App ▾</div>
+        <div class="credits">🪙 420<small>CREDITS</small></div>
+      </div>
+      <div class="world">
+        <div class="proom">
+          <div class="pwall"><div class="pwin"></div></div>
+          <div class="psign">DEV ROOM</div>
+          <div class="pfloor"><div class="pagents">
+            <div class="pagent pa1 working"><div class="phead"></div><div class="pbody"></div><div class="pmon"></div><div class="pdesk"></div><div class="plabel">SWE · working</div></div>
+            <div class="pagent pa2 needs"><div class="phead"></div><div class="pbody"></div><div class="pmon"></div><div class="pdesk"></div><div class="pbadge">!</div><div class="plabel">Architect · input</div></div>
+            <div class="pagent pa3 done"><div class="phead"></div><div class="pbody"></div><div class="pmon"></div><div class="pdesk"></div><div class="pbadge">✓</div><div class="plabel">QA · done</div></div>
+          </div></div>
+        </div>
+        <div class="sidecard">
+          <h4>Version history</h4>
+          <div class="vrow"><span>v3 · Added checkout page</span><span class="undo">Restore</span></div>
+          <div class="vrow"><span>v2 · Connected login</span><span class="undo">Restore</span></div>
+          <div class="vrow"><span>v1 · First screens done</span><span class="undo">Restore</span></div>
+        </div>
+      </div>
+      <div class="hud-bottom">
+        <div class="chat"><input placeholder="What should we build today?"><button class="send">Send</button></div>
+        <button class="launch">🎉 Grand Opening →</button>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="style-block F F2">
+    <div class="style-head"><span class="tag">F2</span><h2>Gather Hybrid — Night Shift</h2>
+      <span class="hyp">가설: 다크모드의 서사화 — 밤의 오피스 + lofi 무드, 상태 글로우 가독성이 다크에서 최대</span></div>
+    <div class="style-risk">리스크: 기본 테마로는 어두움 피로 — 다크모드 스킨으로서의 포지션이 적절 (라이트=F1/F3와 페어)</div>
+    <div class="stage"><div class="scene">
+      <div class="hud-top">
+        <div class="proj">🏢 Habit App ▾</div>
+        <div class="credits">🪙 420<small>CREDITS</small></div>
+      </div>
+      <div class="world">
+        <div class="proom">
+          <div class="pwall"><div class="pwin"></div></div>
+          <div class="psign">NIGHT SHIFT</div>
+          <div class="pfloor"><div class="pagents">
+            <div class="pagent pa1 working"><div class="phead"></div><div class="pbody"></div><div class="pmon"></div><div class="pdesk"></div><div class="plabel">SWE · working</div></div>
+            <div class="pagent pa2 needs"><div class="phead"></div><div class="pbody"></div><div class="pmon"></div><div class="pdesk"></div><div class="pbadge">!</div><div class="plabel">Architect · input</div></div>
+            <div class="pagent pa3 done"><div class="phead"></div><div class="pbody"></div><div class="pmon"></div><div class="pdesk"></div><div class="pbadge">✓</div><div class="plabel">QA · done</div></div>
+          </div></div>
+        </div>
+        <div class="sidecard">
+          <h4>Version history</h4>
+          <div class="vrow"><span>v3 · Added checkout page</span><span class="undo">Restore</span></div>
+          <div class="vrow"><span>v2 · Connected login</span><span class="undo">Restore</span></div>
+          <div class="vrow"><span>v1 · First screens done</span><span class="undo">Restore</span></div>
+        </div>
+      </div>
+      <div class="hud-bottom">
+        <div class="chat"><input placeholder="What should we build today?"><button class="send">Send</button></div>
+        <button class="launch">🎉 Grand Opening →</button>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="style-block F F3">
+    <div class="style-head"><span class="tag">F3</span><h2>Gather Hybrid — Hi-bit Minimal</h2>
+      <span class="hyp">가설: 픽셀을 은은하게 죽이고 Linear급 크롬 — 신뢰 최대치와 재미의 하한선 테스트</span></div>
+    <div class="style-risk">리스크: "왜 픽셀인지"가 약해짐 — 재미가 데코 수준으로 내려가면 wedge의 판타지 축 손실</div>
+    <div class="stage"><div class="scene">
+      <div class="hud-top">
+        <div class="proj">Habit App ▾</div>
+        <div class="credits">🪙 420<small>CREDITS</small></div>
+      </div>
+      <div class="world">
+        <div class="proom">
+          <div class="pwall"><div class="pwin"></div></div>
+          <div class="psign">DEV ROOM</div>
+          <div class="pfloor"><div class="pagents">
+            <div class="pagent pa1 working"><div class="phead"></div><div class="pbody"></div><div class="pmon"></div><div class="pdesk"></div><div class="plabel">SWE · working</div></div>
+            <div class="pagent pa2 needs"><div class="phead"></div><div class="pbody"></div><div class="pmon"></div><div class="pdesk"></div><div class="pbadge">!</div><div class="plabel">Architect · input</div></div>
+            <div class="pagent pa3 done"><div class="phead"></div><div class="pbody"></div><div class="pmon"></div><div class="pdesk"></div><div class="pbadge">✓</div><div class="plabel">QA · done</div></div>
+          </div></div>
+        </div>
+        <div class="sidecard">
+          <h4>Version history</h4>
+          <div class="vrow"><span>v3 · Added checkout page</span><span class="undo">Restore</span></div>
+          <div class="vrow"><span>v2 · Connected login</span><span class="undo">Restore</span></div>
+          <div class="vrow"><span>v1 · First screens done</span><span class="undo">Restore</span></div>
+        </div>
+      </div>
+      <div class="hud-bottom">
+        <div class="chat"><input placeholder="What should we build today?"><button class="send">Send</button></div>
+        <button class="launch">Grand Opening →</button>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="style-block F F4">
+    <div class="style-head"><span class="tag">F4</span><h2>Gather Hybrid — Chunky Playful</h2>
+      <span class="hyp">가설: 재미 최대치 — 굵은 픽셀 + 채도 높은 팔레트 + 팝 크롬. 클립발 최강 실험군</span></div>
+    <div class="style-risk">리스크: E 방향으로의 후퇴 — 장난감 인식 재접근. 크롬이 눌러줘야 함</div>
+    <div class="stage"><div class="scene">
+      <div class="hud-top">
+        <div class="proj">🏢 Habit App ▾</div>
+        <div class="credits">🪙 420<small>CREDITS</small></div>
+      </div>
+      <div class="world">
+        <div class="proom">
+          <div class="pwall"><div class="pwin"></div></div>
+          <div class="psign">DEV ROOM</div>
+          <div class="pfloor"><div class="pagents">
+            <div class="pagent pa1 working"><div class="phead"></div><div class="pbody"></div><div class="pmon"></div><div class="pdesk"></div><div class="plabel">SWE · working</div></div>
+            <div class="pagent pa2 needs"><div class="phead"></div><div class="pbody"></div><div class="pmon"></div><div class="pdesk"></div><div class="pbadge">!</div><div class="plabel">Architect · input</div></div>
+            <div class="pagent pa3 done"><div class="phead"></div><div class="pbody"></div><div class="pmon"></div><div class="pdesk"></div><div class="pbadge">✓</div><div class="plabel">QA · done</div></div>
+          </div></div>
+        </div>
+        <div class="sidecard">
+          <h4>Version history</h4>
+          <div class="vrow"><span>v3 · Added checkout page</span><span class="undo">Restore</span></div>
+          <div class="vrow"><span>v2 · Connected login</span><span class="undo">Restore</span></div>
+          <div class="vrow"><span>v1 · First screens done</span><span class="undo">Restore</span></div>
+        </div>
+      </div>
+      <div class="hud-bottom">
+        <div class="chat"><input placeholder="What should we build today?"><button class="send">Send</button></div>
+        <button class="launch">🎉 Grand Opening →</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 스코어카드 -->
+  <div class="score">
+    <h2>판정 기준 (같이 채우자)</h2>
+    <table>
+      <tr><th>기준</th><th>A Cozy</th><th>B Bold</th><th>C Clay</th><th>D Console</th><th>E Pixel</th></tr>
+      <tr><td>신뢰감 — "진짜 SaaS를 맡길 수 있겠다"</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>판타지 — 사장님 몰입 (Joshua 검증 축)</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>데모 클립발 — 소셜에서 튀는가</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>정보 밀도 — 감독 표면(버킷④) 적합성</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>모바일/PWA(버킷⑤) 이식성</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>구현/유지 비용</td><td></td><td></td><td></td><td></td><td></td></tr>
+    </table>
+    <h2 style="margin-top:28px;">F 변형 판정 (Gather Hybrid 확정 시)</h2>
+    <table>
+      <tr><th>기준</th><th>F1 Daylight</th><th>F2 Night</th><th>F3 Hi-bit Min</th><th>F4 Chunky</th></tr>
+      <tr><td>신뢰감 — 크롬이 픽셀을 눌러주는가</td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>판타지 — 사장님 몰입</td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>데모 클립발</td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>정보 밀도 — 감독 표면 적합성</td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Gather 기시감 회피</td><td></td><td></td><td></td><td></td></tr>
+    </table>
+    <p class="note">F 공통 원칙: 픽셀은 월드에만 — 히스토리/런치/빌링 등 신뢰 표면은 모던 크롬("픽셀은 돈을 만지지 않는다").
+       F2는 단독 후보라기보다 라이트 변형(F1/F3)의 다크모드 페어로 보는 게 정확. 유력 조합: F1(라이트) × F2(다크), 또는 F3(라이트) × F2(다크).</p>
+    <p class="note">참고 — 하이브리드도 유효한 답: 예) 세계(오피스)는 A/C로 판타지 유지 + 감독·히스토리·런치 표면은 D의 정보 밀도 차용.
+       실제로 D48이 오피스 캔버스를 자산으로 못박았으므로, "세계는 유지하고 UI 레이어만 스타일 교체"가 가장 싼 경로.
+       판정 후 승자 스타일로 첫 실행 경험 목업(step 1)을 뜬다.</p>
+  </div>
+</div>
+</body>
+</html>
