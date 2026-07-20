@@ -489,6 +489,19 @@ function OrchestratorChat({ focused, setFocused, onSend, projectId }: {
 }) {
   const { getToken: clerkToken } = useAuth();
   const [msg, setMsg] = useState("");
+  // 첫 목표 프리필(D58) — 온보딩 ⑥에서 ?goal=로 넘어온 목표를 입력창에 채우고 챗을 연다.
+  // 소비 후 URL에서 제거(새로고침/공유 시 재프리필 방지). 디스패치는 유저의 Send 클릭에 맡긴다.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const goal = params.get("goal");
+    if (!goal) return;
+    setMsg(goal);
+    setFocused(true);
+    params.delete("goal");
+    const q = params.toString();
+    window.history.replaceState(null, "", window.location.pathname + (q ? `?${q}` : ""));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [bubbles, setBubbles] = useState<{ role: "user" | "orchestrator" | "event"; text: string }[]>([]);
   // 태스크 종결 라이브 이벤트 라인(B1) — SSE가 store에 쌓으면 여기서 소비해 버블로 append.
   const chatEvents = useStore((s) => s.chatEvents);

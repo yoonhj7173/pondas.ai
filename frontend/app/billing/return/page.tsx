@@ -1,7 +1,7 @@
 "use client";
 
 // Stripe Embedded Checkout 완료 후 돌아오는 페이지(빌링 D46). 크레딧 적립은 웹훅이 비동기 처리하므로
-// 여기선 "곧 반영" 안내만. 몇 초 뒤 워크스페이스로 자동 복귀(마지막 프로젝트) + 수동 버튼도 제공.
+// 여기선 "곧 반영" 안내만. 몇 초 뒤 Back to workspace 자동 복귀(마지막 프로젝트) + 수동 버튼도 제공.
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -18,12 +18,12 @@ export default function BillingReturn() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center" style={{ background: "#C6C9BC" }}>
-      <div className="font-baloo text-2xl font-extrabold text-ink">결제 완료 🎉</div>
+      <div className="font-baloo text-2xl font-extrabold text-ink">Payment complete 🎉</div>
       <p className="max-w-sm text-sm text-secondary">
-        크레딧이 곧 treasury에 반영됩니다. 워크스페이스로 돌아가는 중…
+        Your credits will land in the treasury shortly. Heading back to your workspace…
       </p>
       <Link href="/app" className="btn-pill btn-primary text-sm">
-        워크스페이스로
+        Back to workspace
       </Link>
     </main>
   );
