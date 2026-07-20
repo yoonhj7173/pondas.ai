@@ -22,6 +22,30 @@ export function Theater({ projectId, getToken, onSend, onClose }: {
   const applyPreview = useStore((s) => s.applyPreview);
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [starting, setStarting] = useState(false);
+  // 디자인 코멘트 모드(item 39, D56④) — 이 페르소나의 개입 모국어는 diff가 아니라 "여기 이거".
+  // 크로스오리진 iframe이라 셀렉터 캡처 대신 좌표(% + 뷰포트)를 구조화해 디스패치한다(P1: 주입 스크립트).
+  const [commentMode, setCommentMode] = useState(false);
+  const [pin, setPin] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [pinText, setPinText] = useState("");
+  const [pinSent, setPinSent] = useState(false);
+
+  function onOverlayClick(e: React.MouseEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setPin({
+      x: Math.round(((e.clientX - rect.left) / rect.width) * 100),
+      y: Math.round(((e.clientY - rect.top) / rect.height) * 100),
+      w: Math.round(rect.width), h: Math.round(rect.height),
+    });
+    setPinText(""); setPinSent(false);
+  }
+
+  async function sendPin() {
+    if (!pin || !pinText.trim()) return;
+    const msg = `[Design comment] On preview v${preview.versionNo ?? "?"}, I clicked at (${pin.x}%, ${pin.y}%) of a ${pin.w}×${pin.h} viewport and want this change: "${pinText.trim()}". Identify the UI element at that location and apply the change.`;
+    setPinSent(true);
+    await onSend?.(msg);
+    setTimeout(() => { setPin(null); setCommentMode(false); }, 900);
+  }
 
   async function loadVersions() {
     try {
@@ -96,12 +120,50 @@ export function Theater({ projectId, getToken, onSend, onClose }: {
           <div className="flex-1 truncate rounded-pill border border-[#dde2e9] bg-white px-3 py-1 font-mono text-[11px] text-[#4a5568]">
             {preview.url ?? "—"}
           </div>
+          <button onClick={() => { setCommentMode((m) => !m); setPin(null); }}
+            className={clsx("rounded-pill border px-2.5 py-1 text-[11px] font-bold",
+              commentMode ? "border-primary-to bg-primary-to text-white" : "border-[#dde2e9] bg-white text-[#4a5568]")}
+            title="Click an element in the preview and describe the change">💬 Point &amp; comment</button>
           <button onClick={startPreview} className="rounded-pill border border-[#dde2e9] bg-white px-2.5 py-1 text-[11px] font-bold text-[#4a5568]" title="Reload">⟳</button>
           {preview.url && <a href={preview.url} target="_blank" rel="noreferrer" className="rounded-pill border border-[#dde2e9] bg-white px-2.5 py-1 text-[11px] font-bold text-[#2b6cb0]">↗ New tab</a>}
         </div>
         <div className="relative min-h-0 flex-1 bg-[#fbf6ee]">
           {ready ? (
-            <iframe key={preview.versionNo ?? "v"} src={preview.url!} title="app preview" className="h-full w-full border-0" sandbox="allow-scripts allow-same-origin allow-forms" />
+            <>
+              <iframe key={preview.versionNo ?? "v"} src={preview.url!} title="app preview" className="h-full w-full border-0" sandbox="allow-scripts allow-same-origin allow-forms" />
+              {commentMode && (
+                <div onClick={onOverlayClick} className="absolute inset-0 cursor-crosshair bg-primary-to/5"
+                  title="Click where you want a change">
+                  {!pin && (
+                    <div className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2 rounded-pill bg-[rgba(24,22,36,0.85)] px-4 py-1.5 text-[12px] font-semibold text-white">
+                      Click the spot you want changed
+                    </div>
+                  )}
+                </div>
+              )}
+              {commentMode && pin && (
+                <div className="absolute z-10" style={{ left: `${pin.x}%`, top: `${pin.y}%` }} onClick={(e) => e.stopPropagation()}>
+                  <div className="-ml-2 -mt-2 h-4 w-4 rounded-full border-2 border-white bg-primary-to shadow" />
+                  <div className="mt-1 w-64 -translate-x-1/2 rounded-xl border border-[#E4DFEF] bg-white p-2 shadow-card">
+                    {pinSent ? (
+                      <div className="py-1 text-center text-[13px] font-semibold text-status-done">Sent to the team ✓</div>
+                    ) : (
+                      <>
+                        <input autoFocus value={pinText} onChange={(e) => setPinText(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && sendPin()}
+                          placeholder='e.g. "make this button green"'
+                          className="w-full rounded-lg border border-[#E4DFEF] px-2 py-1.5 text-[13px] outline-none focus:border-primary-to" />
+                        <div className="mt-1.5 flex justify-end gap-2">
+                          <button onClick={() => setPin(null)} className="text-[11px] text-muted hover:underline">Cancel</button>
+                          <button onClick={sendPin} disabled={!pinText.trim()}
+                            className="rounded-lg bg-primary-to px-3 py-1 text-[12px] font-bold text-white disabled:opacity-50">Send</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-ink-soft">
               {disabled ? (

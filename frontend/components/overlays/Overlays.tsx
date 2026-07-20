@@ -525,6 +525,23 @@ export function HistoryOverlay({ projectId, getToken, onClose }: { projectId: st
   const [busy, setBusy] = useState<number | null>(null);
   const [repoBusy, setRepoBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 코드뷰(D56④) — "숨기되 잠그지 않기": 원하면 최신 버전 파일을 읽을 수 있다.
+  const [tab, setTab] = useState<"history" | "code">("history");
+  const [files, setFiles] = useState<{ path: string; output_id: string }[] | null>(null);
+  const [fileView, setFileView] = useState<{ path: string; content: string | null; binary: boolean } | null>(null);
+
+  async function loadFiles() {
+    const token = await getToken();
+    const res = await apiFetch<{ version_no: number | null; files: { path: string; output_id: string }[] }>(
+      `/api/projects/${projectId}/files`, { token });
+    setFiles(res.files);
+  }
+  async function openFile(f: { path: string; output_id: string }) {
+    const token = await getToken();
+    const res = await apiFetch<{ path: string; is_binary: boolean; content: string | null }>(
+      `/api/outputs/${f.output_id}`, { token });
+    setFileView({ path: res.path, content: res.content, binary: res.is_binary });
+  }
 
   const load = useCallback(async () => {
     const token = await getToken();
@@ -559,7 +576,13 @@ export function HistoryOverlay({ projectId, getToken, onClose }: { projectId: st
     <Overlay onClose={onClose}>
       <div className="flex h-[600px] w-[720px] flex-col p-6">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xl font-bold">Version history</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold">Version history</h2>
+            <button onClick={() => setTab("history")}
+              className={clsx("rounded-pill px-3 py-1 text-[12px] font-semibold", tab === "history" ? "bg-primary-to text-white" : "bg-[#EFEDF5] text-secondary")}>Versions</button>
+            <button onClick={() => { setTab("code"); if (!files) loadFiles().catch(() => setError("Failed to load files")); }}
+              className={clsx("rounded-pill px-3 py-1 text-[12px] font-semibold", tab === "code" ? "bg-primary-to text-white" : "bg-[#EFEDF5] text-secondary")}>View code</button>
+          </div>
           <button onClick={onClose} className="text-sm text-muted hover:underline">Close</button>
         </div>
 
@@ -589,6 +612,24 @@ export function HistoryOverlay({ projectId, getToken, onClose }: { projectId: st
 
         {error && <div className="mb-2 text-sm text-status-failed">{error}</div>}
 
+        {tab === "code" ? (
+          <div className="flex min-h-0 flex-1 gap-3">
+            <div className="chat-scroll w-56 flex-none overflow-y-auto rounded-xl border border-[#F0EDF6] p-2">
+              {!files ? <div className="py-4 text-center text-[12px] text-muted">Loading…</div> :
+                files.length === 0 ? <div className="py-4 text-center text-[12px] text-muted">No files yet</div> :
+                files.map((f) => (
+                  <button key={f.path} onClick={() => openFile(f)}
+                    className={clsx("block w-full truncate rounded-md px-2 py-1 text-left font-mono text-[11px] hover:bg-[#F3F1F9]",
+                      fileView?.path === f.path && "bg-[#EFEDFB] font-bold")}>{f.path}</button>
+                ))}
+            </div>
+            <div className="chat-scroll min-w-0 flex-1 overflow-auto rounded-xl border border-[#F0EDF6] bg-[#FDFCF9] p-3">
+              {!fileView ? <div className="py-8 text-center text-[12px] text-muted">Pick a file — read-only. Your team edits these for you.</div> :
+                fileView.binary ? <div className="py-8 text-center text-[12px] text-muted">Binary file — download it from Outputs.</div> :
+                <pre className="whitespace-pre-wrap font-mono text-[11.5px] leading-relaxed text-ink-soft">{fileView.content}</pre>}
+            </div>
+          </div>
+        ) : (
         <div className="chat-scroll flex-1 overflow-y-auto">
           {!data ? <div className="py-8 text-center text-muted">Loading…</div> :
             data.versions.length === 0 ? (
@@ -614,6 +655,7 @@ export function HistoryOverlay({ projectId, getToken, onClose }: { projectId: st
               </div>
             ))}
         </div>
+        )}
       </div>
     </Overlay>
   );

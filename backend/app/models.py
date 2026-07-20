@@ -129,6 +129,12 @@ class Project(Base):
     # Live Preview 샌드박스(Phase 2, D49) — 빌드 워크스페이스와 독립된 on-demand E2B.
     # GitHub 소유권(D61) — 유저 계정의 리포 full_name("login/name"). null = 미연결.
     repo_full_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Deploy(D60, item 37) — Grand Opening 상태. status: none|building|ready|error.
+    deploy_provider_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    deploy_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    deploy_domain: Mapped[str | None] = mapped_column(Text, nullable=True)
+    deploy_status: Mapped[str] = mapped_column(Text, nullable=False, server_default="none")
+    deployed_version_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
     preview_sandbox_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     preview_status: Mapped[str] = mapped_column(Text, nullable=False, server_default="none")
     preview_version_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -518,6 +524,34 @@ class WorkspaceVersion(Base):
         UniqueConstraint("project_id", "version_no", name="uq_workspace_versions_no"),
         Index("ix_workspace_versions_project", "project_id"),
     )
+
+
+class ProjectSecret(Base):
+    """배포 시크릿(D60) — 값은 Fernet 암호화 at rest. API는 값을 절대 되돌려주지 않는다(키 목록만)."""
+
+    __tablename__ = "project_secrets"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    project_id: Mapped[uuid.UUID] = _fk_uuid("projects.id")
+    key: Mapped[str] = mapped_column(Text, nullable=False)
+    value_encrypted: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[datetime] = _created_at()
+
+    __table_args__ = (UniqueConstraint("project_id", "key", name="uq_project_secrets_key"),)
+
+
+class PushSubscription(Base):
+    """Web Push 구독(D56⑤) — 유저당 기기별 1행. endpoint가 자연키."""
+
+    __tablename__ = "push_subscriptions"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    user_id: Mapped[str] = mapped_column(Text, nullable=False)
+    endpoint: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    keys: Mapped[dict] = mapped_column(JSONB, nullable=False)  # {p256dh, auth}
+    created_at: Mapped[datetime] = _created_at()
+
+    __table_args__ = (Index("ix_push_subscriptions_user", "user_id"),)
 
 
 class GithubConnection(Base):

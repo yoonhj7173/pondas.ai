@@ -11,6 +11,7 @@ import { PillButton, Stepper } from "@/components/ui/primitives";
 import { apiFetch, E2E, TEAM_TEMPLATES } from "@/lib/api";
 import { pickProject, setLastProject } from "@/lib/lastProject";
 import { CARPET } from "@/lib/tokens";
+import { track } from "@/lib/analytics";
 
 const STEPS = ["Sign in", "You", "Company", "Teams", "Context", "First goal"];
 
@@ -97,6 +98,9 @@ export default function Onboarding() {
         } catch { /* 개별 파일 실패는 무시 — 컨텍스트는 선택 사항 */ }
       }
       setLastProject(project.id);
+      // 퍼널(D58): 가입 완료 = 첫 프로젝트 생성. first_goal 선택 여부도 절벽 분석에 중요.
+      track("signup_completed");
+      track("project_created", { teams: teams.length, with_first_goal: Boolean(goal.trim()) });
       // 첫 목표(D58) — 있으면 쿼리로 넘겨 챗 입력창에 프리필. Hud가 소비 후 URL에서 제거.
       const q = goal.trim() ? `?goal=${encodeURIComponent(goal.trim())}` : "";
       router.push(`/app/${project.id}${q}`);
