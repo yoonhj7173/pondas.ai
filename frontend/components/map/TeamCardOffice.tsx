@@ -8,23 +8,25 @@ import type { MapData, TeamRoom, AgentNode } from "@/lib/map/types";
 import { visualStatus, type AgentStatus } from "@/lib/tokens";
 
 // 팀 템플릿 → 이모지 + 액센트/틴트.
+// G-Clay(D59): soft = 룸 카펫(파스텔), accent = 좌측 스파인/딥톤, av = 아바타 틴트.
 const TEAM: Record<string, { emoji: string; accent: string; soft: string; av: string }> = {
-  planning: { emoji: "📋", accent: "#8fa9cf", soft: "#dfe7f0", av: "#e7ecf4" },
-  research: { emoji: "🔍", accent: "#8fb886", soft: "#e4eede", av: "#e6f0e1" },
-  design: { emoji: "🎨", accent: "#c69ac4", soft: "#f0e4ef", av: "#f2e5f1" },
-  development: { emoji: "🛠️", accent: "#8b9dc0", soft: "#e6ebf2", av: "#e7ebf3" },
-  data: { emoji: "📊", accent: "#c9a24b", soft: "#efe7d1", av: "#efe7d1" },
+  planning: { emoji: "📋", accent: "#86A8D8", soft: "#BDD1EA", av: "#DCE8F5" },
+  research: { emoji: "🔍", accent: "#7DB98A", soft: "#BFD9C6", av: "#DEEFE2" },
+  design: { emoji: "🎨", accent: "#C9A96B", soft: "#E7DCC8", av: "#F2EAD9" },
+  development: { emoji: "🛠️", accent: "#8D83CF", soft: "#BBB4DF", av: "#E3DFF4" },
+  data: { emoji: "📊", accent: "#7FB894", soft: "#CFE4D4", av: "#E4F1E8" },
 };
-const DEFAULT_TEAM = { emoji: "🏢", accent: "#9aa08e", soft: "#e8e9df", av: "#eceee4" };
+const DEFAULT_TEAM = { emoji: "🏢", accent: "#A9A6B8", soft: "#E6E2F0", av: "#F0EDF7" };
 
 // 상태 → pill/링/dot.
 type SK = "idle" | "working" | "needs-input" | "failed" | "done";
-const STATUS: Record<SK, { label: string; pill: string; ring: string; dot: string; glyph: string; pulse?: boolean }> = {
-  idle: { label: "idle", pill: "bg-[#edeee6] text-[#8a887c]", ring: "rgba(120,118,105,.35)", dot: "#b7b6ab", glyph: "" },
-  working: { label: "working", pill: "bg-[rgba(63,180,220,.15)] text-[#2f9fc7]", ring: "#3fb4dc", dot: "#3fb4dc", glyph: "↻" },
-  "needs-input": { label: "needs you", pill: "bg-[rgba(239,180,62,.22)] text-[#a6710f]", ring: "#efb43e", dot: "#efb43e", glyph: "!", pulse: true },
-  failed: { label: "failed", pill: "bg-[rgba(232,80,58,.16)] text-[#c0341f]", ring: "#e8503a", dot: "#e8503a", glyph: "×" },
-  done: { label: "done ✓", pill: "bg-gradient-to-br from-[#74d982] to-[#4dbb5c] text-white shadow-[0_3px_8px_rgba(77,187,92,.32)]", ring: "#4dbb5c", dot: "#4dbb5c", glyph: "✓" },
+// screen = 데스크 모니터 스크린 색(D54: 상태색이 감독 정보 — 글로우는 활성 상태만).
+const STATUS: Record<SK, { label: string; pill: string; ring: string; dot: string; glyph: string; screen: string; glow?: string; pulse?: boolean }> = {
+  idle: { label: "idle", pill: "bg-[#EFEDF5] text-[#6E6A87]", ring: "rgba(110,106,135,.3)", dot: "#B9B5CC", glyph: "", screen: "#4A4662" },
+  working: { label: "working", pill: "bg-[rgba(89,215,255,.2)] text-[#1F7FA8]", ring: "#38B6E8", dot: "#38B6E8", glyph: "↻", screen: "#59D7FF", glow: "rgba(89,215,255,.75)" },
+  "needs-input": { label: "needs you", pill: "bg-[#FFF3D6] text-[#96660A]", ring: "#F2A93B", dot: "#F2A93B", glyph: "!", screen: "#FFC848", glow: "rgba(255,200,72,.75)", pulse: true },
+  failed: { label: "failed", pill: "bg-[#FBE3DE] text-[#B23A26]", ring: "#E8503A", dot: "#E8503A", glyph: "×", screen: "#FF8A75", glow: "rgba(232,80,58,.65)" },
+  done: { label: "done ✓", pill: "bg-gradient-to-br from-[#54C875] to-[#3AA45C] text-white shadow-[0_3px_8px_rgba(67,179,106,.35)]", ring: "#4CC97A", dot: "#4CC97A", glyph: "✓", screen: "#7FE8A2" },
 };
 
 // 역할명 → 이모지(휴리스틱, 부분일치).
@@ -96,7 +98,7 @@ function TeamCard({
   return (
     <div
       onClick={() => onSelectTeam?.(team.id)}
-      className="relative min-h-[176px] cursor-pointer rounded-[20px] border border-white bg-white/95 p-5 shadow-[0_1px_0_#e6e7dd,0_14px_30px_rgba(50,55,45,.13)] transition-transform hover:-translate-y-[3px] hover:shadow-[0_1px_0_#e6e7dd,0_20px_42px_rgba(50,55,45,.18)]"
+      className="relative min-h-[176px] cursor-pointer rounded-[20px] border border-white bg-white/95 p-5 shadow-[0_1px_0_#EBE7F4,0_14px_30px_rgba(110,100,168,.16)] transition-transform hover:-translate-y-[3px] hover:shadow-[0_1px_0_#EBE7F4,0_20px_42px_rgba(110,100,168,.22)]"
     >
       <div className="pointer-events-none absolute bottom-[18px] left-0 top-[18px] w-1 rounded-r" style={{ background: t.accent }} />
       <div className="flex items-center gap-[9px]">
@@ -106,14 +108,24 @@ function TeamCard({
         <span className={`flex-none whitespace-nowrap rounded-full px-[11px] py-1 text-[11px] font-extrabold ${pill.pill}`}>{pill.label}</span>
       </div>
 
-      <p className="mt-[9px] break-words text-[12.5px] leading-[1.45] text-[#8f8c7e]">
+      <p className="mt-[9px] break-words text-[12.5px] leading-[1.45] text-muted">
         {team.summary ?? "No tasks yet — give the team something to do"}
       </p>
 
       {team.agents.length === 0 ? (
-        <p className="mt-4 text-[12px] italic text-[#a9a89c]">No agents yet — hire your first</p>
+        <p className="mt-4 text-[12px] italic text-muted-2">No agents yet — hire your first</p>
       ) : (
-        <div className="mt-[18px] flex flex-wrap gap-x-[12px] gap-y-[16px]">
+        <div
+          className="mt-[14px] flex flex-wrap gap-x-[10px] gap-y-[14px] rounded-[14px] px-3 pb-2 pt-3"
+          // 룸 카펫(D59) — 팀 컬러 파스텔 + 은은한 타일 그리드. 에이전트는 이 위에 "앉아" 있다.
+          style={{
+            background: t.soft,
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,.22) 1.5px, transparent 1.5px), linear-gradient(90deg, rgba(255,255,255,.22) 1.5px, transparent 1.5px)",
+            backgroundSize: "22px 22px",
+            boxShadow: "inset 0 2px 6px rgba(70,60,120,.12)",
+          }}
+        >
           {team.agents.map((a) => (
             <AgentAvatar key={a.id} agent={a} teamAv={t.av} status={liveStatus(a)}
               onSelect={onSelectAgent} />
@@ -143,20 +155,28 @@ function AgentAvatar({
       <span className={`mx-auto mb-1 block w-fit whitespace-nowrap rounded-full px-2 py-px text-[9px] font-extrabold leading-[1.5] ${s.pill} ${sk === "working" ? "animate-pulse" : ""}`}>
         {s.label}
       </span>
-      <span className="relative mx-auto block h-[46px] w-[46px]">
-        <span className="grid h-[46px] w-[46px] place-items-center rounded-full border-[2.5px] border-white text-[23px] shadow-[0_4px_10px_rgba(50,55,45,.16)]" style={{ background: teamAv }}>
+      <span className="relative mx-auto block h-[64px] w-[58px]">
+        {/* 아바타(뒤) — 데스크에 앉은 구도라 하단이 데스크에 살짝 가려진다 */}
+        <span className="absolute left-1/2 top-0 grid h-[40px] w-[40px] -translate-x-1/2 place-items-center rounded-full border-2 border-white text-[20px] shadow-[0_4px_10px_rgba(110,100,168,.2)]" style={{ background: teamAv }}>
           {roleEmoji(agent.name)}
         </span>
-        <span className={`absolute rounded-full ${s.pulse ? "animate-pulse" : ""}`} style={{ inset: -3, border: `2.5px solid ${s.ring}` }} />
+        <span className={`absolute left-1/2 top-0 h-[40px] w-[40px] -translate-x-1/2 rounded-full ${s.pulse ? "animate-pulse" : ""}`} style={{ border: `2.5px solid ${s.ring}` }} />
+        {/* 데스크(앞) — 화이트 클레이 */}
+        <span className="absolute bottom-0 left-1/2 h-[15px] w-[56px] -translate-x-1/2 rounded-[5px] bg-[#FDFCF9] shadow-[0_2px_0_#D5D0C2,0_5px_10px_rgba(110,100,168,.18)]" />
+        {/* 모니터 — 스크린 = 상태색, 활성 상태는 글로우(D54: 감독 정보) */}
+        <span className="absolute bottom-[7px] left-1/2 h-[17px] w-[24px] -translate-x-1/2 rounded-[3px] bg-[#33304A] p-[2.5px]">
+          <span className={`block h-full w-full rounded-[1.5px] ${s.pulse ? "animate-pulse" : ""}`}
+            style={{ background: s.screen, boxShadow: s.glow ? `0 0 10px 2px ${s.glow}` : "none" }} />
+        </span>
         {s.glyph && (
-          <span className="absolute -bottom-px -right-px grid h-[15px] w-[15px] place-items-center rounded-full border-[2.5px] border-white font-baloo text-[9px] font-black text-white" style={{ background: s.dot }}>{s.glyph}</span>
+          <span className="absolute bottom-[10px] right-0 grid h-[15px] w-[15px] place-items-center rounded-full border-2 border-white text-[9px] font-black text-white" style={{ background: s.dot }}>{s.glyph}</span>
         )}
       </span>
       <span
-        className="mt-[6px] block break-words font-baloo text-[10.5px] font-extrabold leading-[1.15] text-[#55514a]"
+        className="mt-[6px] block break-words font-baloo text-[10.5px] font-extrabold leading-[1.15] text-ink-soft"
         style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
       >{agent.name}</span>
-      <span className="block font-mono text-[9px] text-[#8f8c7e]">{agent.model_tier}</span>
+      <span className="block font-mono text-[9px] text-muted">{agent.model_tier}</span>
     </button>
   );
 }
