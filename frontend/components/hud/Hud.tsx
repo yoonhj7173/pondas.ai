@@ -12,6 +12,7 @@ import { STATUS_CHIP, visualStatus } from "@/lib/tokens";
 import { apiFetch, E2E } from "@/lib/api";
 import { ding } from "@/lib/sound";
 import { enablePush, pushGranted, pushSupported } from "@/lib/push";
+import { track, trackOnce } from "@/lib/analytics";
 
 // 채팅 말풍선 마크다운(QA-03-2) — office 기본 청크를 가볍게 유지(lazy, Markdown.tsx 컨벤션).
 const Markdown = dynamic(() => import("@/components/ui/Markdown"), { ssr: false });
@@ -599,6 +600,9 @@ function OrchestratorChat({ focused, setFocused, onSend, projectId }: {
     const m = msg.trim();
     if (!m || sending) return;
     setSending(true);
+    // 퍼널(D58) — 최대 절벽 지표: 이 유저의 첫 태스크 디스패치.
+    trackOnce("first_task", "first_task_dispatched");
+    track("chat_dispatched");
     setBubbles((b) => [...b, { role: "user", text: m }]);
     setMsg("");
     setAtBottom(true);
