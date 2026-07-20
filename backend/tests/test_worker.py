@@ -188,7 +188,8 @@ def test_stop_preserves_partial_work(env, monkeypatch):
     tid = _queued(db, uid, pid, aid, instructions="build ui", engine="agent_sdk")
 
     def fake_run(prompt, provider, sandbox_id, *, client, role_instructions="",
-                 task_timeout_sec=0, on_step=None, should_stop=None, on_plan=None):
+                 task_timeout_sec=0, token_budget=0, compact_threshold=0,
+                 on_step=None, should_stop=None, on_plan=None):
         # 러너가 일부 작업(파일 1개)을 한 뒤 유저가 Stop 누른 상황 재현.
         provider.write_file(sandbox_id, "app/page.tsx", b"partial work")
         t = db.get(Task, tid)
@@ -223,7 +224,8 @@ def test_plan_persisted_and_emitted(env, monkeypatch):
     plan = [{"title": "Scaffold", "done": True}, {"title": "Screens", "done": False}]
 
     def fake_run(prompt, provider, sandbox_id, *, client, role_instructions="",
-                 task_timeout_sec=0, on_step=None, should_stop=None, on_plan=None):
+                 task_timeout_sec=0, token_budget=0, compact_threshold=0,
+                 on_step=None, should_stop=None, on_plan=None):
         on_plan(plan)
         return dev_runner.DevOutcome(status="done", output="ok", tokens_in=10, tokens_out=5)
 

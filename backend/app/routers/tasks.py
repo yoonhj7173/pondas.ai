@@ -134,3 +134,60 @@ def retry_task(
     events.emit_status(new)
     from app.celery_app import enqueue_task
     enqueue_task(new.id)
+
+
+@router.post(
+    "/tasks/{task_id}/fix",
+    status_code=204,
+    dependencies=[Depends(rate_limit("20/minute", "task_fix"))],  # 새 task 생성 + LLM 트리거 → 제한 필수.
+)
+def fix_task(
+    task_id: uuid.UUID,
+    scope: TenantScope = Depends(tenant_scope),
+    db: Session = Depends(get_db),
+) -> None:
+    """고쳐줘 버튼(D56③) — 실패한 작업의 '실패 컨텍스트'를 주입한 디버그 작업을 새로 만든다.
+
+    무슨 일을 하나: retry(같은 지시 재실행)와 달리, 에러 요약 + 마지막 실행 명령/종료코드를
+        지시문에 붙여 "원인부터 진단하고 고쳐라"로 보낸다. 워크스페이스는 프로젝트별 영속이라
+        직전 시도의 파일 위에서 디버깅이 이어진다(D50).
+    누가 부르나: 에이전트 패널 failed 박스의 'Fix it' 버튼 — PanelController.tsx.
+    연결: 작업 생성 → create_task, 처리 → process_task (worker_core.py).
+    """
+    from app.models import Agent
+
+    task = _load_owned_task(db, scope, task_id)
+    if task.status != "failed":
+        raise HTTPException(status_code=409, detail="only failed tasks can be fixed")
+    agent = db.get(Agent, task.agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    # 실패 컨텍스트 — 사람말 에러 + 최근 실행 증적 꼬리(디버깅의 출발점).
+    recent = (task.verification or [])[-5:]
+    cmd_log = "\n".join(
+        f"- `{v.get('cmd', '?')}` → exit {v.get('exit_code', '?')}" for v in recent
+    ) or "(no commands were recorded)"
+    fix_instructions = (
+        f"{task.instructions}\n\n"
+        "# Previous attempt FAILED — debug before rebuilding\n"
+        f"Error: {task.error_summary or 'unknown error'}\n"
+        f"Recent commands from the failed attempt:\n{cmd_log}\n\n"
+        "The workspace still contains the previous attempt's files. Diagnose the root cause "
+        "first (read the relevant files / rerun the failing command), apply a minimal fix, "
+        "then verify the original goal end-to-end."
+    )
+    new = ts.create_task(
+        db,
+        user_id=task.user_id,
+        project_id=task.project_id,
+        agent=agent,
+        instructions=fix_instructions,
+        origin=task.origin,
+        goal_id=task.goal_id,
+        input_payload=task.input_payload,
+    )
+    db.commit()
+    events.emit_status(new)
+    from app.celery_app import enqueue_task
+    enqueue_task(new.id)

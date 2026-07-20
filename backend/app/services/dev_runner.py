@@ -23,8 +23,15 @@ from app.services.sandbox import SandboxProvider, SandboxTimeout
 
 log = logging.getLogger("app.dev_runner")
 
-MAX_STEPS = 40
+# D56③ 예산제 — 구 MAX_STEPS(40) 벽 폐기(Joshua 3연속 실패의 직접 원인). 실제 한도는
+# 토큰 예산(settings.dev_token_budget)과 시간 예산이며, 아래는 폭주 방지용 하드 캡일 뿐.
+HARD_STEP_CAP = 500
 DEFAULT_TASK_TIMEOUT_SEC = 30 * 60
+# 예산 소진 시 유저에게 보여줄 사람말 안내(D56③: 조용한 실패 금지 — 부분 결과 + 이어가기).
+_BUDGET_PROMPT = (
+    "I've used up this task's work budget before finishing. Everything I built so far is saved "
+    "in the workspace — reply 'continue' and I'll pick up right where I left off."
+)
 PER_COMMAND_TIMEOUT_SEC = 300
 _SUMMARY_CAP = 2000        # verification DB행 요약(UI 표시용) — 모델에게 주는 캡과 별개.
 # 모델에게 보여주는 툴 결과 캡. 기존엔 전 필드 2,000자 head-절단이라 긴 빌드 에러의
@@ -253,6 +260,58 @@ def _exec_tool(provider: SandboxProvider, sandbox_id: str, call: ToolCall, verif
     return {"error": f"unknown tool {name}"}
 
 
+def _compact_messages(messages: list, client) -> tuple[int, int]:
+    """컨텍스트 컴팩션(D56③) — 중간 히스토리를 한 개의 요약 메시지로 압축한다.
+
+    구조: [system, user(과제)] + [중간 작업 로그...] + [최근 꼬리] 에서 중간만 요약으로 교체.
+    tool 메시지는 자기 assistant(tool_calls)와 떨어지면 API가 거부하므로, 꼬리 시작점을
+    tool이 아닌 메시지까지 앞으로 당겨 페어를 보존한다. 요약 실패 시 아무것도 안 바꾼다(안전).
+    반환: 요약 호출에 쓴 (tokens_in, tokens_out) — 호출부가 태스크 사용량에 합산.
+    """
+    HEAD, TAIL = 2, 8
+    if len(messages) <= HEAD + TAIL + 4:  # 압축할 중간이 충분히 없으면 스킵
+        return (0, 0)
+    tail_start = len(messages) - TAIL
+    while tail_start > HEAD and messages[tail_start].get("role") == "tool":
+        tail_start -= 1  # tool은 자기 assistant 뒤에 붙어야 함 — 페어 경계까지 당김
+    middle = messages[HEAD:tail_start]
+    if len(middle) < 4:
+        return (0, 0)
+    # 중간 로그를 텍스트로 직렬화(툴콜 이름/인자 요점 + 결과 앞부분만).
+    lines: list[str] = []
+    for m in middle:
+        role = m.get("role")
+        if role == "assistant" and m.get("tool_calls"):
+            calls = ", ".join(c["function"]["name"] for c in m["tool_calls"])
+            lines.append(f"assistant tools: {calls}")
+            for c in m["tool_calls"]:
+                lines.append(f"  args: {str(c['function'].get('arguments', ''))[:300]}")
+        else:
+            lines.append(f"{role}: {str(m.get('content') or '')[:500]}")
+    log_text = "\n".join(lines)[:60_000]
+    try:
+        resp = client.complete([
+            {"role": "system", "content": (
+                "You compact a coding agent's work log. Summarize concisely: files created/modified "
+                "(with paths), commands run and key results, decisions made, current state, and what "
+                "remains. Preserve exact paths and error messages that may matter later."
+            )},
+            {"role": "user", "content": log_text},
+        ], [])
+    except Exception as exc:  # noqa: BLE001 — 컴팩션은 최적화일 뿐, 실패해도 본 루프는 계속.
+        log.warning("compaction failed, keeping full history: %s", exc)
+        return (0, 0)
+    summary = resp.content or ""
+    if not summary.strip():
+        return (0, 0)
+    messages[HEAD:tail_start] = [{
+        "role": "user",
+        "content": f"[Earlier work compacted — summary]\n{summary}",
+    }]
+    log.info("compacted %d messages into summary (%d chars)", len(middle), len(summary))
+    return (resp.tokens_in, resp.tokens_out)
+
+
 def run_dev_task(
     task_prompt: str,
     provider: SandboxProvider,
@@ -261,6 +320,8 @@ def run_dev_task(
     client,
     role_instructions: str = "",
     task_timeout_sec: int = DEFAULT_TASK_TIMEOUT_SEC,
+    token_budget: int = 0,        # in+out 합산 토큰 예산(D56③). 0 = 무제한.
+    compact_threshold: int = 0,   # 실효 프롬프트(tokens_in+cache_read) 컴팩션 임계. 0 = 끔.
     on_step=None,  # (label: str) -> None — 스텝별 라이브 진행 콜백(QA-01). 실패해도 루프 안 깨짐.
     should_stop=None,  # () -> bool — 스텝 경계마다 확인(QA-05a). True면 즉시 status="stopped" 반환.
     on_plan=None,  # (steps: list[dict]) -> None — update_plan 도구 호출 시 정제된 plan 전달(QA-06).
@@ -295,7 +356,28 @@ def run_dev_task(
     tokens_in = tokens_out = cache_read = cache_write = 0
     start = time.time()
 
-    for _ in range(MAX_STEPS):
+    def _budget_outcome(reason: str) -> DevOutcome:
+        # 예산 소진 = 실패가 아니라 needs-input(D56③) — 기존 continuation/재개 파이프를 그대로
+        # 재사용한다: 워크스페이스는 영속이라 "continue" 재개 태스크가 파일 위에서 이어간다.
+        log.info("dev task budget exhausted (%s): in=%d out=%d", reason, tokens_in, tokens_out)
+        progress = f"[Budget reached — {reason}. Partial work is saved in the workspace; ready to continue.]"
+        return DevOutcome(status="needs-input", output=progress, awaiting_prompt=_BUDGET_PROMPT,
+                          verification=verification, tokens_in=tokens_in, tokens_out=tokens_out,
+                          tokens_cache_read=cache_read, tokens_cache_write=cache_write)
+
+    last_ctx = 0  # 직전 호출의 실효 프롬프트 크기(tokens_in + cache_read) — 컴팩션 트리거.
+    step = 0
+    while True:
+        step += 1
+        if step > HARD_STEP_CAP:
+            return _budget_outcome("step safety cap")
+        if token_budget and tokens_in + tokens_out >= token_budget:
+            return _budget_outcome("token budget")
+        # 컨텍스트 컴팩션(D56③) — 대화가 임계를 넘으면 중간 히스토리를 요약으로 압축.
+        if compact_threshold and last_ctx > compact_threshold:
+            ci, co = _compact_messages(messages, client)
+            tokens_in += ci; tokens_out += co
+            last_ctx = 0  # 압축 직후엔 재트리거하지 않는다(다음 호출이 실측 갱신).
         # Stop 확인(QA-05a) — 유저가 Stop을 눌렀으면 다음 스텝을 시작하지 않고 즉시 접는다.
         # 기존엔 kill_current(베스트에포트)뿐이라 Stop 후에도 루프가 몇 분씩 더 돌았다(실사례 6분).
         # 지금까지의 토큰/verification은 들고 나가서 호출부가 부분 작업물을 보존한다(QA-05b).
@@ -309,9 +391,7 @@ def run_dev_task(
                                   verification=verification, tokens_in=tokens_in, tokens_out=tokens_out,
                               tokens_cache_read=cache_read, tokens_cache_write=cache_write)
         if time.time() - start > task_timeout_sec:
-            return DevOutcome(status="failed", error_summary="dev task exceeded time budget",
-                              verification=verification, tokens_in=tokens_in, tokens_out=tokens_out,
-                              tokens_cache_read=cache_read, tokens_cache_write=cache_write)
+            return _budget_outcome("time budget")
         # LLM 호출 + 스텝 재시도 — 일시 장애(429/529/타임아웃) 1번에 30분 작업이 통째로
         # 죽지 않게 한다. 재시도 간 백오프(2s→8s). 전부 실패하면 그때 failed.
         resp = None
@@ -333,6 +413,8 @@ def run_dev_task(
         tokens_out += resp.tokens_out
         cache_read += resp.tokens_cache_read
         cache_write += resp.tokens_cache_write
+        # Anthropic은 prompt_tokens가 캐시 히트를 제외하므로(#91) 실효 컨텍스트 = in + cache_read.
+        last_ctx = resp.tokens_in + resp.tokens_cache_read
 
         if resp.tool_calls:
             messages.append({
@@ -373,6 +455,4 @@ def run_dev_task(
                           tokens_in=tokens_in, tokens_out=tokens_out,
                           tokens_cache_read=cache_read, tokens_cache_write=cache_write)
 
-    return DevOutcome(status="failed", error_summary=f"dev task exceeded {MAX_STEPS} steps",
-                      verification=verification, tokens_in=tokens_in, tokens_out=tokens_out,
-                              tokens_cache_read=cache_read, tokens_cache_write=cache_write)
+

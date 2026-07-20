@@ -286,6 +286,9 @@ def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_cl
         prompt, workspace_service.provider, sandbox_id,
         client=dev_client, role_instructions=agent.role_instructions,
         task_timeout_sec=cfg.dev_task_timeout_min * 60,
+        # D56③ 예산제 — 토큰/컴팩션 한도(구 40스텝 벽 대체). 소진 시 needs-input으로 우아하게.
+        token_budget=settings.dev_token_budget,
+        compact_threshold=settings.dev_compact_threshold,
         # 라이브 진행(QA-01): 스텝마다 "Writing src/App.tsx" 같은 한 줄을 SSE로 흘린다.
         on_step=lambda label: events.emit_progress(task.project_id, task.agent_id, task.id, label),
         # Stop 실효(QA-05a): 스텝 경계마다 DB의 stopped 플래그 확인 → 유저 Stop이 즉시 먹힌다.
