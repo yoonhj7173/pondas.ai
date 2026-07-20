@@ -472,3 +472,60 @@ PreviewService
 - **Regression:** Phase 1 core flows (map/panels/board/outputs/continuation/stop/pause) + **billing untouched-paths check** (live money — checkout/webhook/topup suite green, no billing code in scope).
 - **Rollout:** additive migrations (2 tables + 4 project columns + credits constant); `preview_enabled` config flag (default OFF in prod until E2E passes → flip ON via migration, same pattern as `billing_enabled`).
 - **Cost watch:** preview sandbox-minutes per project in logs + weekly eyeball; idle-pause verified in prod within the first week.
+
+---
+
+## 23. Phase 3 — MLP (v3.2, D54–D62) ⭐
+
+> PRD §17 / `specs/mlp-spec.md`의 기술 설계. 원칙: 기존 아키텍처에 얹는다(리라이트 기각, D57) — 신규는 어댑터/서비스로 격리하고, 가장 비싼 기존 자산(빌링·하네스·프로드 운영)은 건드리지 않는다.
+
+### 23.1 GitHub Ownership Service (D56①, D61)
+
+- **GitHub App** (not OAuth App): fine-grained 권한 `contents:write`, `administration:write`(리포 생성), user-install. 유저가 앱 설치 → installation_id를 `user_profiles`(or 별도 `github_connections`)에 저장. 토큰은 단명 installation token을 매 호출 발급(장기 토큰 저장 금지).
+- **리포 생성:** 프로젝트당 1리포, **유저 계정 소유**로 생성(`POST /user/repos` via installation). 이름 = 프로젝트 슬러그(충돌 시 `-2`). private 기본.
+- **커밋 파이프:** `workspace_versions`(D50) 컷과 **비동기**로 — 버전 컷 트랜잭션에 GitHub 호출을 넣지 않는다(외부 API가 태스크 완료를 블록하면 안 됨). Celery task `push_version(version_id)`: manifest의 파일들을 Git Data API(blob/tree/commit)로 커밋, 메시지 = 사람말 버전 라벨. 실패 시 재시도 + `versions.pushed_at` null 유지(UI에 "sync pending" 표시). 미연결 프로젝트는 스킵; 연결 시점에 전체 히스토리 백필(버전 순서대로 커밋).
+- **사람말 버전 라벨:** 버전 컷 시 light-tier LLM 한 콜로 changed-file 요약 → `workspace_versions.label` ("Added checkout page"). 실패 시 폴백 = task instructions 앞 60자.
+- **Restore:** 과거 버전 manifest를 현재 상태로 복사 → **새 버전 컷**(+커밋 "Restore to v3"). force-push/히스토리 리라이트 금지. 프리뷰 sync 트리거.
+- **API:** `POST /github/connect`(install URL) · `GET /github/status` · `POST /projects/{id}/repo`(생성/연결) · `GET /projects/{id}/history`(버전+라벨+push 상태) · `POST /projects/{id}/restore/{version_no}`.
+
+### 23.2 Deploy Service (D56②, D60)
+
+- **`DeployProvider` 인터페이스** (Vercel/Neon 어댑터, 교체 가능): `provision(project)`, `deploy(version)`, `status()`, `set_env(k,v)`, `add_domain(domain)`, `provision_db()`.
+- **Vercel:** 플랫폼 API(팀 계정 소유 — 유저는 Vercel 계정 불필요). 배포 = 현재 버전 파일을 Vercel deployment API로 업로드(리포 연동 아님 — GitHub 미연결 프로젝트도 배포 가능해야 함). `projects.deploy_*` 컬럼(provider_project_id, url, domain, status, last_deployed_version).
+- **Neon:** 프로젝트당 DB 1개 lazy 프로비저닝(앱이 DB를 쓸 때만) — dev task가 `DATABASE_URL` 요구를 감지하면 생성 후 env로 주입. scale-to-zero로 유휴 원가 ~0.
+- **커스텀 도메인:** Vercel domains API + 유저에게 DNS 레코드 안내(사람말 스텝) → 검증 폴링 → HTTPS 자동.
+- **시크릿:** `project_secrets` 테이블(암호화 at rest, Fernet + 서버 키) → 배포 시 Vercel env로 주입. **로그/SSE/LLM 프롬프트에 값 노출 금지** (마스킹 유틸 필수).
+- **Grand Opening UX:** `POST /projects/{id}/deploy` → SSE `deploy_status`(building/ready/error + URL). 배포는 명시적 유저 액션만(자동 배포 없음 — 프리뷰가 자동, 배포는 의식).
+- **원가:** 배포/도메인/DB는 크레딧 차감 항목으로 계상(요율은 구현 시 D-결정).
+
+### 23.3 반복 신뢰성 (D56③)
+
+- **예산제:** `MAX_STEPS=40` 폐기 → per-task **토큰 예산**(기본 dev 500k in+out) + **시간 예산**(30분, 기존 유지). 초과 시: 진행분 수집(부분 결과) + 사람말 사유 + `continuations`에 "이어서 진행" 컨텍스트 저장 → 유저 액션으로 새 태스크가 이어받음. 조용한 실패 금지.
+- **샌드박스 env 하드닝:** E2B 템플릿에 dev-runner 의존성 프리인스톨(tenacity류 재발 방지), 기동 헬스체크(임포트 스모크) 실패 시 재생성 후 1회 재시도.
+- **"고쳐줘" 루프:** failed task의 error_summary를 light-tier로 사람말 번역 + AgentPanel/채팅에 **Fix it** 액션 → debugger 롤 프롬프트로 새 태스크(원 태스크 컨텍스트 + 로그 tail 주입). 기존 continuation 메커니즘 재사용.
+- **E2B 컨텍스트 컴팩션:** dev_runner 대화가 토큰 예산 70% 도달 시 중간 요약으로 히스토리 압축(CMA의 자동 컴팩션과 등가 기능을 E2B 경로에). 백로그에서 P0로 승격.
+
+### 23.4 감독 표면 (D56④)
+
+- **디자인 코멘트 모드:** Theater iframe에 코멘트 토글 → 프리뷰 샌드박스에 주입되는 경량 스크립트(클릭 → element selector + boundingRect + 스크린샷 crop 캡처, postMessage로 부모에)가 요소 선택 → 코멘트 입력 → orchestrator dispatch에 `{selector, screenshot, comment}` 구조로 주입. 크로스오리진 경계 유지(스크립트는 프리뷰 번들에만, 부모 DOM 접근 불가).
+- **코드뷰:** 기존 `GET /projects/{id}/files` 재사용 — 읽기 전용 파일 트리 + 하이라이트 뷰어(기존 outputs 렌더러 재사용, lazy chunk). "숨기되 잠그지 않기": 프로젝트 뷰 구석의 "View code" 진입점.
+
+### 23.5 비동기 (D56⑤)
+
+- **PWA:** manifest(이미 존재) + service worker(오프라인 셸 불필요 — 푸시 수신이 목적) + **Web Push**(VAPID): `push_subscriptions` 테이블, 구독 UI(온보딩 후 프롬프트). 발송 = 기존 `emit_terminal_notification`에 push 채널 추가(needs-input/failed/done). 클릭 → 해당 프로젝트 딥링크(모바일 웹에서 needs-input 응답 가능해야 함 — AgentPanel 모바일 레이아웃).
+- iOS Safari 웹푸시 = 홈스크린 설치 필요 → 온보딩 카피에 반영(이메일 폴백은 P1 유지).
+
+### 23.6 활성화 + 애널리틱스 (D58, D62)
+
+- **온보딩 v2:** 사장님 프레이밍 카피(영어), 팀 선택 후 **예시 목표 카드 3개**(카탈로그에 저작) → 클릭 = 첫 오케 메시지 프리필. 목표: 가입→첫 태스크 디스패치 무중단.
+- **PostHog:** frontend snippet + backend capture(서버 이벤트: task_dispatched/completed, deploy, purchase). 핵심 퍼널: visit→signup→project→**first_task**→result_viewed→return(D+1/D+7)→deploy→purchase. 세션 리플레이는 온보딩 라우트만. 개인정보 고지 추가.
+
+### 23.7 디자인 시스템 v2 (D59)
+
+- 토큰 전면 교체: G-Clay 팔레트(CSS vars, 라이트/다크 2세트 — 다크는 변수만 예약, Night Shift는 백로그), Inter/JetBrains Mono, 카드/섀도/radius 스케일. `/design` 레퍼런스 라우트 갱신.
+- 월드: 현 React 카드 오피스를 **SVG 디오라마 컴포넌트**(Room/Desk/AgentSprite/StatusGlow)로 교체 — 정적 SVG + DOM 오버레이(네임 필/뱃지/글로우), 상태 파이프라인(QA-01/06, store 구독)은 그대로 재사용. 런타임 엔진 도입 금지.
+- 신뢰 표면(billing/deploy/secrets)은 크롬 컴포넌트만 사용 — 월드 요소 금지(D59) — 를 컴포넌트 레벨로 강제(lint 룰까지는 불요, 리뷰 체크리스트 항목).
+
+### 23.8 Test strategy 추가분
+
+`specs/test-plan.md`(신설)가 전체 테스트 전략의 source of truth — 본 절 생략. 회귀 필수: Joshua 실패 모드 3종(스텝 벽/env 버그/지킬 수 없는 알림 약속) + QA-01~06 + 빌링 무접촉 검증.

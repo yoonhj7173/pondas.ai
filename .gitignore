@@ -33,3 +33,4 @@ runs/
 
 # local admin secrets/scripts (never commit)
 .local/
+mockups/assets/kenney/
