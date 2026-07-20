@@ -99,3 +99,22 @@ def enqueue_task(task_id: uuid.UUID) -> None:
         입력 재개(tasks.py). 연결: 큐에서 꺼내 실행 → 위 run_task.
     """
     run_task.delay(str(task_id))
+
+
+@celery_app.task(name="app.celery_app.github_push", bind=True, max_retries=5,
+                 retry_backoff=30, retry_backoff_max=600)
+def github_push(self, version_id: str) -> str:
+    """버전 1개를 유저 GitHub 리포에 비동기 커밋(item 36, D61) — 태스크 완료를 절대 블록하지 않는다.
+
+    재시도: 지수 백오프(30s→최대 10분) 5회 — GitHub 일시 장애/rate limit 흡수. 최종 실패해도
+    pushed_at이 비어 있어 다음 연결/백필이 따라잡는다(멱등).
+    """
+    from app.services.github_service import push_version_sync
+
+    db = SessionLocal()
+    try:
+        return push_version_sync(db, uuid.UUID(version_id))
+    except Exception as exc:  # noqa: BLE001 — 재시도 대상(일시 장애 가정)
+        raise self.retry(exc=exc)
+    finally:
+        db.close()

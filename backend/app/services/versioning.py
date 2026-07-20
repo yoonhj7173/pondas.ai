@@ -73,11 +73,19 @@ def snapshot_version(db: Session, task: Task) -> int | None:
             .scalar()
             or 0
         ) + 1
-        db.add(WorkspaceVersion(
+        version = WorkspaceVersion(
             project_id=task.project_id, version_no=next_no,
             task_id=task.id, manifest=manifest,
-        ))
+        )
+        db.add(version)
         db.flush()
+        # 사람말 라벨(D61) — light-tier 요약(실패 시 지시문 폴백). 히스토리 UI + 커밋 메시지.
+        from app.services import github_service
+        changed = [path for _, path in rows]
+        version.label = github_service.humanize_label(db, task, changed)
+        db.flush()
+        # 리포 연결 프로젝트면 비동기 푸시(countdown 5s — 호출부 커밋 이후 발화 보장).
+        github_service.enqueue_push(next_no, task.project_id, db)
         return next_no
     except Exception:  # noqa: BLE001 — 격리: 버전 실패가 task를 깨지 않는다.
         log.warning("version snapshot failed", extra={"task_id": str(task.id)})

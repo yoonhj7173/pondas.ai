@@ -14,7 +14,7 @@ import { visualStatus, type AgentStatus } from "@/lib/tokens";
 const Markdown = dynamic(() => import("@/components/ui/Markdown"), { ssr: false });
 const MARKDOWN_EXTS = /\.(md|markdown|mdx)$/i;
 
-export type OverlayKind = "board" | "settings" | "outputs" | "notes" | null;
+export type OverlayKind = "board" | "settings" | "outputs" | "notes" | "history" | null;
 
 const STATUS_ICON: Record<string, { glyph: string; cls: string }> = {
   done: { glyph: "✓", cls: "bg-status-done text-white" },
@@ -503,3 +503,118 @@ function Title({ children, onClose }: { children: React.ReactNode; onClose: () =
 }
 function Empty({ children }: { children: React.ReactNode }) { return <div className="py-8 text-center text-sm text-muted">{children}</div>; }
 function Lbl({ children }: { children: React.ReactNode }) { return <div className="font-mono text-[10px] uppercase tracking-wider text-muted">{children}</div>; }
+
+// --- History (item 36, D61) ---
+
+interface HistoryData {
+  repo_full_name: string | null;
+  versions: { version_no: number; label: string; created_at: string; pushed: boolean; commit_sha: string | null; files: number }[];
+}
+interface GithubStatus { enabled: boolean; install_url: string | null; connected: boolean; account_login: string | null }
+
+/**
+ * HistoryOverlay — 사람말 버전 히스토리 + Restore + GitHub 연결 카드(D61).
+ *
+ * 무슨 일을 하나: 버전 목록(라벨 + 푸시 상태)을 보여주고, Restore로 과거 시점을 새 버전으로
+ *   복원한다(히스토리 보존). 상단 카드에서 GitHub 연결/리포 생성("네 코드는 처음부터 네 것").
+ * 누가 부르나: HUD 유틸의 'History' 버튼. 연결: backend/app/routers/github.py.
+ */
+export function HistoryOverlay({ projectId, getToken, onClose }: { projectId: string; getToken: () => Promise<string | null>; onClose: () => void }) {
+  const [data, setData] = useState<HistoryData | null>(null);
+  const [gh, setGh] = useState<GithubStatus | null>(null);
+  const [busy, setBusy] = useState<number | null>(null);
+  const [repoBusy, setRepoBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const token = await getToken();
+    const [h, s] = await Promise.all([
+      apiFetch<HistoryData>(`/api/projects/${projectId}/history`, { token }),
+      apiFetch<GithubStatus>(`/api/github/status`, { token }),
+    ]);
+    setData(h); setGh(s);
+  }, [projectId, getToken]);
+  useEffect(() => { load().catch(() => setError("Failed to load history")); }, [load]);
+
+  async function restore(no: number) {
+    if (!window.confirm(`Restore the workspace to v${no}? This creates a new version — nothing is deleted.`)) return;
+    setBusy(no); setError(null);
+    try {
+      const token = await getToken();
+      await apiFetch(`/api/projects/${projectId}/restore/${no}`, { method: "POST", token });
+      await load();
+    } catch { setError("Restore failed — try again"); } finally { setBusy(null); }
+  }
+
+  async function createRepo() {
+    setRepoBusy(true); setError(null);
+    try {
+      const token = await getToken();
+      await apiFetch(`/api/projects/${projectId}/repo`, { method: "POST", token });
+      await load();
+    } catch { setError("Could not create the repository"); } finally { setRepoBusy(false); }
+  }
+
+  return (
+    <Overlay onClose={onClose}>
+      <div className="flex h-[600px] w-[720px] flex-col p-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-xl font-bold">Version history</h2>
+          <button onClick={onClose} className="text-sm text-muted hover:underline">Close</button>
+        </div>
+
+        {/* GitHub 소유권 카드(D61) — 신뢰 표면: 크롬 전용, 월드 요소 없음(D59). */}
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-[#E4DFEF] bg-[#FDFCF9] px-4 py-3 text-sm">
+          {!gh ? <span className="text-muted">Loading…</span> : !gh.enabled ? (
+            <span className="text-muted">GitHub sync isn&apos;t configured on this server yet.</span>
+          ) : data?.repo_full_name ? (
+            <>
+              <span>Synced to <a className="font-semibold text-primary-to hover:underline" href={`https://github.com/${data.repo_full_name}`} target="_blank" rel="noreferrer">{data.repo_full_name}</a> — your code, your repo.</span>
+              <span className="text-[11px] text-muted">connected as {gh.account_login}</span>
+            </>
+          ) : gh.connected ? (
+            <>
+              <span>Connected as <b>{gh.account_login}</b>. Create a repository to own every version.</span>
+              <PillButton variant="primary" className="!px-4 !py-1.5 text-[13px]" onClick={createRepo} disabled={repoBusy}>{repoBusy ? "Creating…" : "Create repository"}</PillButton>
+            </>
+          ) : (
+            <>
+              <span>Own your code — every version becomes a commit in <b>your</b> GitHub repo.</span>
+              <a href={gh.install_url ?? "#"} target="_blank" rel="noreferrer">
+                <PillButton variant="primary" className="!px-4 !py-1.5 text-[13px]">Connect GitHub</PillButton>
+              </a>
+            </>
+          )}
+        </div>
+
+        {error && <div className="mb-2 text-sm text-status-failed">{error}</div>}
+
+        <div className="chat-scroll flex-1 overflow-y-auto">
+          {!data ? <div className="py-8 text-center text-muted">Loading…</div> :
+            data.versions.length === 0 ? (
+              <div className="py-8 text-center text-muted">No versions yet — they appear when your team ships file changes.</div>
+            ) : data.versions.map((v, i) => (
+              <div key={v.version_no} className="flex items-center gap-3 border-b border-[#F0EDF6] py-3 last:border-0">
+                <span className="w-10 flex-none rounded-lg bg-[#EFEDF5] px-2 py-1 text-center font-mono text-[11px] font-bold text-secondary">v{v.version_no}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold">{v.label}</div>
+                  <div className="text-[11px] text-muted">
+                    {new Date(v.created_at).toLocaleString()} · {v.files} files
+                    {data.repo_full_name && (v.pushed
+                      ? <span className="ml-1 text-status-done">· synced {v.commit_sha ? v.commit_sha.slice(0, 7) : ""}</span>
+                      : <span className="ml-1 text-status-needs-input">· sync pending</span>)}
+                  </div>
+                </div>
+                {i !== 0 && (
+                  <button onClick={() => restore(v.version_no)} disabled={busy !== null}
+                    className="flex-none rounded-lg border border-[#E4DFEF] bg-white px-3 py-1 text-[12px] font-semibold text-primary-to hover:bg-[#F3F1F9] disabled:opacity-50">
+                    {busy === v.version_no ? "Restoring…" : "Restore"}
+                  </button>
+                )}
+              </div>
+            ))}
+        </div>
+      </div>
+    </Overlay>
+  );
+}
