@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     # 적용해, 디자이너가 큰 HTML/여러 파일을 한 턴에 뱉으면 마지막 tool-call arguments가 중간에
     # 잘려 invalid JSON("Expecting ',' delimiter")으로 태스크 전체가 죽었다(실사례, 재현 확인).
     dev_max_tokens: int = Field(default=32000, alias="DEV_MAX_TOKENS")
+    # 태스크당 토큰 예산(in+out, D56③) — 초과 시 조용한 실패 대신 needs-input으로 우아하게
+    # 멈추고 "continue"로 이어간다. 0 = 무제한. 구 MAX_STEPS(40) 벽 대체(Joshua churn 원인).
+    dev_token_budget: int = Field(default=500_000, alias="DEV_TOKEN_BUDGET")
+    # 컨텍스트 컴팩션 임계(D56③) — 직전 호출의 실효 프롬프트(tokens_in+cache_read)가 이걸 넘으면
+    # 중간 히스토리를 요약으로 압축(E2B 경로에 CMA 자동 컴팩션과 등가 기능). 0 = 끔.
+    dev_compact_threshold: int = Field(default=100_000, alias="DEV_COMPACT_THRESHOLD")
 
     # --- Auth ---
     clerk_secret_key: str = Field(default="", alias="CLERK_SECRET_KEY")

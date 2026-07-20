@@ -210,6 +210,43 @@ def test_retry_rejects_non_failed_task(client, auth, env):
     assert resp.status_code == 409
 
 
+# --- Fix it 루프 (D56③, item 38) ---
+
+
+def test_fix_spawns_debug_task_with_failure_context(client, auth, env):
+    db, uid, pid, swe, qa, pm = env
+    a = db.get(Agent, swe)
+    t = ts.create_task(db, user_id=uid, project_id=pid, agent=a, instructions="build the widget", origin="chat")
+    t.status = "failed"
+    t.error_summary = "TypeError: undefined is not a function"
+    t.verification = [{"cmd": "npm run build", "exit_code": 1}]
+    db.commit()
+    resp = client.post(f"/api/tasks/{t.id}/fix", headers=auth(uid))
+    assert resp.status_code == 204
+    db.expire_all()
+    fresh = (
+        db.query(Task)
+        .filter(Task.agent_id == a.id, Task.status == "queued", Task.id != t.id)
+        .order_by(Task.created_at.desc())
+        .first()
+    )
+    assert fresh is not None
+    # 실패 컨텍스트가 지시문에 주입됐다: 원 지시 + 에러 + 실행 증적 + 진단 지시.
+    assert "build the widget" in fresh.instructions
+    assert "TypeError: undefined is not a function" in fresh.instructions
+    assert "npm run build" in fresh.instructions and "exit 1" in fresh.instructions
+    assert "Diagnose the root cause" in fresh.instructions
+
+
+def test_fix_rejects_non_failed_task(client, auth, env):
+    db, uid, pid, swe, qa, pm = env
+    a = db.get(Agent, qa)
+    t = ts.create_task(db, user_id=uid, project_id=pid, agent=a, instructions="x", origin="chat")
+    db.commit()
+    resp = client.post(f"/api/tasks/{t.id}/fix", headers=auth(uid))
+    assert resp.status_code == 409
+
+
 # --- pause blocks dev dispatch ---
 
 

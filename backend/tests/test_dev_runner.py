@@ -103,10 +103,11 @@ def test_per_command_timeout_killed_cleanly(sandbox):
 
 def test_task_timeout_fails_cleanly(sandbox):
     provider, sid = sandbox
-    # 항상 도구만 호출하는 에이전트 + task_timeout 0 → 즉시 시간초과 실패.
+    # 항상 도구만 호출하는 에이전트 + task_timeout 0 → 즉시 시간 예산 소진.
+    # D56③: 시간 초과는 이제 failed가 아니라 우아한 needs-input(부분 결과 + 이어가기).
     agent = ScriptedAgent([_call("1", "bash", {"cmd": "echo loop"})])
     outcome = run_dev_task("loop forever", provider, sid, client=agent, task_timeout_sec=0)
-    assert outcome.status == "failed" and "time budget" in outcome.error_summary
+    assert outcome.status == "needs-input" and "continue" in (outcome.awaiting_prompt or "")
 
 
 # --- 라이브 진행 콜백(QA-01) ---
@@ -340,3 +341,112 @@ def test_workspace_snapshot_in_first_prompt(sandbox):
     user_msg = agent.seen[1]["content"]
     assert "# Workspace files (snapshot)" in user_msg
     assert "src/main.py" in user_msg
+
+
+# ── D56③ 예산제 + 컴팩션 (item 38) ─────────────────────────────────────────────
+
+
+class LoopingAgent:
+    """항상 도구를 호출하는 에이전트 — 예산 없이는 영원히 도는 시나리오."""
+
+    def __init__(self, tin=10, tout=5):
+        self.tin, self.tout = tin, tout
+        self.calls = 0
+
+    def complete(self, messages, tools):
+        self.calls += 1
+        return LLMResponse(
+            tool_calls=[ToolCall(id=str(self.calls), name="bash", args={"cmd": "true"})],
+            tokens_in=self.tin, tokens_out=self.tout,
+        )
+
+
+def test_token_budget_exhaustion_is_graceful_needs_input(sandbox):
+    """토큰 예산 소진 = failed가 아니라 needs-input(부분 결과 + 이어가기) — 조용한 실패 금지."""
+    provider, sid = sandbox
+    agent = LoopingAgent(tin=100, tout=50)
+    outcome = run_dev_task("Endless task.", provider, sid, client=agent, token_budget=500)
+
+    assert outcome.status == "needs-input"
+    assert "continue" in (outcome.awaiting_prompt or "")
+    # 예산(500)에 도달할 만큼만 돌았다: 150/스텝 → 4스텝째 진입 전 중단(600 >= 500).
+    assert 3 <= agent.calls <= 5
+    # 지금까지의 사용량은 보존된다(회계).
+    assert outcome.tokens_in + outcome.tokens_out >= 500
+
+
+def test_time_budget_exhaustion_is_graceful_needs_input(sandbox, monkeypatch):
+    """시간 예산 초과도 동일하게 우아한 needs-input — 구 'failed: exceeded time budget' 대체."""
+    provider, sid = sandbox
+    agent = LoopingAgent()
+    outcome = run_dev_task("Slow task.", provider, sid, client=agent, task_timeout_sec=0)
+    assert outcome.status == "needs-input"
+    assert "continue" in (outcome.awaiting_prompt or "")
+
+
+def test_hard_step_cap_backstop(sandbox, monkeypatch):
+    """토큰 예산이 무제한(0)이어도 하드 스텝 캡이 폭주를 막는다."""
+    import app.services.dev_runner as dr
+    monkeypatch.setattr(dr, "HARD_STEP_CAP", 6)
+    provider, sid = sandbox
+    agent = LoopingAgent()
+    outcome = run_dev_task("Endless task.", provider, sid, client=agent, token_budget=0)
+    assert outcome.status == "needs-input"
+    assert agent.calls == 6
+
+
+class CompactionAgent:
+    """도구 호출을 반복하다 컴팩션 요약 요청(tools=[])에는 요약 텍스트로 답하는 에이전트."""
+
+    def __init__(self, big_ctx_after=3):
+        self.calls = 0
+        self.summaries = 0
+        self.big_ctx_after = big_ctx_after
+        self.seen_compacted = False
+
+    def complete(self, messages, tools):
+        if tools == []:  # 컴팩션 요약 호출
+            self.summaries += 1
+            return LLMResponse(content="Summary: wrote a.py and b.py; tests pass; next step c.py.",
+                               tokens_in=50, tokens_out=20)
+        self.calls += 1
+        # 컴팩션이 실제로 히스토리를 바꿨는지 관찰.
+        if any(isinstance(m.get("content"), str) and "Earlier work compacted" in m["content"] for m in messages):
+            self.seen_compacted = True
+            return LLMResponse(content="Done after compaction.", tokens_in=10, tokens_out=5)
+        # big_ctx_after 스텝부터 실효 프롬프트가 임계를 넘는 것으로 보고.
+        big = self.calls >= self.big_ctx_after
+        return LLMResponse(
+            tool_calls=[ToolCall(id=str(self.calls), name="bash", args={"cmd": "true"})],
+            tokens_in=200_000 if big else 100, tokens_out=10,
+        )
+
+
+def test_compaction_replaces_middle_history(sandbox):
+    """실효 프롬프트가 임계를 넘으면 중간 히스토리가 요약 한 개로 교체되고 작업은 계속된다."""
+    provider, sid = sandbox
+    agent = CompactionAgent(big_ctx_after=3)
+    # 컴팩션 조건(len > HEAD+TAIL+4 = 14 메시지)을 만들려면 도구 스텝이 충분히 쌓여야 한다.
+    outcome = run_dev_task("Long task.", provider, sid, client=agent,
+                           token_budget=10_000_000, compact_threshold=150_000)
+    assert outcome.status == "done"
+    assert agent.summaries >= 1          # 요약 호출이 실제로 나갔고
+    assert agent.seen_compacted          # 이후 호출의 히스토리에 요약 마커가 들어있다
+
+
+def test_compaction_failure_is_safe(sandbox):
+    """요약 호출이 죽어도 본 루프는 계속된다(컴팩션은 최적화일 뿐)."""
+    provider, sid = sandbox
+
+    class FailingSummaryAgent(CompactionAgent):
+        def complete(self, messages, tools):
+            if tools == []:
+                raise RuntimeError("summary call failed")
+            return super().complete(messages, tools)
+
+    agent = FailingSummaryAgent(big_ctx_after=3)
+    outcome = run_dev_task("Long task.", provider, sid, client=agent,
+                           token_budget=10_000_000, compact_threshold=150_000)
+    # 컴팩션 실패 → 히스토리 유지 → seen_compacted 경로가 없으니 예산/캡 전에 done은 못 만든다.
+    # 대신 하드 캡/토큰 예산 내에서 needs-input 또는 done 어느 쪽이든 '조용한 크래시'만 아니면 된다.
+    assert outcome.status in ("done", "needs-input")

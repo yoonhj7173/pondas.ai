@@ -80,8 +80,8 @@ export function TeamPanel({ data, onClose, onAddAgent, onSelectAgent, onRemove }
  * 누가 부르나: PanelController가 sel.kind==="agent"일 때.
  * 연결: 버튼 동작(onStop/onProvideInput/onRemove) → PanelController → 백엔드 tasks.py/teams.py.
  */
-export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput, onRetry, onViewOutputs, canPreview, onOpenTheater, busy }: {
-  data: AgentPanelData; onClose: () => void; onStop: () => void; onRemove: () => void; onProvideInput: (text: string) => void; onRetry: () => void; onViewOutputs?: () => void; canPreview?: boolean; onOpenTheater?: () => void; busy?: boolean;
+export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput, onRetry, onFix, onViewOutputs, canPreview, onOpenTheater, busy }: {
+  data: AgentPanelData; onClose: () => void; onStop: () => void; onRemove: () => void; onProvideInput: (text: string) => void; onRetry: () => void; onFix?: () => void; onViewOutputs?: () => void; canPreview?: boolean; onOpenTheater?: () => void; busy?: boolean;
 }) {
   const v = visualStatus(data.status);
   const headerTint = v === "needs-input" ? "#FBEFCB" : v === "failed" ? "#F8DAD3" : "#DCEEF8";
@@ -167,7 +167,11 @@ export function AgentPanel({ data, onClose, onStop, onRemove, onProvideInput, on
 
       <div className="mt-5 flex flex-col gap-2">
         {data.status === "failed" && data.failed_task_id && (
-          <PillButton variant="confirm" onClick={onRetry} disabled={busy}>↻ Retry task</PillButton>
+          <>
+            {/* Fix it(D56③) — 실패 컨텍스트(에러+실행 증적)를 주입한 디버그 태스크. Retry(같은 지시 재실행)보다 우선. */}
+            {onFix && <PillButton variant="confirm" onClick={onFix} disabled={busy}>🔧 Fix it</PillButton>}
+            <PillButton variant="primary" onClick={onRetry} disabled={busy}>↻ Retry from scratch</PillButton>
+          </>
         )}
         {working && <PillButton variant="danger" onClick={onStop} disabled={busy}>■ Stop task</PillButton>}
         {working ? (
