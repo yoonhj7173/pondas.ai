@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     # 태스크당 토큰 예산(in+out, D56③) — 초과 시 조용한 실패 대신 needs-input으로 우아하게
     # 멈추고 "continue"로 이어간다. 0 = 무제한. 구 MAX_STEPS(40) 벽 대체(Joshua churn 원인).
     dev_token_budget: int = Field(default=500_000, alias="DEV_TOKEN_BUDGET")
+    # GitHub App(D61) — 미설정 시 소유권 기능 전체 비활성(연결 UI가 안내).
+    github_app_id: str = Field(default="", alias="GITHUB_APP_ID")
+    github_app_private_key: str = Field(default="", alias="GITHUB_APP_PRIVATE_KEY")
+    github_app_slug: str = Field(default="pondas-ai", alias="GITHUB_APP_SLUG")
     # 컨텍스트 컴팩션 임계(D56③) — 직전 호출의 실효 프롬프트(tokens_in+cache_read)가 이걸 넘으면
     # 중간 히스토리를 요약으로 압축(E2B 경로에 CMA 자동 컴팩션과 등가 기능). 0 = 끔.
     dev_compact_threshold: int = Field(default=100_000, alias="DEV_COMPACT_THRESHOLD")
