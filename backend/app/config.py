@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     # 태스크당 토큰 예산(in+out, D56③) — 초과 시 조용한 실패 대신 needs-input으로 우아하게
     # 멈추고 "continue"로 이어간다. 0 = 무제한. 구 MAX_STEPS(40) 벽 대체(Joshua churn 원인).
     dev_token_budget: int = Field(default=500_000, alias="DEV_TOKEN_BUDGET")
+    # Web Push VAPID(D56⑤) — 미설정 시 푸시 비활성(구독 UI가 안내). 공개키는 프론트에 노출.
+    vapid_public_key: str = Field(default="", alias="VAPID_PUBLIC_KEY")
+    vapid_private_key: str = Field(default="", alias="VAPID_PRIVATE_KEY")
+    vapid_subject: str = Field(default="mailto:hello@pondas.ai", alias="VAPID_SUBJECT")
     # GitHub App(D61) — 미설정 시 소유권 기능 전체 비활성(연결 UI가 안내).
     github_app_id: str = Field(default="", alias="GITHUB_APP_ID")
     github_app_private_key: str = Field(default="", alias="GITHUB_APP_PRIVATE_KEY")

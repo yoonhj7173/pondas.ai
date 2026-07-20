@@ -42,3 +42,5 @@ stripe>=11.0,<13
 # --- Test ---
 pytest==9.0.3
 httpx==0.28.1
+# Web Push(item 39, D56⑤) — needs-input/done/failed를 모바일 푸시로. VAPID 서명.
+pywebpush==2.3.0

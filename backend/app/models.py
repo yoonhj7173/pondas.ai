@@ -520,6 +520,20 @@ class WorkspaceVersion(Base):
     )
 
 
+class PushSubscription(Base):
+    """Web Push 구독(D56⑤) — 유저당 기기별 1행. endpoint가 자연키."""
+
+    __tablename__ = "push_subscriptions"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    user_id: Mapped[str] = mapped_column(Text, nullable=False)
+    endpoint: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    keys: Mapped[dict] = mapped_column(JSONB, nullable=False)  # {p256dh, auth}
+    created_at: Mapped[datetime] = _created_at()
+
+    __table_args__ = (Index("ix_push_subscriptions_user", "user_id"),)
+
+
 class GithubConnection(Base):
     """GitHub App 설치 연결(D61) — 유저당 1개. 장기 토큰은 저장하지 않는다(단명 발급)."""
 

@@ -129,6 +129,15 @@ def emit_terminal_notification(db: Session, task: Task) -> None:
         task_id=task.id, type=task.status, message=msgs.get(task.status, name),
     )
     db.add(notif)
+    # Web Push(D56⑤) — 유저가 자리에 없어도 모바일/데스크톱 알림. 베스트에포트(실패해도
+    # 인앱 파이프 무영향). 딥링크 = 해당 프로젝트 오피스.
+    try:
+        from app.services.push_service import send_push
+        send_push(db, task.user_id, title=notif.message,
+                  body=(task.awaiting_prompt or task.result_markdown or task.error_summary or "")[:140],
+                  url=f"/app/{task.project_id}")
+    except Exception:  # noqa: BLE001
+        pass
     # 오케스트레이터 컨텍스트 허브(B1) — 태스크 종결을 지휘자 대화 이력에도 이벤트로 남긴다.
     # 여태 완료가 벨(Activity)로만 가고 지휘자는 아무것도 몰라, "누가 뭘 끝냈어?"에 깜깜했고
     # 채팅창에도 흔적이 없었다. 이 행은 ① 다음 지휘자 턴의 히스토리로 주입되고(_load_history)
