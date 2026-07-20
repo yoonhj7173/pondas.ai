@@ -22,7 +22,9 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -125,6 +127,8 @@ class Project(Base):
     # CMA 프로젝트 공유 memory store(회사 기억) — Dev 엔진 파일럿(D45), lazy 생성.
     cma_memory_store_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Live Preview 샌드박스(Phase 2, D49) — 빌드 워크스페이스와 독립된 on-demand E2B.
+    # GitHub 소유권(D61) — 유저 계정의 리포 full_name("login/name"). null = 미연결.
+    repo_full_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     preview_sandbox_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     preview_status: Mapped[str] = mapped_column(Text, nullable=False, server_default="none")
     preview_version_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -503,12 +507,28 @@ class WorkspaceVersion(Base):
         "tasks.id", ondelete="SET NULL", nullable=True
     )
     manifest: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    # 사람말 버전 라벨(D61) — "Added checkout page". 커밋 메시지로도 쓰인다.
+    label: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # GitHub 푸시 상태(비동기 파이프) — null = sync pending(UI 표시), 값 = 커밋 완료.
+    commit_sha: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pushed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = _created_at()
 
     __table_args__ = (
         UniqueConstraint("project_id", "version_no", name="uq_workspace_versions_no"),
         Index("ix_workspace_versions_project", "project_id"),
     )
+
+
+class GithubConnection(Base):
+    """GitHub App 설치 연결(D61) — 유저당 1개. 장기 토큰은 저장하지 않는다(단명 발급)."""
+
+    __tablename__ = "github_connections"
+
+    user_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    installation_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    account_login: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = _created_at()
 
 
 # ======================================================================

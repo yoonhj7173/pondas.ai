@@ -19,7 +19,7 @@ export interface HudProps {
   projectName: string;
   onSend?: (msg: string) => Promise<string | void> | string | void;
   onFocusAgent?: (agentId: string) => void;
-  onOpen?: (what: "settings" | "board" | "outputs" | "notes" | "addTeam") => void;
+  onOpen?: (what: "settings" | "board" | "outputs" | "notes" | "history" | "addTeam") => void;
   currentProjectId?: string;
   treasurySlot?: React.ReactNode; // 크레딧 타일 — 우하단 토큰 카운터 옆에 나란히 배치(위치는 HUD가 잡음).
 }
@@ -381,13 +381,14 @@ function ToastStack({ onFocusAgent }: { onFocusAgent?: (id: string) => void }) {
 }
 
 // --- 유틸 버튼(bottom-left) ---
-function UtilityStack({ onOpen }: { onOpen?: (w: "settings" | "board" | "outputs" | "notes" | "addTeam") => void }) {
+function UtilityStack({ onOpen }: { onOpen?: (w: "settings" | "board" | "outputs" | "notes" | "history" | "addTeam") => void }) {
   return (
     <div className="absolute bottom-5 left-5 z-20 flex flex-col gap-2">
       <Util onClick={() => onOpen?.("settings")}>⚙ Settings</Util>
       <Util onClick={() => onOpen?.("board")}>▦ Board</Util>
       <Util onClick={() => onOpen?.("notes")}>📝 Notes</Util>
       <Util onClick={() => onOpen?.("outputs")}>📄 Outputs</Util>
+      <Util onClick={() => onOpen?.("history")}>🕘 History</Util>
       <Util variant="confirm" onClick={() => onOpen?.("addTeam")}>+ Team</Util>
     </div>
   );
