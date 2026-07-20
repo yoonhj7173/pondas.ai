@@ -267,7 +267,7 @@ function UnifiedActivity({ onFocusAgent, projectId }: { onFocusAgent?: (id: stri
 
   return (
     <div className="absolute right-5 top-5 z-20">
-      <div className={clsx("rounded-tile bg-[rgba(36,46,66,0.92)] p-3 text-white transition-[width] duration-200", expanded ? "w-[400px]" : "w-[312px]")}>
+      <div className={clsx("rounded-tile border border-[#E4DFEF] bg-white/95 p-3 text-ink shadow-panel transition-[width] duration-200", expanded ? "w-[400px]" : "w-[312px]")}>
         <div className="mb-2 flex items-center justify-between">
           <span className="flex items-center gap-2">
             <span className="font-baloo text-sm font-bold">Activity</span>
@@ -328,7 +328,7 @@ function feedIcon(e: FeedEvent): { glyph: string; bg: string } {
 function NotifRowView({ n, onClick }: { n: NotifRow; onClick: () => void }) {
   const icon = NOTIF_ICON[n.type] ?? { glyph: "·", bg: "rgba(255,255,255,.18)" };
   return (
-    <button onClick={onClick} className={clsx("flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left font-nunito text-[11px] hover:bg-white/5", !n.read && "bg-white/[0.07]")}>
+    <button onClick={onClick} className={clsx("flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left font-nunito text-[11px] hover:bg-[#F3F1F9]", !n.read && "bg-[#F3F1F9]")}>
       <span className="mt-px flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ background: icon.bg }}>{icon.glyph}</span>
       <span className="min-w-0 flex-1 break-words">
         {n.message}
@@ -343,7 +343,7 @@ function FeedRow({ e, progressLabel, onClick }: { e: FeedEvent; progressLabel?: 
   const v = visualStatus(e.status as any);
   const icon = feedIcon(e);
   return (
-    <button onClick={onClick} className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left font-nunito text-[11px] hover:bg-white/5">
+    <button onClick={onClick} className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1.5 text-left font-nunito text-[11px] hover:bg-[#F3F1F9]">
       <span className="mt-px flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ background: icon.bg }}>{icon.glyph}</span>
       <span className="min-w-0 flex-1">
         {/* wrap 허용(QA-06) — crop 대신 전체 내용이 보이게. */}
@@ -443,7 +443,7 @@ function TokenCounter({ projectId }: { projectId?: string }) {
   return (
     <div ref={wrapRef} className="relative">
       {open && (
-        <div className="absolute bottom-full right-0 mb-2 w-64 rounded-tile border border-white/10 bg-[rgba(36,46,66,0.97)] p-3 text-white shadow-card">
+        <div className="absolute bottom-full right-0 mb-2 w-64 rounded-tile border border-[#E4DFEF] bg-white p-3 text-ink shadow-card">
           <div className="mb-2 font-baloo text-sm font-bold">Token usage</div>
           <TokRow label="Today" value={today} />
           <TokRow label="Total (this project)" value={projTotal} />
@@ -455,7 +455,7 @@ function TokenCounter({ projectId }: { projectId?: string }) {
       <button
         onClick={() => setOpen((o) => !o)}
         title="Token usage details"
-        className="flex items-center gap-2 rounded-tile border border-white/10 bg-[rgba(36,46,66,0.92)] px-4 py-2.5 text-white hover:bg-[rgba(36,46,66,1)]"
+        className="flex items-center gap-2 rounded-tile border border-[#E4DFEF] bg-white/95 px-4 py-2.5 text-ink shadow-panel hover:bg-white"
       >
         <span className="font-baloo text-base font-bold">🪙 {total.toLocaleString()}</span>
         <span className="font-mono text-[10px] opacity-60">tokens {open ? "▾" : "▴"}</span>
@@ -489,6 +489,19 @@ function OrchestratorChat({ focused, setFocused, onSend, projectId }: {
 }) {
   const { getToken: clerkToken } = useAuth();
   const [msg, setMsg] = useState("");
+  // 첫 목표 프리필(D58) — 온보딩 ⑥에서 ?goal=로 넘어온 목표를 입력창에 채우고 챗을 연다.
+  // 소비 후 URL에서 제거(새로고침/공유 시 재프리필 방지). 디스패치는 유저의 Send 클릭에 맡긴다.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const goal = params.get("goal");
+    if (!goal) return;
+    setMsg(goal);
+    setFocused(true);
+    params.delete("goal");
+    const q = params.toString();
+    window.history.replaceState(null, "", window.location.pathname + (q ? `?${q}` : ""));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [bubbles, setBubbles] = useState<{ role: "user" | "orchestrator" | "event"; text: string }[]>([]);
   // 태스크 종결 라이브 이벤트 라인(B1) — SSE가 store에 쌓으면 여기서 소비해 버블로 append.
   const chatEvents = useStore((s) => s.chatEvents);

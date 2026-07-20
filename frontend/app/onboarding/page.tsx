@@ -1,8 +1,9 @@
 "use client";
 
-// 온보딩 위저드(Flow 0) — calm gradient + grid, 680px 카드, 스테퍼.
-// 5스텝: ① Google 사인인(앱 내 모달) ② 이름 ③ 프로젝트명 ④ 팀 멀티셀렉트(4) ⑤ 컨텍스트(선택).
-// 로그인이 첫 스텝 — 사인인 전엔 다음 진행 불가(/app은 미들웨어가 별도 보호).
+// 온보딩 위저드 v2(Flow 0, D58/D59) — G-Clay 크롬, 사장님 프레이밍, 첫 목표 유도.
+// 6스텝: ① Google 사인인 ② 이름 ③ 회사(프로젝트)명 ④ 팀 멀티셀렉트 ⑤ 컨텍스트(선택) ⑥ 첫 목표.
+// ⑥이 마지막인 이유(D58): "뭘 시킬지"의 빈 캔버스가 최대 이탈 절벽 — 예시 목표를 고르면
+// 오피스 진입 시 채팅에 프리필돼 첫 태스크까지 무중단으로 이어진다.
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SignInButton, useAuth, useUser } from "@clerk/nextjs";
@@ -11,17 +12,23 @@ import { apiFetch, E2E, TEAM_TEMPLATES } from "@/lib/api";
 import { pickProject, setLastProject } from "@/lib/lastProject";
 import { CARPET } from "@/lib/tokens";
 
-const STEPS = ["Sign in", "Your name", "Project", "Teams", "Context"];
+const STEPS = ["Sign in", "You", "Company", "Teams", "Context", "First goal"];
+
+// 예시 첫 목표(D58) — 클릭 = 오케스트레이터 첫 메시지 프리필. 저작 카피, 팀 구성 무관하게 동작.
+const EXAMPLE_GOALS = [
+  { emoji: "🛍️", title: "An online store", goal: "Build an online store for handmade candles — landing page, product list, and a checkout page." },
+  { emoji: "📱", title: "A habit tracker", goal: "Build a simple habit-tracking web app — daily checklist, streaks, and a progress page." },
+  { emoji: "🔎", title: "Research first", goal: "Research my competitors in the meal-prep space and write a summary with a comparison table." },
+];
 
 /**
- * Onboarding — 처음 들어온 사용자를 위한 5단계 마법사. 끝나면 첫 프로젝트가 만들어진다.
+ * Onboarding — 처음 들어온 사용자를 위한 6단계 마법사. 끝나면 첫 회사(프로젝트)가 만들어진다.
  *
- * 무슨 일을 하나: ① Google 로그인 → ② 이름 → ③ 프로젝트명 → ④ 팀 고르기(복수) → ⑤ 컨텍스트(선택)
- *   순서로 받고, 마지막에 finish()가 POST /api/projects로 프로젝트+선택 팀들을 한 번에 생성한 뒤
- *   메인 맵 화면(/app/{id})으로 보낸다. 로그인 전엔 다음 단계로 못 넘어간다(첫 관문).
- * 누가 부르나: 랜딩의 '시작하기' 버튼 → /onboarding.
+ * 무슨 일을 하나: ① Google 로그인 → ② 이름 → ③ 회사명 → ④ 팀 고르기 → ⑤ 컨텍스트(선택) → ⑥ 첫 목표
+ *   순서로 받고, finish()가 POST /api/projects로 프로젝트+팀을 생성한 뒤 메인 맵으로 보낸다.
+ *   ⑥에서 고른 목표는 ?goal=로 전달돼 오케스트레이터 챗 입력창에 프리필된다(Hud).
+ * 누가 부르나: 랜딩의 'Start building' 버튼 → /onboarding.
  * 연결: 생성 호출 → apiFetch (frontend/lib/api.ts) → create_project (backend/app/routers/projects.py).
- *   완료 후 이동 → frontend/app/app/[projectId]/page.tsx.
  */
 export default function Onboarding() {
   const router = useRouter();
@@ -31,12 +38,12 @@ export default function Onboarding() {
   const [displayName, setDisplayName] = useState("");
   const [projectName, setProjectName] = useState("");
   const [teams, setTeams] = useState<string[]>([]);
-  const [files, setFiles] = useState<File[]>([]); // step 4에서 모은 컨텍스트 파일 — 프로젝트 생성 후 업로드.
+  const [files, setFiles] = useState<File[]>([]); // step 5에서 모은 컨텍스트 파일 — 프로젝트 생성 후 업로드.
+  const [goal, setGoal] = useState("");           // step 6 — 첫 목표(선택). 오피스 챗에 프리필.
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // 기존 프로젝트가 있는 로그인 사용자가 실수로 온보딩에 들어오면(랜딩/북마크 등) 새 프로젝트를
-  // 또 만들지 않도록 워크스페이스로 되돌린다. 스위처의 "New project"만 ?new=1로 위저드를 강제한다.
+  // 기존 프로젝트가 있는 로그인 사용자가 실수로 온보딩에 들어오면 워크스페이스로 되돌린다.
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -46,7 +53,7 @@ export default function Onboarding() {
   useEffect(() => {
     if (!isLoaded) return; // Clerk 로딩 대기.
     const isNew = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("new") === "1";
-    if (E2E || !isSignedIn || isNew) { setChecking(false); return; } // 명시적 신규 생성/미로그인/E2E는 위저드 진행.
+    if (E2E || !isSignedIn || isNew) { setChecking(false); return; }
     let alive = true;
     (async () => {
       try {
@@ -54,7 +61,7 @@ export default function Onboarding() {
         const projects = await apiFetch<{ id: string }[]>("/api/projects", { token });
         if (!alive) return;
         const target = pickProject(projects);
-        if (target) { router.replace(`/app/${target}`); return; } // 이미 프로젝트가 있으면 워크스페이스로.
+        if (target) { router.replace(`/app/${target}`); return; }
       } catch { /* 목록 조회 실패 시 그냥 위저드를 보여준다. */ }
       if (alive) setChecking(false);
     })();
@@ -62,7 +69,6 @@ export default function Onboarding() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, isSignedIn]);
 
-  // 사인인되면 step 0(로그인)을 자동 통과(E2E 모드는 사인인 스킵).
   const effectiveStep = !(isSignedIn || E2E) ? 0 : Math.max(step, 1);
 
   function toggleTeam(key: string) {
@@ -78,12 +84,11 @@ export default function Onboarding() {
         method: "POST",
         token,
         body: JSON.stringify({
-          name: projectName || "My Project",
+          name: projectName || "My Company",
           template_keys: teams,
           display_name: displayName || user?.firstName || "Founder",
         }),
       });
-      // 고른 컨텍스트 파일 업로드(선택 — 개별 실패해도 워크스페이스 진입은 계속). 보안 검증은 백엔드.
       for (const f of files) {
         try {
           const fd = new FormData();
@@ -91,40 +96,38 @@ export default function Onboarding() {
           await apiFetch(`/api/projects/${project.id}/context`, { method: "POST", token, body: fd });
         } catch { /* 개별 파일 실패는 무시 — 컨텍스트는 선택 사항 */ }
       }
-      setLastProject(project.id); // 새 프로젝트를 마지막 방문지로 기록.
-      router.push(`/app/${project.id}`);
+      setLastProject(project.id);
+      // 첫 목표(D58) — 있으면 쿼리로 넘겨 챗 입력창에 프리필. Hud가 소비 후 URL에서 제거.
+      const q = goal.trim() ? `?goal=${encodeURIComponent(goal.trim())}` : "";
+      router.push(`/app/${project.id}${q}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create project");
       setBusy(false);
     }
   }
 
-  // 로그인 사용자의 프로젝트 보유 여부를 확인하는 동안 위저드가 깜빡이지 않도록 로더를 보여준다.
   if (checking) {
     return (
-      <main className="flex min-h-screen items-center justify-center font-nunito text-secondary" style={{ background: "#C6C9BC" }}>
+      <main className="office-floor flex min-h-screen items-center justify-center text-secondary">
         Loading…
       </main>
     );
   }
 
-  return (
-    <main
-      className="relative flex min-h-screen items-center justify-center p-6 font-nunito text-ink"
-      style={{
-        background:
-          "linear-gradient(160deg,#DDE4D6,#C6C9BC), repeating-linear-gradient(0deg,transparent,transparent 41px,rgba(90,95,80,0.05) 42px)",
-      }}
-    >
-      <div className="absolute left-8 top-7 font-baloo text-2xl font-extrabold text-ink">pondas</div>
+  const inputCls =
+    "w-full max-w-sm rounded-[14px] border border-[#E4DFEF] bg-white px-5 py-3 text-center text-lg outline-none shadow-[0_4px_14px_rgba(110,100,168,0.12)] focus:border-primary-to";
 
-      <div className="w-full max-w-[680px] rounded-card border-[3px] border-white bg-floor p-9 shadow-card">
+  return (
+    <main className="office-floor relative flex min-h-screen items-center justify-center p-6 text-ink">
+      <div className="absolute left-8 top-7 text-2xl font-bold text-ink">pondas</div>
+
+      <div className="w-full max-w-[680px] rounded-card border border-[#E4DFEF] bg-white p-9 shadow-card">
         <div className="mb-7 flex justify-center">
           <Stepper steps={STEPS} current={effectiveStep} />
         </div>
 
         {effectiveStep === 0 && (
-          <Step title="Welcome to pondas" sub="Run a virtual company of AI agents.">
+          <Step title="Your AI company awaits" sub="Hire a team of AI employees. Tell them what to build. Watch them work.">
             <SignInButton mode="modal">
               <PillButton variant="primary">Sign in with Google</PillButton>
             </SignInButton>
@@ -132,14 +135,9 @@ export default function Onboarding() {
         )}
 
         {effectiveStep === 1 && (
-          <Step title="What should we call you?" sub="Your display name in the workspace.">
-            <input
-              autoFocus
-              className="w-full max-w-sm rounded-pill border-2 border-white bg-white/70 px-5 py-3 text-center text-lg outline-none focus:border-primary-to"
-              placeholder="Jane"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
+          <Step title="What should your team call you?" sub="You're the boss — this is the name your agents will report to.">
+            <input autoFocus className={inputCls} placeholder="Jane"
+              value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
             <PillButton variant="primary" onClick={() => setStep(2)} disabled={!displayName.trim()}>
               Continue →
             </PillButton>
@@ -147,14 +145,9 @@ export default function Onboarding() {
         )}
 
         {effectiveStep === 2 && (
-          <Step title="Name your first project" sub="Each project is its own office map.">
-            <input
-              autoFocus
-              className="w-full max-w-sm rounded-pill border-2 border-white bg-white/70 px-5 py-3 text-center text-lg outline-none focus:border-primary-to"
-              placeholder="Acme Studio"
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-            />
+          <Step title="Name your company" sub="Each company gets its own office. You can run several.">
+            <input autoFocus className={inputCls} placeholder="Acme Studio"
+              value={projectName} onChange={(e) => setProjectName(e.target.value)} />
             <PillButton variant="primary" onClick={() => setStep(3)} disabled={!projectName.trim()}>
               Continue →
             </PillButton>
@@ -162,7 +155,7 @@ export default function Onboarding() {
         )}
 
         {effectiveStep === 3 && (
-          <Step title="Pick your teams" sub="Each becomes an office room with its starting agent.">
+          <Step title="Hire your teams" sub="Each team gets an office room and a starting employee. You can hire more later.">
             <div className="grid w-full grid-cols-2 gap-3">
               {TEAM_TEMPLATES.map((t) => {
                 const sel = teams.includes(t.key);
@@ -170,18 +163,19 @@ export default function Onboarding() {
                   <button
                     key={t.key}
                     onClick={() => toggleTeam(t.key)}
-                    className="relative rounded-2xl border-[3px] p-4 text-left transition-all"
+                    className="relative rounded-2xl border-2 p-4 text-left transition-all"
                     style={{
-                      borderColor: sel ? "#3FB4DC" : "#fff",
-                      background: sel ? CARPET[t.key] : "rgba(255,255,255,0.55)",
+                      borderColor: sel ? "#7266D6" : "#E4DFEF",
+                      background: sel ? CARPET[t.key] : "#FDFCF9",
+                      boxShadow: sel ? "0 8px 20px rgba(114,102,214,0.2)" : "none",
                     }}
                   >
                     {sel && (
-                      <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-primary-to font-baloo text-xs font-extrabold text-white">
+                      <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-[#3AA45C] text-xs font-bold text-white">
                         ✓
                       </span>
                     )}
-                    <div className="font-baloo text-lg font-extrabold">{t.name}</div>
+                    <div className="text-lg font-bold">{t.name}</div>
                     <div className="mt-1 text-xs text-secondary">{t.description}</div>
                     <div className="mt-2 font-mono text-[10px] text-muted">starts with {t.starter}</div>
                   </button>
@@ -195,13 +189,9 @@ export default function Onboarding() {
         )}
 
         {effectiveStep === 4 && (
-          <Step title="Add context (optional)" sub="Files (txt, md, pdf · ≤ 10 MB) your agents can read. You can also add these later in Settings.">
+          <Step title="Add context (optional)" sub="Files (txt, md, pdf · ≤ 10 MB) your team can read. You can also add these later in Settings.">
             <input
-              ref={fileInputRef}
-              type="file"
-              accept=".txt,.md,.markdown,.pdf"
-              multiple
-              className="hidden"
+              ref={fileInputRef} type="file" accept=".txt,.md,.markdown,.pdf" multiple className="hidden"
               onChange={(e) => {
                 const picked = Array.from(e.target.files ?? []);
                 setFiles((prev) => [...prev, ...picked]);
@@ -211,7 +201,7 @@ export default function Onboarding() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex w-full max-w-sm flex-col items-center justify-center rounded-2xl border-2 border-dashed border-muted-2 bg-white/40 px-6 py-8 text-sm text-secondary transition-colors hover:border-primary-to hover:bg-white/60"
+              className="flex w-full max-w-sm flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#C9C4DC] bg-[#FDFCF9] px-6 py-8 text-sm text-secondary transition-colors hover:border-primary-to hover:bg-white"
             >
               <span className="text-2xl">📎</span>
               <span className="mt-1">Click to choose files, or skip for now</span>
@@ -219,17 +209,58 @@ export default function Onboarding() {
             {files.length > 0 && (
               <div className="w-full max-w-sm space-y-1">
                 {files.map((f, i) => (
-                  <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-lg border-2 border-white bg-white/60 px-3 py-1.5 text-xs">
+                  <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-lg border border-[#E4DFEF] bg-white px-3 py-1.5 text-xs">
                     <span className="truncate font-bold">{f.name}</span>
                     <button type="button" onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))} className="shrink-0 text-status-failed hover:underline">Remove</button>
                   </div>
                 ))}
               </div>
             )}
-            {error && <div className="text-sm text-status-failed">{error}</div>}
-            <PillButton variant="confirm" onClick={finish} disabled={busy}>
-              {busy ? "Building…" : "Enter the office →"}
+            <PillButton variant="primary" onClick={() => setStep(5)}>
+              Continue →
             </PillButton>
+          </Step>
+        )}
+
+        {effectiveStep === 5 && (
+          <Step title="What should your team build first?" sub="Pick one to get going, write your own, or skip — you can always just talk to your team in the office.">
+            <div className="grid w-full grid-cols-3 gap-3">
+              {EXAMPLE_GOALS.map((g) => {
+                const sel = goal === g.goal;
+                return (
+                  <button
+                    key={g.title}
+                    onClick={() => setGoal(sel ? "" : g.goal)}
+                    className="rounded-2xl border-2 p-3 text-left transition-all"
+                    style={{
+                      borderColor: sel ? "#7266D6" : "#E4DFEF",
+                      background: sel ? "#EFEDFB" : "#FDFCF9",
+                      boxShadow: sel ? "0 8px 20px rgba(114,102,214,0.2)" : "none",
+                    }}
+                  >
+                    <div className="text-xl">{g.emoji}</div>
+                    <div className="mt-1 text-sm font-bold">{g.title}</div>
+                    <div className="mt-1 text-[11px] leading-snug text-secondary">{g.goal}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <textarea
+              className="w-full max-w-md rounded-[14px] border border-[#E4DFEF] bg-white px-4 py-3 text-sm outline-none shadow-[0_4px_14px_rgba(110,100,168,0.12)] focus:border-primary-to"
+              rows={2}
+              placeholder="…or describe your own first goal"
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
+            />
+            {error && <div className="text-sm text-status-failed">{error}</div>}
+            <div className="flex items-center gap-3">
+              <PillButton variant="confirm" onClick={finish} disabled={busy}>
+                {busy ? "Building your office…" : "Enter your office →"}
+              </PillButton>
+              {!goal.trim() && (
+                <button onClick={finish} disabled={busy} className="text-sm text-muted hover:underline">Skip</button>
+              )}
+            </div>
           </Step>
         )}
       </div>
@@ -241,7 +272,7 @@ function Step({ title, sub, children }: { title: string; sub: string; children: 
   return (
     <div className="flex flex-col items-center gap-5 text-center">
       <div>
-        <h1 className="font-baloo text-2xl font-extrabold">{title}</h1>
+        <h1 className="text-2xl font-bold">{title}</h1>
         <p className="mt-1 text-secondary">{sub}</p>
       </div>
       {children}

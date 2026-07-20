@@ -57,7 +57,7 @@ export function Overlay({ onClose, children }: { onClose?: () => void; children:
       onClick={onClose}
     >
       <div
-        className="rounded-card border-[3px] border-white bg-floor shadow-card"
+        className="rounded-card border border-[#E4DFEF] bg-white shadow-card"
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -77,12 +77,12 @@ export function Stepper({ steps, current }: { steps: string[]; current: number }
           <div key={label} className="flex items-center gap-2">
             <div
               className={clsx(
-                "flex items-center justify-center rounded-full font-baloo font-extrabold text-white",
+                "flex items-center justify-center rounded-full font-inter font-bold text-white",
                 active ? "h-9 w-9 text-[15px]" : "h-7 w-7 text-[12px]",
               )}
               style={{
-                background: done ? "#5FC96E" : active ? "linear-gradient(135deg,#67D2F2,#3FB4DC)" : "#E2E4D0",
-                color: done || active ? "#fff" : "#8A857C",
+                background: done ? "#4CC97A" : active ? "linear-gradient(160deg,#8F84E8,#7266D6)" : "#E6E2F0",
+                color: done || active ? "#fff" : "#8A8798",
               }}
             >
               {done ? "✓" : i + 1}
