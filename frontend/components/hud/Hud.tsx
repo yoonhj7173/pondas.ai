@@ -11,6 +11,7 @@ import { useStore, type FeedEvent, type NotifRow } from "@/lib/store";
 import { STATUS_CHIP, visualStatus } from "@/lib/tokens";
 import { apiFetch, E2E } from "@/lib/api";
 import { ding } from "@/lib/sound";
+import { enablePush, pushGranted, pushSupported } from "@/lib/push";
 
 // 채팅 말풍선 마크다운(QA-03-2) — office 기본 청크를 가볍게 유지(lazy, Markdown.tsx 컨벤션).
 const Markdown = dynamic(() => import("@/components/ui/Markdown"), { ssr: false });
@@ -212,6 +213,26 @@ function UnifiedActivity({ onFocusAgent, projectId }: { onFocusAgent?: (id: stri
   const progress = useStore((s) => s.progress);
   const agents = useStore((s) => s.agents);
   const [expanded, setExpanded] = useState(false);
+  // Web Push(D56⑤) — 아직 권한 없으면 활성 버튼 노출. 서버 미설정(config.enabled=false)이면 숨김.
+  const [pushState, setPushState] = useState<"unknown" | "off" | "on" | "unavailable">("unknown");
+  useEffect(() => {
+    if (!pushSupported()) { setPushState("unavailable"); return; }
+    if (pushGranted()) { setPushState("on"); return; }
+    (async () => {
+      try {
+        const token = await clerkToken();
+        const cfg = await apiFetch<{ enabled: boolean }>("/api/push/config", { token });
+        setPushState(cfg.enabled ? "off" : "unavailable");
+      } catch { setPushState("unavailable"); }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  async function onEnablePush() {
+    try {
+      const ok = await enablePush(await clerkToken());
+      if (ok) setPushState("on");
+    } catch { /* 권한 거부 등 — 버튼 유지 */ }
+  }
   const scrollRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true); // 사용자가 위로 스크롤하지 않았으면 최신으로 자동 스크롤 유지.
 
@@ -284,6 +305,12 @@ function UnifiedActivity({ onFocusAgent, projectId }: { onFocusAgent?: (id: stri
             <button onClick={() => setExpanded((e) => !e)} title={expanded ? "Collapse" : "Expand"} className="px-1 text-[15px] leading-none opacity-70 hover:opacity-100">{expanded ? "⤡" : "⤢"}</button>
           </span>
         </div>
+        {pushState === "off" && (
+          <button onClick={onEnablePush}
+            className="mb-2 w-full rounded-lg border border-dashed border-[#C9C4DC] px-2 py-1.5 text-[11px] font-semibold text-secondary hover:bg-[#F3F1F9]">
+            🔔 Get notified on your phone when agents need you
+          </button>
+        )}
         <div ref={scrollRef} onScroll={onScroll} className={clsx("chat-scroll overflow-y-auto transition-[max-height] duration-200", expanded ? "max-h-[62vh]" : "max-h-[40vh]")}>
           {rows.length === 0 && <div className="py-2 text-xs opacity-40">No activity yet</div>}
           {rows.map((r) =>
