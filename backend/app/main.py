@@ -33,6 +33,7 @@ from app.routers import (
     billing,
     chat,
     context,
+    deploy,
     edges,
     github,
     memory,
@@ -191,6 +192,7 @@ def create_app() -> FastAPI:
     app.include_router(notes.router)
     app.include_router(github.router)
     app.include_router(push.router)
+    app.include_router(deploy.router)
     # SSE / Notifications / Board / Usage(item 12).
     app.include_router(realtime.router)
     # Orchestrator chat(item 13).
