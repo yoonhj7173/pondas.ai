@@ -10,22 +10,23 @@ export type AgentStatus =
   | "failed";
 
 // 상태 chip 페어(bg/fg) — README §Colors.
+// G-Clay v2 (D59) — 파스텔 배경 + 딥 포그라운드.
 export const STATUS_CHIP: Record<string, { bg: string; fg: string }> = {
-  working: { bg: "#DCEEF8", fg: "#2C6FA0" },
-  "needs-input": { bg: "#FBEFCB", fg: "#8A6200" },
-  queued: { bg: "#FBEFCB", fg: "#8A6200" },
-  done: { bg: "#E0F2E5", fg: "#2C7A4A" },
-  failed: { bg: "#F8DAD3", fg: "#B23A26" },
-  idle: { bg: "#ECE8DD", fg: "#6A6258" },
-  blocked: { bg: "#FBEFCB", fg: "#8A6200" },
+  working: { bg: "#E3F4FD", fg: "#1F7FA8" },
+  "needs-input": { bg: "#FFF3D6", fg: "#96660A" },
+  queued: { bg: "#FFF3D6", fg: "#96660A" },
+  done: { bg: "#E2F7EA", fg: "#237A46" },
+  failed: { bg: "#FBE3DE", fg: "#B23A26" },
+  idle: { bg: "#EFEDF5", fg: "#6E6A87" },
+  blocked: { bg: "#FFF3D6", fg: "#96660A" },
 };
 
 export const CARPET: Record<string, string> = {
-  research: "#C2DAC6",
-  development: "#C8D6E4",
-  planning: "#DDD3E4",
-  design: "#EEE7D6",
-  data: "#E2EAD8",
+  research: "#BFD9C6",
+  development: "#BBB4DF",
+  planning: "#BDD1EA",
+  design: "#E7DCC8",
+  data: "#CFE4D4",
 };
 
 // 백엔드 7-상태 → UI 6-비주얼(blocked→needs-input, D36).

@@ -60,8 +60,8 @@ export function TreasuryTile({ getToken, onOpen }: { getToken: GetToken; onOpen:
     <button
       onClick={onOpen}
       title="Credits — click to top up"
-      className="w-48 rounded-2xl px-4 py-3 text-left text-white shadow-card"
-      style={{ background: "rgba(36,46,66,0.92)" }}
+      className="w-48 rounded-2xl px-4 py-3 text-left text-ink shadow-card"
+      style={{ background: "rgba(255,255,255,0.95)", border: "1px solid #E4DFEF", boxShadow: "0 10px 26px rgba(110,100,168,0.22)" }}
     >
       {/* '+' 버튼은 제거 — 타일 존재 자체로 크레딧 관리/결제 진입점임을 알 수 있다(2-2). */}
       <div className="flex items-center gap-2 font-baloo text-lg font-extrabold">
@@ -69,8 +69,8 @@ export function TreasuryTile({ getToken, onOpen }: { getToken: GetToken; onOpen:
       </div>
       {pct !== null && (
         <>
-          <div className="mt-2 text-[11px] font-semibold text-[#b9c2d4]">{pct}% of monthly budget left</div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded bg-white/20">
+          <div className="mt-2 text-[11px] font-semibold text-muted">{pct}% of monthly budget left</div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded bg-[#EFEDF5]">
             <div className="h-full rounded" style={{ width: `${pct}%`, background: "linear-gradient(90deg,#fbdd8a,#f7b731)" }} />
           </div>
         </>

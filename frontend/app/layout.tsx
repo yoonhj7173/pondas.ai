@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Baloo_2, Nunito, JetBrains_Mono, Mulish, Bricolage_Grotesque } from "next/font/google";
+import { Inter, JetBrains_Mono, Mulish, Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 import Analytics from "@/components/analytics/Analytics";
 
-const baloo = Baloo_2({ subsets: ["latin"], weight: ["700", "800"], variable: "--font-baloo" });
-const nunito = Nunito({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-nunito" });
+// D59 G-Clay: Inter가 단일 UI 서체 (구 Baloo/Nunito 변수는 Inter로 통합)
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-inter" });
 const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono" });
 const mulish = Mulish({ subsets: ["latin"], weight: ["500", "700"], variable: "--font-mulish" });
 const bricolage = Bricolage_Grotesque({ subsets: ["latin"], weight: ["700"], variable: "--font-bricolage" });
@@ -74,7 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           colorTextSecondary: "#5c574f",
           colorBackground: "#fdfcf8",
           borderRadius: "14px",
-          fontFamily: "var(--font-nunito), sans-serif",
+          fontFamily: "var(--font-inter), sans-serif",
         },
         elements: {
           cardBox: "rounded-[24px] border-[2.5px] border-white shadow-[0_30px_70px_rgba(30,35,25,0.4)]",
@@ -100,7 +100,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         },
       }}
     >
-      <html lang="en" className={`${baloo.variable} ${nunito.variable} ${mono.variable} ${mulish.variable} ${bricolage.variable}`}>
+      <html lang="en" className={`${inter.variable} ${mono.variable} ${mulish.variable} ${bricolage.variable}`}>
         <body>
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }} />
           {children}

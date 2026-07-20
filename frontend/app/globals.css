@@ -3,47 +3,54 @@
 @tailwind utilities;
 
 :root {
-  /* two-layer 룰: 월드는 차분, UI는 candy. */
-  --modal-dim: rgba(40, 46, 40, 0.42);
-  --glass-bg: rgba(253, 253, 251, 0.26);
-  --dark-hud: rgba(36, 46, 66, 0.92);
+  /* G-Clay v2 (D59): 하이키 파스텔 + 클레이 섀도. 크롬=화이트 카드, 월드=파스텔 디오라마. */
+  --modal-dim: rgba(40, 38, 60, 0.45);
+  --glass-bg: rgba(255, 255, 255, 0.82);
+  --dark-hud: rgba(255, 255, 255, 0.92);   /* 구 다크 HUD 타일 → 화이트 카드 (이름은 호환 유지) */
+  --chrome-border: #e4dfef;
+  --chrome-shadow: 0 10px 26px rgba(110, 100, 168, 0.22);
 }
 
 body {
-  color: #2c2925;
-  background: #c6c9bc;
-  font-family: var(--font-nunito), sans-serif;
+  color: #33304a;
+  background-color: #f6efe2;
+  background-image: linear-gradient(#ece2ce 1.5px, transparent 1.5px),
+    linear-gradient(90deg, #ece2ce 1.5px, transparent 1.5px);
+  background-size: 40px 40px;
+  font-family: var(--font-inter), sans-serif;
 }
 
 @layer components {
   /* Pill 버튼 — radius 999 + white 2.5px border + colored drop shadow. */
   .btn-pill {
-    @apply inline-flex items-center justify-center gap-2 rounded-pill border-[2.5px] border-white
-           px-5 py-2.5 font-baloo font-extrabold text-white;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
+    @apply inline-flex items-center justify-center gap-2 rounded-[14px] border-0
+           px-5 py-2.5 font-inter font-semibold text-white;
   }
   .btn-primary {
-    background: linear-gradient(135deg, #67d2f2, #3fb4dc);
-    box-shadow: 0 8px 18px rgba(63, 180, 220, 0.4);
+    background: linear-gradient(160deg, #8f84e8, #7266d6);
+    box-shadow: 0 8px 18px rgba(114, 102, 214, 0.4), inset 0 2px 3px rgba(255, 255, 255, 0.35);
   }
   .btn-confirm {
-    background: linear-gradient(135deg, #74d982, #4dbb5c);
-    box-shadow: 0 8px 18px rgba(77, 187, 92, 0.4);
+    background: linear-gradient(160deg, #54c875, #3aa45c);
+    box-shadow: 0 8px 18px rgba(67, 179, 106, 0.42), inset 0 2px 3px rgba(255, 255, 255, 0.35);
   }
   .btn-danger {
-    background: linear-gradient(135deg, #ef7a66, #e8503a);
-    box-shadow: 0 8px 18px rgba(232, 80, 58, 0.35);
+    background: linear-gradient(160deg, #f07a63, #e8503a);
+    box-shadow: 0 8px 18px rgba(232, 80, 58, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.3);
   }
   /* Glass 사이드 패널. */
   .glass {
     background: var(--glass-bg);
-    backdrop-filter: blur(10px) saturate(1.15);
-    box-shadow: 8px 0 34px rgba(50, 55, 45, 0.17);
+    backdrop-filter: blur(14px) saturate(1.1);
+    border: 1px solid var(--chrome-border);
+    box-shadow: var(--chrome-shadow);
   }
   /* Dark HUD tile. */
   .dark-tile {
     background: var(--dark-hud);
-    @apply rounded-tile text-white;
+    border: 1px solid var(--chrome-border);
+    box-shadow: var(--chrome-shadow);
+    @apply rounded-tile text-ink;
   }
 }
 
@@ -52,19 +59,19 @@ body {
   font-family: var(--font-mulish), sans-serif;
   font-size: 17px;
   line-height: 1.75;
-  color: #3a3631;
+  color: #3e3a56;
 }
 .prose-craft p { margin: 1.1em 0; }
 .prose-craft h2 {
-  font-family: var(--font-baloo), sans-serif;
+  font-family: var(--font-inter), sans-serif;
   font-weight: 800;
   font-size: 1.6rem;
   margin: 1.8em 0 0.5em;
-  color: #2c2925;
+  color: #33304a;
 }
 .prose-craft ul { margin: 1.1em 0; padding-left: 1.3em; list-style: disc; }
 .prose-craft li { margin: 0.3em 0; }
-.prose-craft strong { font-weight: 700; color: #2c2925; }
+.prose-craft strong { font-weight: 700; color: #33304a; }
 .prose-craft pre {
   background: #1f2430;
   color: #e6e6e6;
@@ -90,11 +97,11 @@ body {
 }
 
 /* 결과 인-플로우 마크다운(Phase 2, D51) — 패널/미리보기용 컴팩트 변형. prose-craft 축소판. */
-.prose-result { font-family: var(--font-nunito), sans-serif; font-size: 13px; line-height: 1.6; color: #3a3631; word-break: break-word; }
+.prose-result { font-family: var(--font-inter), sans-serif; font-size: 13px; line-height: 1.6; color: #3e3a56; word-break: break-word; }
 .prose-result :first-child { margin-top: 0; }
 .prose-result :last-child { margin-bottom: 0; }
 .prose-result p { margin: 0.6em 0; }
-.prose-result h1, .prose-result h2, .prose-result h3 { font-family: var(--font-baloo), sans-serif; font-weight: 800; color: #2c2925; margin: 1em 0 0.4em; line-height: 1.3; }
+.prose-result h1, .prose-result h2, .prose-result h3 { font-family: var(--font-inter), sans-serif; font-weight: 800; color: #33304a; margin: 1em 0 0.4em; line-height: 1.3; }
 .prose-result h1 { font-size: 1.25rem; }
 .prose-result h2 { font-size: 1.1rem; }
 .prose-result h3 { font-size: 1rem; }
@@ -103,7 +110,7 @@ body {
 .prose-result ol { list-style: decimal; }
 .prose-result li { margin: 0.2em 0; }
 .prose-result li::marker { color: #3fb4dc; }
-.prose-result strong { font-weight: 800; color: #2c2925; }
+.prose-result strong { font-weight: 800; color: #33304a; }
 .prose-result a { color: #2b6cb0; text-decoration: underline; }
 .prose-result pre { background: #1f2430; color: #e6e6e6; border-radius: 10px; padding: 12px; overflow-x: auto; font-family: var(--font-mono), monospace; font-size: 12px; line-height: 1.55; margin: 0.8em 0; }
 .prose-result code { font-family: var(--font-mono), monospace; }
@@ -120,25 +127,25 @@ body {
 .prose-result-dark th, .prose-result-dark td { border-color: #3a4152; }
 
 /* 법률 문서(ToS/Privacy/Refunds) prose — 읽기 편한 기본 타이포(D46 Legal). */
-.legal-prose { color: #3a3631; font-size: 15px; }
-.legal-prose h2 { font-family: var(--font-baloo), sans-serif; font-weight: 800; font-size: 1.25rem; color: #2c2925; margin: 1.9em 0 0.5em; }
-.legal-prose h3 { font-weight: 800; font-size: 1rem; color: #2c2925; margin: 1.3em 0 0.35em; }
+.legal-prose { color: #3e3a56; font-size: 15px; }
+.legal-prose h2 { font-family: var(--font-inter), sans-serif; font-weight: 800; font-size: 1.25rem; color: #33304a; margin: 1.9em 0 0.5em; }
+.legal-prose h3 { font-weight: 800; font-size: 1rem; color: #33304a; margin: 1.3em 0 0.35em; }
 .legal-prose p { margin: 0.8em 0; line-height: 1.7; }
 .legal-prose ul { list-style: disc; padding-left: 1.4em; margin: 0.6em 0; }
 .legal-prose li { margin: 0.3em 0; line-height: 1.7; }
 .legal-prose a { color: #3fb4dc; font-weight: 700; }
 .legal-prose a:hover { text-decoration: underline; }
-.legal-prose strong { font-weight: 800; color: #2c2925; }
+.legal-prose strong { font-weight: 800; color: #33304a; }
 .legal-prose .note { background: #fff; border: 1px solid #ece8dd; border-radius: 12px; padding: 12px 14px; font-size: 13.5px; color: #5c574f; }
 
 /* ── QA UX 배치(2026-07-13) ───────────────────────────────────────────── */
 
 /* 오케 채팅 말풍선 마크다운(QA-03-2) — prose-result 축소판, 말풍선 안에서 여백 타이트하게. */
-.prose-chat { font-family: var(--font-nunito), sans-serif; font-size: 13.5px; line-height: 1.55; color: #2c2925; word-break: break-word; }
+.prose-chat { font-family: var(--font-inter), sans-serif; font-size: 13.5px; line-height: 1.55; color: #33304a; word-break: break-word; }
 .prose-chat :first-child { margin-top: 0; }
 .prose-chat :last-child { margin-bottom: 0; }
 .prose-chat p { margin: 0.45em 0; }
-.prose-chat h1, .prose-chat h2, .prose-chat h3 { font-family: var(--font-baloo), sans-serif; font-weight: 800; margin: 0.7em 0 0.25em; line-height: 1.3; font-size: 1.02rem; }
+.prose-chat h1, .prose-chat h2, .prose-chat h3 { font-family: var(--font-inter), sans-serif; font-weight: 800; margin: 0.7em 0 0.25em; line-height: 1.3; font-size: 1.02rem; }
 .prose-chat ul, .prose-chat ol { margin: 0.4em 0; padding-left: 1.25em; }
 .prose-chat ul { list-style: disc; }
 .prose-chat ol { list-style: decimal; }
@@ -160,12 +167,10 @@ body {
 @keyframes typing-blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 0.9; } }
 @media (prefers-reduced-motion: reduce) { .typing-dot { animation: none; opacity: 0.6; } }
 
-/* 오피스 바닥 체커 타일(QA-07) — 디자인 토큰 floor(#F2EFE3) × floor-checker(#E2E4D0). */
+/* 오피스 바닥(D59 G-Clay) — 체커 폐기, 크림 + 얇은 타일 그리드. */
 .office-floor {
-  background-color: #f2efe3;
-  background-image:
-    linear-gradient(45deg, #e2e4d0 25%, transparent 25%, transparent 75%, #e2e4d0 75%),
-    linear-gradient(45deg, #e2e4d0 25%, transparent 25%, transparent 75%, #e2e4d0 75%);
-  background-size: 44px 44px;
-  background-position: 0 0, 22px 22px;
+  background-color: #f6efe2;
+  background-image: linear-gradient(#ece2ce 1.5px, transparent 1.5px),
+    linear-gradient(90deg, #ece2ce 1.5px, transparent 1.5px);
+  background-size: 40px 40px;
 }
