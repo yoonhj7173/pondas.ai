@@ -39,6 +39,16 @@ def install_url() -> str:
     return f"https://github.com/apps/{settings.github_app_slug}/installations/new"
 
 
+def authorize_url() -> str:
+    """기존 설치의 user 토큰 재발급용 OAuth authorize URL(설치 URL은 code를 다시 안 준다)."""
+    from urllib.parse import quote
+    return (
+        "https://github.com/login/oauth/authorize"
+        f"?client_id={settings.github_client_id}"
+        f"&redirect_uri={quote('https://pondas.ai/github/callback')}"
+    )
+
+
 def _normalize_pem(key: str) -> str:
     """env 붙여넣기 사고 흡수 — 리터럴 \\n 복원 + 헤더/푸터 없이 본문만 온 경우 래핑.
 
