@@ -16,12 +16,14 @@ export default function GithubCallback() {
   useEffect(() => {
     if (!isLoaded) return;
     if (!isSignedIn) { setMsg("Please sign in first, then reconnect from History."); return; }
-    const id = new URLSearchParams(window.location.search).get("installation_id");
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("installation_id");
+    const code = params.get("code"); // OAuth during install — 개인 계정 리포 생성용 user 토큰 교환
     if (!id) { setMsg("Missing installation — try connecting again from History."); return; }
     (async () => {
       try {
         const token = await getToken();
-        await apiFetch(`/api/github/install`, { method: "POST", token, body: JSON.stringify({ installation_id: Number(id) }) });
+        await apiFetch(`/api/github/install`, { method: "POST", token, body: JSON.stringify({ installation_id: Number(id), code }) });
         setMsg("GitHub connected ✓ Heading back to your office…");
         const projects = await apiFetch<{ id: string }[]>("/api/projects", { token });
         const target = pickProject(projects);

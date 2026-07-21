@@ -49,6 +49,7 @@ def github_status(
 
 class InstallIn(BaseModel):
     installation_id: int = Field(gt=0)
+    code: str | None = Field(default=None, max_length=200)  # OAuth during install의 ?code=
 
 
 @router.post("/github/install", status_code=204,
@@ -67,15 +68,27 @@ def github_install(
         raise HTTPException(status_code=503, detail="GitHub integration is not configured")
     try:
         info = gh.get_client().get_installation(body.installation_id)
-    except Exception:  # noqa: BLE001 — 존재하지 않거나 우리 App 설치가 아님.
+    except Exception as exc:  # noqa: BLE001 — 존재하지 않거나 우리 App 설치가 아님.
+        # 조용한 400 금지(실사고: PEM 포맷 오류가 'invalid installation'로 위장됐다) — 원인 로깅.
+        import logging
+        logging.getLogger("app.github").warning("install validation failed: %s", exc)
         raise HTTPException(status_code=400, detail="invalid installation")
     conn = db.get(GithubConnection, scope.user_id)
     if conn is None:
-        db.add(GithubConnection(user_id=scope.user_id, installation_id=body.installation_id,
-                                account_login=info["account_login"]))
+        conn = GithubConnection(user_id=scope.user_id, installation_id=body.installation_id,
+                                account_login=info["account_login"])
+        db.add(conn)
     else:
         conn.installation_id = body.installation_id
         conn.account_login = info["account_login"]
+    # user access token(개인 계정 리포 생성용) — code가 오면 교환/저장. 실패해도 연결 자체는 유지
+    # (리포 생성 시점에 재연결 안내).
+    if body.code:
+        try:
+            gh.store_user_token(conn, gh.exchange_oauth_code(body.code))
+        except Exception as exc:  # noqa: BLE001
+            import logging
+            logging.getLogger("app.github").warning("oauth code exchange failed: %s", exc)
     db.commit()
 
 
@@ -99,8 +112,15 @@ def create_project_repo(
     # 리포명 = 프로젝트 슬러그(영숫자/하이픈만 — GitHub 규칙).
     slug = re.sub(r"[^a-zA-Z0-9-]+", "-", project.name).strip("-").lower() or "pondas-project"
     try:
-        full_name = gh.get_client().create_repo(conn.installation_id, slug)
-    except Exception:  # noqa: BLE001
+        user_token = gh.get_user_token(db, conn)
+    except RuntimeError:
+        # 구버전 연결(user 토큰 없음) — 재설치로 code를 받아야 한다.
+        raise HTTPException(status_code=409, detail="reconnect GitHub to enable repository creation")
+    try:
+        full_name = gh.get_client().create_repo(user_token, slug)
+    except Exception as exc:  # noqa: BLE001
+        import logging
+        logging.getLogger("app.github").warning("repo creation failed: %s", exc)
         raise HTTPException(status_code=502, detail="failed to create repository")
     project.repo_full_name = full_name
     db.commit()

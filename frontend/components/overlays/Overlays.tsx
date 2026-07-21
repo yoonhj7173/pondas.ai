@@ -569,7 +569,12 @@ export function HistoryOverlay({ projectId, getToken, onClose }: { projectId: st
       const token = await getToken();
       await apiFetch(`/api/projects/${projectId}/repo`, { method: "POST", token });
       await load();
-    } catch { setError("Could not create the repository"); } finally { setRepoBusy(false); }
+    } catch (e) {
+      const msg = e instanceof Error && e.message.includes("reconnect")
+        ? "Please reconnect GitHub once more (we need a fresh authorization to create repos)."
+        : "Could not create the repository";
+      setError(msg);
+    } finally { setRepoBusy(false); }
   }
 
   return (

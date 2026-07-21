@@ -39,6 +39,82 @@ def install_url() -> str:
     return f"https://github.com/apps/{settings.github_app_slug}/installations/new"
 
 
+def _normalize_pem(key: str) -> str:
+    """env 붙여넣기 사고 흡수 — 리터럴 \\n 복원 + 헤더/푸터 없이 본문만 온 경우 래핑.
+
+    실사고(2026-07-21): Railway에 PEM 본문만 붙여넣어져 JWT 서명 전체가 죽었다.
+    """
+    key = key.replace("\\n", "\n").strip()
+    if key and not key.startswith("-----BEGIN"):
+        key = f"-----BEGIN RSA PRIVATE KEY-----\n{key}\n-----END RSA PRIVATE KEY-----\n"
+    return key
+
+
+# ── user access token(OAuth during install) ────────────────────────────────
+# 개인 계정 리포 생성(POST /user/repos)은 installation 토큰이 403(실측) —
+# "Request user authorization during installation"으로 받은 user 토큰이 필요하다.
+
+
+def _fernet():
+    from cryptography.fernet import Fernet
+
+    if not settings.secrets_key:
+        raise RuntimeError("SECRETS_KEY not configured")
+    return Fernet(settings.secrets_key.encode())
+
+
+def exchange_oauth_code(code: str) -> dict:
+    """설치 콜백의 ?code=를 user access token으로 교환. 반환: access/refresh/expires_in."""
+    r = httpx.post(
+        "https://github.com/login/oauth/access_token",
+        headers={"Accept": "application/json", **_UA},
+        data={"client_id": settings.github_client_id,
+              "client_secret": settings.github_client_secret, "code": code},
+        timeout=20,
+    )
+    r.raise_for_status()
+    d = r.json()
+    if "access_token" not in d:
+        raise RuntimeError(f"oauth exchange failed: {d.get('error', 'unknown')}")
+    return d
+
+
+def store_user_token(conn: GithubConnection, token_resp: dict) -> None:
+    from datetime import timedelta
+
+    f = _fernet()
+    conn.user_token_encrypted = f.encrypt(token_resp["access_token"].encode())
+    if token_resp.get("refresh_token"):
+        conn.refresh_token_encrypted = f.encrypt(token_resp["refresh_token"].encode())
+    expires = int(token_resp.get("expires_in") or 0)
+    conn.token_expires_at = (
+        datetime.now(timezone.utc) + timedelta(seconds=expires - 300) if expires else None
+    )
+
+
+def get_user_token(db, conn: GithubConnection) -> str:
+    """복호화된 user 토큰 — 만료면 refresh로 갱신 후 저장. 없으면 RuntimeError(재연결 안내)."""
+    if conn.user_token_encrypted is None:
+        raise RuntimeError("no user token — reconnect GitHub")
+    f = _fernet()
+    if conn.token_expires_at is not None and conn.token_expires_at <= datetime.now(timezone.utc):
+        if conn.refresh_token_encrypted is None:
+            raise RuntimeError("token expired — reconnect GitHub")
+        r = httpx.post(
+            "https://github.com/login/oauth/access_token",
+            headers={"Accept": "application/json", **_UA},
+            data={"client_id": settings.github_client_id,
+                  "client_secret": settings.github_client_secret,
+                  "grant_type": "refresh_token",
+                  "refresh_token": f.decrypt(conn.refresh_token_encrypted).decode()},
+            timeout=20,
+        )
+        r.raise_for_status()
+        store_user_token(conn, r.json())
+        db.commit()
+    return f.decrypt(conn.user_token_encrypted).decode()
+
+
 class GitHubAppClient:
     """실제 GitHub API 클라이언트 — App JWT → installation token → REST/Git Data API.
 
@@ -51,7 +127,7 @@ class GitHubAppClient:
         now = int(time.time())
         return jwt.encode(
             {"iat": now - 60, "exp": now + 540, "iss": settings.github_app_id},
-            settings.github_app_private_key.replace("\\n", "\n"),
+            _normalize_pem(settings.github_app_private_key),
             algorithm="RS256",
         )
 
@@ -75,10 +151,11 @@ class GitHubAppClient:
         data = r.json()
         return {"account_login": data["account"]["login"]}
 
-    def create_repo(self, installation_id: int, name: str) -> str:
-        """유저 계정에 private 리포 생성(D61). 이름 충돌 시 -2, -3… 반환값 = full_name."""
-        token = self._inst_token(installation_id)
-        headers = {**_UA, "Authorization": f"token {token}"}
+    def create_repo(self, user_token: str, name: str) -> str:
+        """유저 계정에 private 리포 생성(D61) — user access token 필수(installation 토큰은
+        개인 계정에서 403 'Resource not accessible by integration', 실측 2026-07-21).
+        이름 충돌 시 -2, -3… 반환값 = full_name."""
+        headers = {**_UA, "Authorization": f"token {user_token}"}
         base = name
         for i in range(1, 6):
             r = httpx.post(
