@@ -132,4 +132,8 @@ jobs:
         run: npx playwright test
       - name: Logs on failure
         if: failure()
-        run: tail -50 /tmp/be.log /tmp/fe.log || true
+        run: |
+          echo "=== error contexts ==="
+          find frontend/test-results -name "error-context.md" -exec cat {} \; || true
+          echo "=== backend log ==="; tail -n 40 /tmp/be.log || true
+          echo "=== frontend log ==="; tail -n 40 /tmp/fe.log || true
