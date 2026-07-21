@@ -163,6 +163,9 @@ def project_history(
     )
     return {
         "repo_full_name": project.repo_full_name,
+        # BYO 배포(D63) — LIVE 카드용.
+        "site_url": project.deploy_url,
+        "site_live": project.deploy_status == "live",
         "versions": [
             {
                 "version_no": v.version_no,
