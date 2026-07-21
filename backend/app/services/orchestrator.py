@@ -544,9 +544,16 @@ def _inject_cache_control(messages: list[dict]) -> list[dict]:
             m["content"] = [{"type": "text", "text": m["content"], "cache_control": {"type": "ephemeral"}}]
             break
     for m in reversed(out):  # rolling: 마지막 문자열 content
-        if isinstance(m.get("content"), str) and m["content"]:
+        if not (isinstance(m.get("content"), str) and m["content"]):
+            continue
+        if m.get("role") == "tool":
+            # 실사고(2026-07-21): tool 메시지는 content 블록 속 cache_control을 litellm이
+            # 떨궈서(변환 시 유실) dev 루프 캐시가 전멸했다(cache_write=0, 매 스텝 40k+ 재지불).
+            # 메시지 최상위 키는 살아서 전달됨(라이브 검증: w=4609→r=4609).
+            m["cache_control"] = {"type": "ephemeral"}
+        else:
             m["content"] = [{"type": "text", "text": m["content"], "cache_control": {"type": "ephemeral"}}]
-            break
+        break
     return out
 
 
