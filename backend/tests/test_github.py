@@ -273,3 +273,23 @@ def test_user_token_roundtrip_and_expiry(env, monkeypatch):
         "json": lambda self: {"access_token": "ghu_new", "refresh_token": "ghr_y", "expires_in": 3600},
     })())
     assert gh.get_user_token(db, conn) == "ghu_new"
+
+
+def test_code_only_reauthorize_updates_token(client, auth, env, monkeypatch):
+    """기존 연결의 user 토큰 재발급(code-only) — 설치 URL이 code를 다시 안 주는 갭의 해법."""
+    from cryptography.fernet import Fernet
+    db, uid, proj, agent = env
+    monkeypatch.setattr(gh.settings, "github_app_id", "123")
+    monkeypatch.setattr(gh.settings, "github_app_private_key", "key")
+    monkeypatch.setattr(gh.settings, "secrets_key", Fernet.generate_key().decode())
+    db.add(GithubConnection(user_id=uid, installation_id=42, account_login="joshua")); db.commit()
+    monkeypatch.setattr(gh, "exchange_oauth_code",
+                        lambda code: {"access_token": "ghu_re", "expires_in": 3600})
+    resp = client.post("/api/github/install", json={"code": "abc123"}, headers=auth(uid))
+    assert resp.status_code == 204
+    conn = db.query(GithubConnection).filter_by(user_id=uid).one()
+    db.refresh(conn)
+    assert conn.user_token_encrypted is not None
+    # 연결 자체가 없으면 400
+    resp = client.post("/api/github/install", json={"code": "abc123"}, headers=auth("stranger"))
+    assert resp.status_code == 400

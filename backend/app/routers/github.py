@@ -42,13 +42,18 @@ def github_status(
     return {
         "enabled": gh.enabled(),
         "install_url": gh.install_url() if gh.enabled() else None,
+        # 재인증(user 토큰만 다시 받기) — 기존 설치는 install URL이 code를 안 주므로 OAuth
+        # authorize 경로가 따로 필요하다(실측 플로우 갭).
+        "authorize_url": gh.authorize_url() if gh.enabled() else None,
         "connected": conn is not None,
+        "has_user_token": bool(conn is not None and conn.user_token_encrypted),
         "account_login": conn.account_login if conn else None,
     }
 
 
 class InstallIn(BaseModel):
-    installation_id: int = Field(gt=0)
+    # installation_id 없음 = code-only 재인증(기존 연결에 user 토큰만 갱신).
+    installation_id: int | None = Field(default=None, gt=0)
     code: str | None = Field(default=None, max_length=200)  # OAuth during install의 ?code=
 
 
@@ -66,6 +71,19 @@ def github_install(
     """
     if not gh.enabled():
         raise HTTPException(status_code=503, detail="GitHub integration is not configured")
+    if body.installation_id is None:
+        # code-only 재인증 — 기존 연결 필수.
+        conn = db.get(GithubConnection, scope.user_id)
+        if conn is None or not body.code:
+            raise HTTPException(status_code=400, detail="nothing to authorize")
+        try:
+            gh.store_user_token(conn, gh.exchange_oauth_code(body.code))
+        except Exception as exc:  # noqa: BLE001
+            import logging
+            logging.getLogger("app.github").warning("reauthorize failed: %s", exc)
+            raise HTTPException(status_code=400, detail="authorization failed")
+        db.commit()
+        return
     try:
         info = gh.get_client().get_installation(body.installation_id)
     except Exception as exc:  # noqa: BLE001 — 존재하지 않거나 우리 App 설치가 아님.

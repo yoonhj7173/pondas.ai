@@ -510,7 +510,7 @@ interface HistoryData {
   repo_full_name: string | null;
   versions: { version_no: number; label: string; created_at: string; pushed: boolean; commit_sha: string | null; files: number }[];
 }
-interface GithubStatus { enabled: boolean; install_url: string | null; connected: boolean; account_login: string | null }
+interface GithubStatus { enabled: boolean; install_url: string | null; authorize_url?: string | null; connected: boolean; has_user_token?: boolean; account_login: string | null }
 
 /**
  * HistoryOverlay — 사람말 버전 히스토리 + Restore + GitHub 연결 카드(D61).
@@ -599,6 +599,13 @@ export function HistoryOverlay({ projectId, getToken, onClose }: { projectId: st
             <>
               <span>Synced to <a className="font-semibold text-primary-to hover:underline" href={`https://github.com/${data.repo_full_name}`} target="_blank" rel="noreferrer">{data.repo_full_name}</a> — your code, your repo.</span>
               <span className="text-[11px] text-muted">connected as {gh.account_login}</span>
+            </>
+          ) : gh.connected && !gh.has_user_token ? (
+            <>
+              <span>Connected as <b>{gh.account_login}</b> — one more click to allow repo creation.</span>
+              <a href={gh.authorize_url ?? "#"}>
+                <PillButton variant="primary" className="!px-4 !py-1.5 text-[13px]">Authorize repos</PillButton>
+              </a>
             </>
           ) : gh.connected ? (
             <>
