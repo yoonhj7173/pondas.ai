@@ -99,3 +99,18 @@ def test_mtime_diff_only_changed(env):
     n = collect_outputs(db, t, provider, sid, since_mtime=cutoff)
     paths = {r.path for r in db.query(Output).filter_by(task_id=t.id).all()}
     assert paths == {"new.txt"}  # old.txt는 cutoff 이전이라 제외
+
+
+def test_collect_skips_dotfiles(env):
+    """실사고(2026-07-21): baseline 0.0 첫 수집이 홈 dotfile(.bashrc류)까지 쓸어와 유저
+    리포를 오염시켰다 — 숨김 파일/디렉토리는 산출물이 아니므로 제외."""
+    db, uid, proj, agent, provider, sid = env
+    t = _task(db, uid, proj, agent)
+    provider.write_file(sid, ".bashrc", b"export X=1")
+    provider.write_file(sid, ".config/settings.json", b"{}")
+    provider.write_file(sid, "index.html", b"<h1>ok</h1>")
+    collect_outputs(db, t, provider, sid, since_mtime=0.0)
+    db.commit()
+    paths = [r.path for r in db.query(Output).filter_by(task_id=t.id).all()]
+    assert "index.html" in paths
+    assert not any(part.startswith(".") for x in paths for part in x.split("/"))

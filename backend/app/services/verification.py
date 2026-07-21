@@ -83,6 +83,10 @@ def collect_outputs(db: Session, task: Task, provider: SandboxProvider, sandbox_
         if not _is_safe_path(e.path):  # 악성 에이전트가 쓴 '../' 등 거부(zip-slip 차단).
             log.warning("skipped unsafe output path", extra={"path": e.path})
             continue
+        # 숨김 파일/디렉토리 제외(실사고 2026-07-21): baseline 0.0 첫 수집이 홈의 .bashrc류를
+        # 쓸어와 유저 리포까지 오염시켰다. 에이전트 산출물은 dotfile일 이유가 없다.
+        if any(part.startswith(".") for part in e.path.split("/") if part):
+            continue
         if any(part in IGNORE_DIRS for part in e.path.split("/")):
             continue
         if e.mtime and e.mtime < since_mtime:
