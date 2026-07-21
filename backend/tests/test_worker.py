@@ -287,3 +287,25 @@ def test_heartbeat_bumps_updated_at_and_prevents_reap(db_env=None):
     db.refresh(t)
     assert t.status == "failed"
     db.delete(db.get(Project, proj.id)); db.commit(); db.close()
+
+
+def test_collect_baseline_covers_orphaned_files():
+    """수집 기준(실사고 2026-07-21): 버전 없음 → 0.0(전체 수집), 버전 있음 → 그 시각 기준."""
+    import time
+    import uuid as _uuid
+    from app.db import SessionLocal
+    from app.models import Project, WorkspaceVersion
+    from app.services.worker_core import _collect_baseline
+
+    db = SessionLocal()
+    uid = f"cb_{_uuid.uuid4().hex[:8]}"
+    proj = Project(user_id=uid, name="cb")
+    db.add(proj); db.commit()
+    now = time.time()
+    # 버전이 하나도 없으면 0.0 — 이전 실패 런의 파일까지 전부 첫 버전으로.
+    assert _collect_baseline(db, proj.id, now) == 0.0
+    db.add(WorkspaceVersion(project_id=proj.id, version_no=1, manifest={}))
+    db.commit()
+    b = _collect_baseline(db, proj.id, now)
+    assert 0.0 < b <= now  # 버전 시각(또는 태스크 시작 중 이른 쪽)
+    db.delete(db.get(Project, proj.id)); db.commit(); db.close()
