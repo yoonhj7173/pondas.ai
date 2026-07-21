@@ -26,9 +26,9 @@ def test_inject_cache_control_system_and_last():
     # system 블록화 + cache_control.
     assert out[0]["content"][0]["cache_control"] == {"type": "ephemeral"}
     assert out[0]["content"][0]["text"] == "you are a dev"
-    # rolling = 마지막 문자열 content(tool 메시지)에 붙음.
-    assert out[3]["content"][0]["cache_control"] == {"type": "ephemeral"}
-    assert out[3]["content"][0]["text"] == "exit 0"
+    # rolling = 마지막 tool 메시지엔 "메시지 최상위" 키(블록 형태는 litellm이 유실 — 실사고 2026-07-21).
+    assert out[3]["cache_control"] == {"type": "ephemeral"}
+    assert out[3]["content"] == "exit 0"
     # content=None assistant는 불변.
     assert out[2]["content"] is None
     # user는 마지막이 아니므로 문자열 그대로(단일 rolling breakpoint).
