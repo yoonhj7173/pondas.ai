@@ -508,6 +508,8 @@ function Lbl({ children }: { children: React.ReactNode }) { return <div classNam
 
 interface HistoryData {
   repo_full_name: string | null;
+  site_url?: string | null;
+  site_live?: boolean;
   versions: { version_no: number; label: string; created_at: string; pushed: boolean; commit_sha: string | null; files: number }[];
 }
 interface GithubStatus { enabled: boolean; install_url: string | null; authorize_url?: string | null; connected: boolean; has_user_token?: boolean; account_login: string | null }
@@ -527,6 +529,23 @@ export function HistoryOverlay({ projectId, getToken, onClose }: { projectId: st
   const [error, setError] = useState<string | null>(null);
   // 코드뷰(D56④) — "숨기되 잠그지 않기": 원하면 최신 버전 파일을 읽을 수 있다.
   const [tab, setTab] = useState<"history" | "code">("history");
+  // BYO Launch(D63) — 가이드 위저드 + 라이브 URL 등록.
+  const [launchOpen, setLaunchOpen] = useState(false);
+  const [siteUrl, setSiteUrl] = useState("");
+  const [siteBusy, setSiteBusy] = useState(false);
+
+  async function saveSite() {
+    if (!siteUrl.trim()) return;
+    setSiteBusy(true); setError(null);
+    try {
+      const token = await getToken();
+      await apiFetch(`/api/projects/${projectId}/site`, {
+        method: "PUT", token, body: JSON.stringify({ url: siteUrl.trim() }) });
+      setLaunchOpen(false); setSiteUrl("");
+      await load();
+    } catch { setError("That doesn't look like a live https:// URL — copy it from your hosting dashboard"); }
+    finally { setSiteBusy(false); }
+  }
   const [files, setFiles] = useState<{ path: string; output_id: string }[] | null>(null);
   const [fileView, setFileView] = useState<{ path: string; content: string | null; binary: boolean } | null>(null);
 
@@ -621,6 +640,57 @@ export function HistoryOverlay({ projectId, getToken, onClose }: { projectId: st
             </>
           )}
         </div>
+
+        {/* Launch 카드(D63 BYO) — 신뢰 표면: 크롬 전용. */}
+        {data?.repo_full_name && (
+          <div className="mb-4 rounded-xl border border-[#E4DFEF] bg-[#FDFCF9] px-4 py-3 text-sm">
+            {data.site_live && data.site_url ? (
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-status-done" />
+                  <b>Your store is live:</b>
+                  <a className="font-semibold text-primary-to hover:underline" href={data.site_url} target="_blank" rel="noreferrer">{data.site_url.replace(/^https:\/\//, "")}</a>
+                </span>
+                <span className="text-[11px] text-muted">every new version auto-deploys from your repo</span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <span>🚀 <b>Grand Opening</b> — put your site on the real internet, on your own free hosting.</span>
+                <PillButton variant="confirm" className="!px-4 !py-1.5 text-[13px]" onClick={() => setLaunchOpen(true)}>Launch your site</PillButton>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Launch 위저드(D63) — 3스텝 가이드: 계정 → 리포 연결 → URL 등록. */}
+        {launchOpen && (
+          <div className="mb-4 rounded-xl border-2 border-[#7266D6]/30 bg-white p-4 text-sm shadow-panel">
+            <div className="mb-2 flex items-center justify-between">
+              <b>Launch in 3 steps (~3 minutes, free)</b>
+              <button onClick={() => setLaunchOpen(false)} className="text-[12px] text-muted hover:underline">Close</button>
+            </div>
+            <ol className="list-decimal space-y-2 pl-5">
+              <li>
+                <b>Create a free Netlify account</b> — <a className="text-primary-to hover:underline" href="https://app.netlify.com/signup" target="_blank" rel="noreferrer">app.netlify.com/signup</a>, choose <b>“Sign up with GitHub”</b> (the account you already connected).
+              </li>
+              <li>
+                <b>Import your repo</b> — on <a className="text-primary-to hover:underline" href="https://app.netlify.com/start" target="_blank" rel="noreferrer">app.netlify.com/start</a> pick <span className="rounded bg-[#EFEDF5] px-1.5 py-0.5 font-mono text-[12px]">{data?.repo_full_name}</span> and click <b>Deploy</b>. Leave every setting as-is.
+                <div className="mt-0.5 text-[12px] text-muted">From now on, every version your team ships auto-deploys. (Prefer Cloudflare? <a className="text-primary-to hover:underline" href="https://pages.cloudflare.com" target="_blank" rel="noreferrer">pages.cloudflare.com</a> works the same way.)</div>
+              </li>
+              <li>
+                <b>Paste your live address</b> — Netlify shows it at the top (like <span className="font-mono text-[12px]">https://candle-studio.netlify.app</span>):
+                <div className="mt-1.5 flex gap-2">
+                  <input value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)}
+                    placeholder="https://your-site.netlify.app"
+                    className="flex-1 rounded-lg border border-[#E4DFEF] px-3 py-1.5 text-[13px] outline-none focus:border-primary-to" />
+                  <PillButton variant="confirm" className="!px-4 !py-1.5 text-[13px]" onClick={saveSite} disabled={siteBusy || !siteUrl.trim()}>
+                    {siteBusy ? "Saving…" : "It's live ✓"}
+                  </PillButton>
+                </div>
+              </li>
+            </ol>
+          </div>
+        )}
 
         {error && <div className="mb-2 text-sm text-status-failed">{error}</div>}
 

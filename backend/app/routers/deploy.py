@@ -153,3 +153,41 @@ def delete_secret(
         ProjectSecret.project_id == project.id, ProjectSecret.key == key
     ).delete()
     db.commit()
+
+
+class SiteIn(BaseModel):
+    url: str = Field(min_length=8, max_length=500)
+
+
+@router.put("/projects/{project_id}/site", status_code=204,
+            dependencies=[Depends(rate_limit("10/minute", "site_url"))])
+def register_site(
+    project_id: uuid.UUID,
+    body: SiteIn,
+    scope: TenantScope = Depends(tenant_scope),
+    db: Session = Depends(get_db),
+) -> None:
+    """BYO 배포(D63) — 유저가 Netlify/CF Pages에 리포를 연결한 뒤 라이브 URL을 등록한다.
+
+    pondas는 호스팅을 소유하지 않는다(요금/ToS 리스크 0): 배포는 '유저 리포 → 유저 호스팅'의
+    자동 파이프이고, 여기선 LIVE 표시용 URL만 저장. https 필수, 자바스크립트 스킴 등 차단.
+    """
+    project = _load_owned_project(db, scope, project_id)
+    url = body.url.strip()
+    if not re.match(r"^https://[a-z0-9.-]+\.[a-z]{2,}(/.*)?$", url, re.IGNORECASE):
+        raise HTTPException(status_code=422, detail="enter the full https:// address of your live site")
+    project.deploy_url = url
+    project.deploy_status = "live"
+    db.commit()
+
+
+@router.delete("/projects/{project_id}/site", status_code=204)
+def unregister_site(
+    project_id: uuid.UUID,
+    scope: TenantScope = Depends(tenant_scope),
+    db: Session = Depends(get_db),
+) -> None:
+    project = _load_owned_project(db, scope, project_id)
+    project.deploy_url = None
+    project.deploy_status = "none"
+    db.commit()

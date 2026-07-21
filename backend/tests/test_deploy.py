@@ -128,3 +128,24 @@ def test_secrets_api_never_returns_values(client, auth, env):
     # 삭제
     resp = client.request("DELETE", f"/api/projects/{proj.id}/secrets/STRIPE_KEY", headers=auth(uid))
     assert resp.status_code == 204
+
+
+def test_register_site_byo(client, auth, env):
+    """BYO 배포(D63) — URL 등록/검증/해제 + 타 유저 차단."""
+    db, uid, proj, agent = env
+    resp = client.put(f"/api/projects/{proj.id}/site", headers=auth(uid),
+                      json={"url": "https://candle-studio.netlify.app"})
+    assert resp.status_code == 204
+    db.refresh(proj)
+    assert proj.deploy_url == "https://candle-studio.netlify.app" and proj.deploy_status == "live"
+    # 스킴/형식 검증
+    for bad in ("http://insecure.com", "javascript:alert(1)", "notaurl"):
+        assert client.put(f"/api/projects/{proj.id}/site", headers=auth(uid),
+                          json={"url": bad}).status_code == 422
+    # 타 유저 404
+    assert client.put(f"/api/projects/{proj.id}/site", headers=auth("attacker"),
+                      json={"url": "https://evil.com"}).status_code == 404
+    # 해제
+    assert client.request("DELETE", f"/api/projects/{proj.id}/site", headers=auth(uid)).status_code == 204
+    db.refresh(proj)
+    assert proj.deploy_url is None
