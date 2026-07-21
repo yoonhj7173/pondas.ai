@@ -7,7 +7,7 @@ test("failed agent panel offers Fix it and Retry", async ({ page, request }) => 
   await openOffice(page, id);
   // 디자이너 아바타 클릭 → 패널. (시드 최신 태스크 = failed)
   await page.getByTitle("Product Designer").click();
-  await expect(page.getByText("Simulated failure for E2E")).toBeVisible();
+  await expect(page.getByText("Simulated failure for E2E").first()).toBeVisible();
   await expect(page.getByRole("button", { name: /Fix it/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Retry from scratch/ })).toBeVisible();
 });
