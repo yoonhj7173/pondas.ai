@@ -70,3 +70,70 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
+
+  e2e:
+    name: e2e (playwright)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      REDIS_URL: redis://localhost:6379/0
+      APP_ENV: test
+      E2E_AUTH_BYPASS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Backend up
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          alembic upgrade head
+          python seed.py
+          python scripts/seed_e2e_fixture.py
+          nohup uvicorn app.main:app --port 8000 > /tmp/be.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8000/ready && break; sleep 1; done
+      - name: Frontend up (E2E mode)
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          # Clerk publishable key(공개값) — 없으면 ClerkProvider가 로드되지 않아 전 페이지가
+          # Loading에 고착된다(실사고: CI 4/4 실패). E2E 우회는 그 위에서 동작.
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_dHJ1ZS1rb2RpYWstNjUuY2xlcmsuYWNjb3VudHMuZGV2JA \
+          NEXT_PUBLIC_E2E=1 NEXT_PUBLIC_API_URL=http://localhost:8000 nohup npm run dev > /tmp/fe.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:3000/onboarding >/dev/null && break; sleep 2; done
+      - name: Playwright
+        working-directory: frontend
+        run: npx playwright test
+      - name: Logs on failure
+        if: failure()
+        run: |
+          echo "=== error contexts ==="
+          find frontend/test-results -name "error-context.md" -exec cat {} \; || true
+          echo "=== backend log ==="; tail -n 40 /tmp/be.log || true
+          echo "=== frontend log ==="; tail -n 40 /tmp/fe.log || true
