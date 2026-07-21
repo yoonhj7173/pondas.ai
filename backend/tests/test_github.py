@@ -32,9 +32,10 @@ class FakeGitHubClient:
             raise RuntimeError("not found")
         return {"account_login": "joshua"}
 
-    def create_repo(self, installation_id: int, name: str) -> str:
+    def create_repo(self, user_token: str, name: str) -> str:
         full = f"joshua/{name}"
         self.repos.append(full)
+        self.last_token = user_token
         return full
 
     def push_files(self, installation_id, repo_full_name, files, message) -> str:
@@ -217,7 +218,12 @@ def test_create_repo_and_backfill_endpoint(client, auth, env, monkeypatch):
     monkeypatch.setattr(gh.settings, "github_app_private_key", "key")
     fake = FakeGitHubClient()
     monkeypatch.setattr(gh, "get_client", lambda: fake)
-    db.add(GithubConnection(user_id=uid, installation_id=42, account_login="joshua")); db.commit()
+    # user access token 경로(403 quirk) — 저장된 user 토큰이 있어야 리포 생성 가능.
+    from cryptography.fernet import Fernet
+    monkeypatch.setattr(gh.settings, "secrets_key", Fernet.generate_key().decode())
+    conn = GithubConnection(user_id=uid, installation_id=42, account_login="joshua")
+    gh.store_user_token(conn, {"access_token": "ghu_usertoken", "expires_in": 3600})
+    db.add(conn); db.commit()
     _make_version(db, proj, agent, uid, paths={"a.txt": b"x"}, label="First")
 
     resp = client.post(f"/api/projects/{proj.id}/repo", headers=auth(uid))
@@ -226,3 +232,44 @@ def test_create_repo_and_backfill_endpoint(client, auth, env, monkeypatch):
     assert body["repo_full_name"] == "joshua/habit-app"  # 슬러그화(공백→하이픈, 소문자)
     assert body["backfilled"] == 1
     assert fake.pushes[0]["repo"] == "joshua/habit-app"
+
+
+
+def test_create_repo_without_user_token_asks_reconnect(client, auth, env, monkeypatch):
+    """구버전 연결(user 토큰 없음) → 409 reconnect 안내 — installation 토큰 403 quirk 가드."""
+    db, uid, proj, agent = env
+    monkeypatch.setattr(gh.settings, "github_app_id", "123")
+    monkeypatch.setattr(gh.settings, "github_app_private_key", "key")
+    from cryptography.fernet import Fernet
+    monkeypatch.setattr(gh.settings, "secrets_key", Fernet.generate_key().decode())
+    db.add(GithubConnection(user_id=uid, installation_id=42, account_login="joshua")); db.commit()
+    resp = client.post(f"/api/projects/{proj.id}/repo", headers=auth(uid))
+    assert resp.status_code == 409
+    assert "reconnect" in resp.json()["detail"]
+
+
+def test_normalize_pem_wraps_bare_body():
+    """실사고(2026-07-21): 헤더 없이 본문만 붙여넣은 PEM 자동 래핑."""
+    from app.services.github_service import _normalize_pem
+    assert _normalize_pem("MIIEogIBAAKCAQEA").startswith("-----BEGIN RSA PRIVATE KEY-----")
+    full = "-----BEGIN RSA PRIVATE KEY-----\nabc\n-----END RSA PRIVATE KEY-----"
+    assert _normalize_pem(full) == full
+
+
+def test_user_token_roundtrip_and_expiry(env, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from cryptography.fernet import Fernet
+    db, uid, proj, agent = env
+    monkeypatch.setattr(gh.settings, "secrets_key", Fernet.generate_key().decode())
+    conn = GithubConnection(user_id=uid, installation_id=42, account_login="joshua")
+    gh.store_user_token(conn, {"access_token": "ghu_abc", "refresh_token": "ghr_x", "expires_in": 3600})
+    db.add(conn); db.commit()
+    assert conn.user_token_encrypted is not None and b"ghu_abc" not in conn.user_token_encrypted
+    assert gh.get_user_token(db, conn) == "ghu_abc"
+    # 만료 + refresh 성공 경로
+    conn.token_expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+    monkeypatch.setattr(gh.httpx, "post", lambda *a, **k: type("R", (), {
+        "raise_for_status": lambda self: None,
+        "json": lambda self: {"access_token": "ghu_new", "refresh_token": "ghr_y", "expires_in": 3600},
+    })())
+    assert gh.get_user_token(db, conn) == "ghu_new"

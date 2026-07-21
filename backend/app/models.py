@@ -562,6 +562,11 @@ class GithubConnection(Base):
     user_id: Mapped[str] = mapped_column(Text, primary_key=True)
     installation_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     account_login: Mapped[str] = mapped_column(Text, nullable=False)
+    # user access token(OAuth during install) — 개인 계정 리포 생성은 installation 토큰이
+    # 403이라 user 토큰 필수(실측 2026-07-21). Fernet 암호화 at rest, 만료 시 refresh.
+    user_token_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    refresh_token_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = _created_at()
 
 

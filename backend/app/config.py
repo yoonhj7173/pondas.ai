@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     github_app_id: str = Field(default="", alias="GITHUB_APP_ID")
     github_app_private_key: str = Field(default="", alias="GITHUB_APP_PRIVATE_KEY")
     github_app_slug: str = Field(default="pondas-ai", alias="GITHUB_APP_SLUG")
+    # OAuth during install(user access token) — 개인 계정 리포 생성용(403 quirk).
+    github_client_id: str = Field(default="", alias="GITHUB_CLIENT_ID")
+    github_client_secret: str = Field(default="", alias="GITHUB_CLIENT_SECRET")
     # 컨텍스트 컴팩션 임계(D56③) — 직전 호출의 실효 프롬프트(tokens_in+cache_read)가 이걸 넘으면
     # 중간 히스토리를 요약으로 압축(E2B 경로에 CMA 자동 컴팩션과 등가 기능). 0 = 끔.
     dev_compact_threshold: int = Field(default=100_000, alias="DEV_COMPACT_THRESHOLD")
