@@ -105,6 +105,26 @@ def _save_plan(db: Session, task: Task, steps: list) -> None:
     events.emit_plan(task.project_id, task.agent_id, task.id, steps)
 
 
+def _collect_baseline(db: Session, project_id, task_start: float) -> float:
+    """수집 기준 mtime(실사고 2026-07-21) — '이 태스크 시작'이 아니라 '마지막 버전 컷 이후'.
+
+    리핑/실패한 이전 런이 만든 파일은 task-start 기준으론 영영 안 걷힌다(candle-studio 실측:
+    풀 목업이 샌드박스에 있는데 outputs 0). 버전이 하나도 없으면 0.0 = 워크스페이스 전체가
+    첫 버전이 된다. 버전이 있으면 그 시각 이후 변경분 = 다음 버전(D50 의미론 그대로).
+    """
+    from app.models import WorkspaceVersion
+
+    last = (
+        db.query(WorkspaceVersion.created_at)
+        .filter(WorkspaceVersion.project_id == project_id)
+        .order_by(WorkspaceVersion.version_no.desc())
+        .first()
+    )
+    if last is None:
+        return 0.0
+    return min(last[0].timestamp(), task_start)
+
+
 def _make_heartbeat(db: Session, task_id, interval_sec: int = 60):
     """dev 러너용 하트비트(실사고 2026-07-21) — 장기 실행 중 tasks.updated_at을 주기 갱신해
     리퍼(10분 무갱신=좀비)가 살아있는 태스크를 오인 사살하지 않게 한다. beat 활성화 직후
@@ -326,7 +346,8 @@ def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_cl
         # 대신 부분 작업물을 보존한다(QA-05b): 지금까지 만든 파일을 수집·버전 커팅하고, 중단
         # 시점까지의 토큰을 회계에 남긴다(기존엔 22개 파일과 토큰 기록이 통째로 증발했다).
         # 워크스페이스는 프로젝트별 영속이라 재시도 태스크가 이 파일들 위에서 자연스럽게 이어간다.
-        collect_outputs(db, task, workspace_service.provider, sandbox_id, since_mtime=start_mtime)
+        collect_outputs(db, task, workspace_service.provider, sandbox_id,
+                        since_mtime=_collect_baseline(db, task.project_id, start_mtime))
         from app.services.versioning import snapshot_version
         snapshot_version(db, task)
         task.verification = outcome.verification
@@ -360,7 +381,8 @@ def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_cl
     ts.transition(db, task, "done", result_markdown=outcome.output, model_used=model,
                   verification=outcome.verification, tokens_in=outcome.tokens_in,
                   tokens_out=outcome.tokens_out, est_cost_usd=cost)
-    collect_outputs(db, task, workspace_service.provider, sandbox_id, since_mtime=start_mtime)
+    collect_outputs(db, task, workspace_service.provider, sandbox_id,
+                    since_mtime=_collect_baseline(db, task.project_id, start_mtime))
     from app.services.versioning import snapshot_version
     snapshot_version(db, task)  # 프로젝트 파일 상태 갱신 + 버전 커팅(D50, 격리).
     new_ids = _finalize_done(db, task, outcome.tokens_in, outcome.tokens_out, cost)
