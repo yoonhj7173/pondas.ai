@@ -293,3 +293,24 @@ def test_code_only_reauthorize_updates_token(client, auth, env, monkeypatch):
     # 연결 자체가 없으면 400
     resp = client.post("/api/github/install", json={"code": "abc123"}, headers=auth("stranger"))
     assert resp.status_code == 400
+
+
+def test_humanize_label_uses_llm_when_available(env, monkeypatch):
+    """실사고(2026-07-21): 존재하지 않는 guard_config 임포트로 LLM 라벨이 항상 조용히 폴백됐다."""
+    db, uid, proj, agent = env
+    t = ts.create_task(db, user_id=uid, project_id=proj.id, agent=agent,
+                       instructions="Build checkout page", origin="chat")
+    db.flush()
+
+    class FakeResp:
+        content = "Added checkout page"
+        tokens_in = 10; tokens_out = 5; tokens_cache_read = 0; tokens_cache_write = 0
+
+    class FakeClient:
+        def __init__(self, *a, **k): pass
+        def complete(self, *a, **k): return FakeResp()
+
+    import app.services.orchestrator as orch
+    monkeypatch.setattr(orch, "LiteLLMClient", FakeClient)
+    label = gh.humanize_label(db, t, ["checkout.html"])
+    assert label == "Added checkout page"  # 폴백(지시문 60자)이 아니라 LLM 라벨

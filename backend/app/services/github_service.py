@@ -246,10 +246,10 @@ def fallback_label(task: Task | None) -> str:
 def humanize_label(db: Session, task: Task, changed_paths: list[str]) -> str:
     """사람말 버전 라벨(D61) — light-tier 한 콜, 실패 시 폴백. 절대 예외를 흘리지 않는다."""
     try:
-        from app.services.config_store import guard_config
+        from app.services.config_store import load_config
         from app.services.orchestrator import LiteLLMClient
 
-        cfg = guard_config(db)
+        cfg = load_config(db)
         model = cfg.tier_models.get("light") if cfg.tier_models else None
         if not model:
             return fallback_label(task)
@@ -265,7 +265,8 @@ def humanize_label(db: Session, task: Task, changed_paths: list[str]) -> str:
         ], [])
         label = (resp.content or "").strip().strip('"')
         return label[:80] if label else fallback_label(task)
-    except Exception:  # noqa: BLE001 — 라벨은 장식, 본 파이프를 못 깨뜨림.
+    except Exception as exc:  # noqa: BLE001 — 라벨은 장식, 본 파이프를 못 깨뜨림.
+        log.warning("humanize_label fell back: %s", exc)  # 조용한 폴백 금지(실사고: ImportError 은폐)
         return fallback_label(task)
 
 
