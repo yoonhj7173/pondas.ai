@@ -169,10 +169,13 @@ def run_dev_task_cma(db: Session, task: Task, agent: Agent, model: str, cfg, enq
                 sid = _ensure_session(db, agent, env_id, store_id, client)
                 client.send_user_message(sid, msg)
 
+            from app.services.worker_core import _make_heartbeat
+            _hb = _make_heartbeat(db, task.id)
             res = client.poll_until_idle(
                 sid, timeout_sec=cfg.dev_task_timeout_min * 60,
                 # 라이브 진행(QA-01): CMA는 스텝 상세가 없어 모델 턴 수로 "일하고 있음"을 알린다.
-                on_progress=lambda label: events.emit_progress(task.project_id, task.agent_id, task.id, label),
+                # SSE 진행 + DB 하트비트(리퍼 오인 사살 방지 — worker_core._make_heartbeat 참조)
+                on_progress=(lambda hb: (lambda label: (events.emit_progress(task.project_id, task.agent_id, task.id, label), hb())))(_hb),
                 # Stop 실효(QA-05a): 폴마다 DB의 stopped 플래그 확인.
                 should_stop=lambda: _task_stopped(db, task.id),
             )

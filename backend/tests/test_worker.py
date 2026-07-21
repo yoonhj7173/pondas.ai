@@ -245,3 +245,45 @@ def test_plan_persisted_and_emitted(env, monkeypatch):
         assert any(e.get("type") == "plan" and e.get("steps") == plan for e in msgs)  # SSE
     finally:
         pubsub.close()
+
+
+def test_heartbeat_bumps_updated_at_and_prevents_reap(db_env=None):
+    """하트비트(실사고 2026-07-21): on_step 경유 updated_at 갱신 → 리퍼가 산 태스크를 못 잡는다."""
+    import uuid as _uuid
+    from datetime import datetime, timedelta, timezone
+    from app.db import SessionLocal
+    from app.models import Agent, Project, Task, Team
+    from app.services import task_service as ts
+    from app.services.worker_core import _make_heartbeat, reap_stale_tasks
+
+    db = SessionLocal()
+    uid = f"hb_{_uuid.uuid4().hex[:8]}"
+    proj = Project(user_id=uid, name="hb")
+    db.add(proj); db.flush()
+    team = Team(project_id=proj.id, template_key="development", name="Dev")
+    db.add(team); db.flush()
+    agent = Agent(team_id=team.id, project_id=proj.id, name="SWE", role_instructions="x",
+                  model_tier="strong", slot=0)
+    db.add(agent); db.commit()
+    t = ts.create_task(db, user_id=uid, project_id=proj.id, agent=agent, instructions="x", origin="chat")
+    t.status = "working"
+    # 오래된 updated_at으로 세팅 → 리퍼 대상 상태
+    db.commit()
+    db.query(Task).filter(Task.id == t.id).update(
+        {"updated_at": datetime.now(timezone.utc) - timedelta(minutes=30)})
+    db.commit()
+
+    beat = _make_heartbeat(db, t.id, interval_sec=0)
+    beat()  # updated_at 갱신
+    assert reap_stale_tasks(db) == 0  # 하트비트 직후엔 리핑 안 됨
+    db.refresh(t)
+    assert t.status == "working"
+
+    # 하트비트 없이 오래되면 리핑된다(기존 동작 보존)
+    db.query(Task).filter(Task.id == t.id).update(
+        {"updated_at": datetime.now(timezone.utc) - timedelta(minutes=30)})
+    db.commit()
+    assert reap_stale_tasks(db) >= 1
+    db.refresh(t)
+    assert t.status == "failed"
+    db.delete(db.get(Project, proj.id)); db.commit(); db.close()
