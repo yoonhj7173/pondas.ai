@@ -122,6 +122,9 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
+          # Clerk publishable key(공개값) — 없으면 ClerkProvider가 로드되지 않아 전 페이지가
+          # Loading에 고착된다(실사고: CI 4/4 실패). E2E 우회는 그 위에서 동작.
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_dHJ1ZS1rb2RpYWstNjUuY2xlcmsuYWNjb3VudHMuZGV2JA \
           NEXT_PUBLIC_E2E=1 NEXT_PUBLIC_API_URL=http://localhost:8000 nohup npm run dev > /tmp/fe.log 2>&1 &
           for i in $(seq 1 60); do curl -sf http://localhost:3000/onboarding >/dev/null && break; sleep 2; done
       - name: Playwright
