@@ -26,9 +26,9 @@ def test_inject_cache_control_system_and_last():
     # system 블록화 + cache_control.
     assert out[0]["content"][0]["cache_control"] == {"type": "ephemeral"}
     assert out[0]["content"][0]["text"] == "you are a dev"
-    # rolling = 마지막 문자열 content(tool 메시지)에 붙음.
-    assert out[3]["content"][0]["cache_control"] == {"type": "ephemeral"}
-    assert out[3]["content"][0]["text"] == "exit 0"
+    # rolling = 마지막 tool 메시지엔 "메시지 최상위" 키(블록 형태는 litellm이 유실 — 실사고 2026-07-21).
+    assert out[3]["cache_control"] == {"type": "ephemeral"}
+    assert out[3]["content"] == "exit 0"
     # content=None assistant는 불변.
     assert out[2]["content"] is None
     # user는 마지막이 아니므로 문자열 그대로(단일 rolling breakpoint).
@@ -236,3 +236,35 @@ def test_usage_extracted_from_stream(monkeypatch):
     resp = client.complete([{"role": "user", "content": "x"}], [])
     assert resp.content == "hi!"
     assert (resp.tokens_in, resp.tokens_out, resp.tokens_cache_read) == (40, 9, 30)
+
+
+def test_cache_control_message_level_on_tool_role():
+    """실사고(2026-07-21): tool 메시지의 블록 내 cache_control은 litellm이 유실 —
+    메시지 최상위 키로 주입해야 살아서 전달된다(라이브 w/r 검증). dev 루프 캐시의 생명선."""
+    from app.services.orchestrator import _inject_cache_control
+
+    msgs = [
+        {"role": "system", "content": "rules"},
+        {"role": "user", "content": "task"},
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "t1"}]},
+        {"role": "tool", "tool_call_id": "t1", "content": '{"ok": true}'},
+    ]
+    out = _inject_cache_control(msgs)
+    # system → 블록 변환 + breakpoint
+    assert out[0]["content"][0]["cache_control"] == {"type": "ephemeral"}
+    # 마지막 tool → 메시지 최상위 키(블록 변환 금지 — litellm이 떨군다)
+    assert out[3]["cache_control"] == {"type": "ephemeral"}
+    assert isinstance(out[3]["content"], str)
+    # 원본 불변
+    assert "cache_control" not in msgs[3]
+
+
+def test_cache_control_block_on_trailing_user():
+    from app.services.orchestrator import _inject_cache_control
+
+    msgs = [
+        {"role": "system", "content": "rules"},
+        {"role": "user", "content": "hello"},
+    ]
+    out = _inject_cache_control(msgs)
+    assert out[1]["content"][0]["cache_control"] == {"type": "ephemeral"}
