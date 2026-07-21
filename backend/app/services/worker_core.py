@@ -105,6 +105,29 @@ def _save_plan(db: Session, task: Task, steps: list) -> None:
     events.emit_plan(task.project_id, task.agent_id, task.id, steps)
 
 
+def _make_heartbeat(db: Session, task_id, interval_sec: int = 60):
+    """dev 러너용 하트비트(실사고 2026-07-21) — 장기 실행 중 tasks.updated_at을 주기 갱신해
+    리퍼(10분 무갱신=좀비)가 살아있는 태스크를 오인 사살하지 않게 한다. beat 활성화 직후
+    30분짜리 디자인 태스크가 리핑된 실측 사례의 수리. 스텝 경계에서만 호출(스로틀 60s)."""
+    import time as _time
+
+    last = {"t": 0.0}
+
+    def beat() -> None:
+        now = _time.monotonic()
+        if now - last["t"] < interval_sec:
+            return
+        last["t"] = now
+        try:
+            db.query(Task).filter(Task.id == task_id).update(
+                {"updated_at": datetime.now(timezone.utc)})
+            db.commit()  # 스텝 경계라 안전(_save_plan과 동일 패턴).
+        except Exception:  # noqa: BLE001 — 하트비트 실패가 본 루프를 못 깨뜨림.
+            db.rollback()
+
+    return beat
+
+
 def _task_stopped(db: Session, task_id) -> bool:
     """유저가 Stop을 눌렀는지 DB에서 확인(QA-05a) — 러너가 스텝 경계마다 부른다.
 
@@ -289,8 +312,8 @@ def _run_dev_task(db: Session, task: Task, agent: Agent, model: str, cfg, dev_cl
         # D56③ 예산제 — 토큰/컴팩션 한도(구 40스텝 벽 대체). 소진 시 needs-input으로 우아하게.
         token_budget=settings.dev_token_budget,
         compact_threshold=settings.dev_compact_threshold,
-        # 라이브 진행(QA-01): 스텝마다 "Writing src/App.tsx" 같은 한 줄을 SSE로 흘린다.
-        on_step=lambda label: events.emit_progress(task.project_id, task.agent_id, task.id, label),
+        # 라이브 진행(QA-01): 스텝마다 SSE 한 줄 + DB 하트비트(리퍼 오인 사살 방지).
+        on_step=(lambda hb: (lambda label: (events.emit_progress(task.project_id, task.agent_id, task.id, label), hb())))(_make_heartbeat(db, task.id)),
         # Stop 실효(QA-05a): 스텝 경계마다 DB의 stopped 플래그 확인 → 유저 Stop이 즉시 먹힌다.
         should_stop=lambda: _task_stopped(db, task.id),
         # 서브태스크 plan(QA-06): 영속(패널 재오픈용) + SSE(라이브 체크리스트).
